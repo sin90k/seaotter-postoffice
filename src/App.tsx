@@ -418,11 +418,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-stone-200">
-      {showDebug && (
-        <div className="fixed bottom-4 right-4 z-[200] px-4 py-2 rounded-xl shadow-lg text-sm font-bold bg-stone-900 text-white">
-          Supabase: {isSupabaseConnected ? '✅ 已连接' : '❌ 未连接'}
-        </div>
-      )}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => setShowLanding(true)}>
@@ -463,6 +458,11 @@ export default function App() {
           )}
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            {showDebug && (
+              <div className="px-3 py-1.5 rounded-lg text-xs font-bold bg-stone-900 text-white border border-amber-400 shrink-0">
+                Supabase: {isSupabaseConnected ? '✅已连接' : '❌未连接'}
+              </div>
+            )}
             {/* Country Selection */}
             <div className="relative">
               <button
