@@ -414,7 +414,7 @@ export default function App() {
     return <AdminPanel onBack={() => setIsAdmin(false)} users={allUsers} />;
   }
 
-  const showDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
+  const showDebug = true; // 临时始终显示，便于排查 Supabase 连接状态
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-stone-200">
