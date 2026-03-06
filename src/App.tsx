@@ -264,7 +264,7 @@ export default function App() {
     syncUserFromSupabase();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, _session) => {
+    } = supabase.auth.onAuthStateChange((_event: string, _session: unknown) => {
       syncUserFromSupabase();
     });
     return () => {
