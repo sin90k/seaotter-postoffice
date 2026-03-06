@@ -15,6 +15,7 @@ import UserProfileModal from './components/UserProfileModal';
 import { CountryConfig, countriesConfig } from './config/countries';
 import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
+import { supabase } from './lib/supabaseClient';
 
 
 export type UserLevel = 'free' | 'vip';
@@ -237,6 +238,39 @@ export default function App() {
   const [countryConfig, setCountryConfig] = useState<CountryConfig>(countriesConfig[0]);
   const [editId, setEditId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  // 从 Supabase 会话同步用户信息
+  const syncUserFromSupabase = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      setUser({ isLoggedIn: false, level: 'free', credits: 0, addresses: [] });
+      return;
+    }
+    const sUser = session.user;
+    setUser(prev => ({
+      ...prev,
+      isLoggedIn: true,
+      email: sUser.email || prev.email,
+      nickname: prev.nickname || (sUser.email ? sUser.email.split('@')[0] : undefined),
+      level: prev.level || 'free',
+      credits: typeof prev.credits === 'number' ? prev.credits : 3,
+      addresses: prev.addresses || [],
+      createdAt: prev.createdAt || Date.now(),
+      role: prev.role || 'user',
+    }));
+  };
+
+  // 组件挂载时，初始化 Supabase 会话 & 监听 Auth 状态变更
+  useEffect(() => {
+    syncUserFromSupabase();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, _session) => {
+      syncUserFromSupabase();
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     loadHistory().then(savedHistory => {

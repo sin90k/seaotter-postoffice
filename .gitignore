@@ -1,0 +1,16 @@
+# 依赖目录
+node_modules/
+
+# 环境变量文件
+.env
+
+# 构建输出目录
+dist/
+dist-ssr/
+
+# 编辑器/IDE
+.vscode/
+.DS_Store
+
+# 日志
+*.log
