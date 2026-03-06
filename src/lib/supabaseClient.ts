@@ -49,5 +49,3 @@ export const supabase: any =
   isRealClient
     ? createClient(supabaseUrl!, supabaseAnonKey!)
     : createSafeFallbackClient();
-
-
