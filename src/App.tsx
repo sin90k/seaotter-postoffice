@@ -15,7 +15,7 @@ import UserProfileModal from './components/UserProfileModal';
 import { CountryConfig, countriesConfig } from './config/countries';
 import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
-import { supabase } from './lib/supabaseClient';
+import { supabase, isSupabaseConnected } from './lib/supabaseClient';
 
 
 export type UserLevel = 'free' | 'vip';
@@ -414,8 +414,15 @@ export default function App() {
     return <AdminPanel onBack={() => setIsAdmin(false)} users={allUsers} />;
   }
 
+  const showDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-stone-200">
+      {showDebug && (
+        <div className="fixed bottom-4 right-4 z-[200] px-4 py-2 rounded-xl shadow-lg text-sm font-bold bg-stone-900 text-white">
+          Supabase: {isSupabaseConnected ? '✅ 已连接' : '❌ 未连接'}
+        </div>
+      )}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => setShowLanding(true)}>

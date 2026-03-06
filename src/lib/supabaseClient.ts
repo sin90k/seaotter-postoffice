@@ -40,12 +40,12 @@ const createSafeFallbackClient = () => {
   } as any;
 };
 
-const isRealClient = !!(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConnected = !!(supabaseUrl && supabaseAnonKey);
 if (typeof window !== 'undefined') {
-  console.log('[SeaOtter] Supabase:', isRealClient ? '已连接' : '未连接（环境变量缺失，使用本地模拟）');
+  console.log('[SeaOtter] Supabase:', isSupabaseConnected ? '已连接' : '未连接（环境变量缺失，使用本地模拟）');
 }
 
 export const supabase: any =
-  isRealClient
+  isSupabaseConnected
     ? createClient(supabaseUrl!, supabaseAnonKey!)
     : createSafeFallbackClient();
