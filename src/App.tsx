@@ -323,51 +323,83 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = (identifier: string, password?: string, isSignUp?: boolean, name?: string, type: 'email' | 'phone' = 'email') => {
+  const handleLogin = async (identifier: string, password?: string, isSignUp?: boolean, name?: string, type: 'email' | 'phone' = 'email') => {
+    // 邮箱登录/注册：走 Supabase
+    if (type === 'email') {
+      if (!identifier || !password) {
+        alert('请输入邮箱和密码');
+        return;
+      }
+      try {
+        if (isSignUp) {
+          const { error } = await supabase.auth.signUp({
+            email: identifier,
+            password,
+            options: { data: { nickname: name || identifier.split('@')[0] } },
+          });
+          if (error) {
+            alert(`注册失败：${error.message}`);
+            return;
+          }
+          alert('注册成功！请直接登录。');
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ email: identifier, password });
+          if (error) {
+            alert(`登录失败：${error.message}`);
+            return;
+          }
+        }
+        await syncUserFromSupabase();
+        setShowAuth(false);
+        setShowLanding(false);
+      } catch (e: unknown) {
+        console.error('Supabase auth error', e);
+        alert(`操作失败：${e instanceof Error ? e.message : '请稍后重试'}`);
+      }
+      return;
+    }
+
+    // 手机登录：本地模拟（不接 Supabase）
     const role = identifier === 'admin@seaotter.com' ? 'admin' : 'user';
     if (isSignUp) {
-      // Check if user already exists
-      if (allUsers.find(u => (type === 'email' ? u.email === identifier : u.phoneNumber === identifier))) {
+      if (allUsers.find(u => u.phoneNumber === identifier)) {
         alert('User already exists');
         return;
       }
       const newUser: User = {
         isLoggedIn: true,
-        [type === 'email' ? 'email' : 'phoneNumber']: identifier,
-        nickname: name || identifier.split('@')[0],
+        phoneNumber: identifier,
+        nickname: name || identifier,
         password,
         level: 'free',
-        credits: 3, // Reduced from 5 to 3 due to $0.08 cost
+        credits: 3,
         createdAt: Date.now(),
         addresses: [],
-        role
+        role,
       };
       setAllUsers(prev => [...prev, newUser]);
       setUser(newUser);
       alert('Registration successful! Welcome to 海獭邮局.');
     } else {
-      // Login logic
-      const existingUser = allUsers.find(u => (type === 'email' ? u.email === identifier : u.phoneNumber === identifier));
+      const existingUser = allUsers.find(u => u.phoneNumber === identifier);
       if (existingUser) {
         if (password && existingUser.password !== password) {
           alert('Incorrect password');
           return;
         }
-        // Force update role if it's the admin email
         const updatedRole = identifier === 'admin@seaotter.com' ? 'admin' : (existingUser.role || 'user');
         setUser({ ...existingUser, isLoggedIn: true, addresses: existingUser.addresses || [], role: updatedRole });
       } else {
-        // Auto-register for demo if social/code login
         if (!password) {
           const newUser: User = {
             isLoggedIn: true,
-            [type === 'email' ? 'email' : 'phoneNumber']: identifier,
+            phoneNumber: identifier,
             nickname: name || identifier,
             level: 'free',
-            credits: 3, // Reduced from 5 to 3 due to $0.08 cost
+            credits: 3,
             createdAt: Date.now(),
             addresses: [],
-            role
+            role,
           };
           setAllUsers(prev => [...prev, newUser]);
           setUser(newUser);
@@ -381,8 +413,9 @@ export default function App() {
     setShowLanding(false);
   };
 
-  const handleLogout = () => {
-    setUser({ isLoggedIn: false, level: 'free', credits: 5, addresses: [] });
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser({ isLoggedIn: false, level: 'free', credits: 0, addresses: [] });
     setShowProfile(false);
     setShowLanding(true);
   };
