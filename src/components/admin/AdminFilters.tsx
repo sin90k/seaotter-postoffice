@@ -39,9 +39,9 @@ export default function AdminFilters() {
         Travel Photo Filters
       </h1>
       <p className="text-sm text-stone-500">
-        Edit human-readable style descriptions for each postcard filter. The rendering engine
-        derives tone, contrast and grain dynamically from these descriptions—no numeric values
-        need to be set here.
+        Edit names, descriptions and numeric presets for each postcard filter. The rendering engine
+        uses these parameters (exposure, contrast, saturation, etc.) and scales them with the user
+        intensity slider.
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
@@ -91,9 +91,49 @@ export default function AdminFilters() {
                     placeholder="Describe the mood, tone, contrast, color and grain in natural language."
                   />
                   <p className="text-xs text-stone-400">
-                    Example hints: &quot;warm golden-hour look with soft contrast and visible film grain&quot;,
-                    &quot;clean cool-toned landscape with low saturation and crisp details&quot;.
+                    This text is for humans only and does not change the math. Adjust numeric parameters below to tune the effect.
                   </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
+                    Numeric parameters (-60 to +60)
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    {[
+                      'exposure',
+                      'contrast',
+                      'saturation',
+                      'temperature',
+                      'tint',
+                      'fade',
+                      'grain',
+                      'vignette',
+                      'sharpness',
+                      'highlight',
+                      'shadow',
+                    ].map((key) => (
+                      <label key={key} className="flex flex-col gap-1">
+                        <span className="text-[10px] font-medium text-stone-500 uppercase tracking-wide">
+                          {key}
+                        </span>
+                        <input
+                          type="number"
+                          value={(current.params as any)[key] ?? 0}
+                          onChange={(e) =>
+                            updateCurrent({
+                              params: {
+                                ...current.params,
+                                [key]: Number(e.target.value || 0),
+                              },
+                            })
+                          }
+                          className="border border-stone-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
+                          min={-60}
+                          max={60}
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
               <button

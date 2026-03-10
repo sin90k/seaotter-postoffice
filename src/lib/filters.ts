@@ -176,191 +176,134 @@ const addDigitalNoise = (
   }
 };
 
-/** 文本描述解析后得到的统一调整参数（非按滤镜硬编码） */
-export interface DynamicAdjustments {
+/** 数值滤镜参数（-60 ~ +60），与 config/travelFilters.ts 对应 */
+export interface FilterParams {
+  exposure: number;
   contrast: number;
   saturation: number;
-  warmth: number;
+  temperature: number;
+  tint: number;
   fade: number;
   grain: number;
   vignette: number;
-  softenHighlights: number;
-  sharpenAmount: number;
-  digitalNoise: number;
-  toBlackWhite: boolean;
+  sharpness: number;
+  highlight: number;
+  shadow: number;
 }
 
-/** 从说明文字中解析出基础调色趋势（不含强度，后续再与滑杆 intensity 混合） */
-const parseDescriptionToAdjustments = (description: string): DynamicAdjustments => {
-  const text = description.toLowerCase();
-
-  // 全局基准：全部为“中性”
-  let contrast = 1;
-  let saturation = 1;
-  let warmth = 0;
-  let fade = 0;
-  let grain = 0;
-  let vignette = 0;
-  let softenHighlights = 0;
-  let sharpenAmount = 0;
-  let digitalNoise = 0;
-  let toBlackWhite = false;
-
-  const hasAny = (words: string[]) => words.some((w) => text.includes(w));
-
-  // 对比度趋势
-  if (hasAny(['high contrast', 'strong contrast', 'deep contrast', 'dramatic'])) {
-    contrast = 1.25;
-  } else if (hasAny(['soft contrast', 'gentle contrast', 'low contrast', 'faded'])) {
-    contrast = 0.85;
-  }
-
-  // 饱和度趋势
-  if (hasAny(['vivid', 'vibrant', 'rich color', 'punchy color'])) {
-    saturation = 1.3;
-  } else if (hasAny(['muted', 'pastel', 'low saturation', 'desaturated', 'faded'])) {
-    saturation = 0.8;
-  }
-
-  // 色温趋势
-  if (hasAny(['warm', 'golden', 'sunset'])) {
-    warmth = 0.12;
-  } else if (hasAny(['cool', 'cold', 'blue', 'nordic', 'night'])) {
-    warmth = -0.1;
-  }
-
-  // 褪色 / 复古感
-  if (hasAny(['faded', 'vintage', 'pastel', 'hazy', 'soft'])) {
-    fade = 0.12;
-  }
-
-  // 颗粒
-  if (hasAny(['film', 'grain', 'analog'])) {
-    grain = 8;
-  }
-
-  // 暗角
-  if (hasAny(['vignette', 'focus', 'edge darkening'])) {
-    vignette = 0.25;
-  }
-
-  // 高光柔化
-  if (hasAny(['soft highlight', 'glow', 'bloom', 'dreamy'])) {
-    softenHighlights = 0.6;
-  }
-
-  // 锐化
-  if (hasAny(['crisp details', 'sharp detail', 'micro-contrast'])) {
-    sharpenAmount = 0.35;
-  }
-
-  // 数码噪点 / 夜景颗粒
-  if (hasAny(['digital noise', 'neon', 'night'])) {
-    digitalNoise = 6;
-  }
-
-  // 黑白
-  if (hasAny(['black and white', 'monochrome', 'b&w'])) {
-    toBlackWhite = true;
-    saturation = 0; // 基础趋势为去色，具体强度再受滑杆控制
-  }
-
-  return {
-    contrast,
-    saturation,
-    warmth,
-    fade,
-    grain,
-    vignette,
-    softenHighlights,
-    sharpenAmount,
-    digitalNoise,
-    toBlackWhite,
-  };
-};
-
 /**
- * 单次循环应用基础调整（对比度、饱和度、色温、褪色、黑白）到整个 ImageData
- * intensity ∈ [0,1]，0 表示无变化，1 表示使用解析出的完整风格。
+ * 根据数值参数 + intensity 应用滤镜。
+ * final_value = preset_value * intensity（按需映射到实际效果）。
  */
-const applyDynamicBaseAdjustments = (
+export const applyParamsStyleToImageData = (
   imageData: ImageData,
-  descAdjust: DynamicAdjustments,
+  width: number,
+  height: number,
+  params: FilterParams,
   intensity: number
 ): void => {
+  const safeIntensity = Math.max(0, Math.min(1, intensity));
+  if (safeIntensity === 0) return;
+
   const { data } = imageData;
 
-  // 将解析出的参数与“中性”之间按 intensity 做插值
-  const contrast = 1 + (descAdjust.contrast - 1) * intensity;
-  const saturation = 1 + (descAdjust.saturation - 1) * intensity;
-  const warmth = descAdjust.warmth * intensity;
-  const fade = descAdjust.fade * intensity;
-  const toBWStrength = descAdjust.toBlackWhite ? intensity : 0;
+  // 归一化参数：[-60,60] → 合理的数值范围
+  // 说明：
+  // - 先把输入 clamp 到 [-60,60]
+  // - 再按 [-30,30] 映射到 scale，这样 |v|=30 时等于旧系统的最大效果，|v|=60 时效果加倍
+  const norm = (v: number, scale: number) => {
+    const clamped = Math.max(-60, Math.min(60, v));
+    return (clamped / 30) * scale * safeIntensity;
+  };
 
+  const exposureOffset = norm(params.exposure, 40); // 亮度偏移，最多 ±40
+  const contrastFactor = 1 + norm(params.contrast, 0.8); // 对比度系数 ~ [0.2, 1.8]
+  const saturationFactor = 1 + norm(params.saturation, 1.0); // 饱和度
+  const warmthDelta = norm(params.temperature, 30); // 色温：红蓝通道偏移
+  const tintDelta = norm(params.tint, 30); // 色调：绿品红偏移
+  const fadeAmount = Math.max(0, norm(params.fade, 0.8)); // 褪色 0~0.8
+  const grainAmount = Math.max(0, norm(params.grain, 25)); // 颗粒 0~25
+  const vignetteStrength = Math.max(0, norm(params.vignette, 0.8)); // 暗角 0~0.8
+  const sharpenAmount = norm(params.sharpness, 0.8); // 锐化系数，可正可负
+  const highlightAdj = norm(params.highlight, 1.0); // 高光调整
+  const shadowAdj = norm(params.shadow, 1.0); // 阴影调整
+
+  // 一次遍历：曝光 / 对比度 / 饱和度 / 色温 / 褪色 / 高光阴影 / 色调
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i];
     let g = data[i + 1];
     let b = data[i + 2];
 
-    r = adjustContrast(r, contrast);
-    g = adjustContrast(g, contrast);
-    b = adjustContrast(b, contrast);
+    // 曝光（整体亮度偏移）
+    r = r + exposureOffset;
+    g = g + exposureOffset;
+    b = b + exposureOffset;
 
-    [r, g, b] = adjustSaturation(r, g, b, saturation);
-    [r, g, b] = adjustWarmth(r, g, b, warmth);
+    // 对比度
+    r = adjustContrast(r, contrastFactor);
+    g = adjustContrast(g, contrastFactor);
+    b = adjustContrast(b, contrastFactor);
 
-    if (fade > 0) {
-      r = r + (255 - r) * fade;
-      g = g + (255 - g) * fade;
-      b = b + (255 - b) * fade;
+    // 饱和度
+    [r, g, b] = adjustSaturation(r, g, b, saturationFactor);
+
+    // 色温：红蓝通道相反方向偏移
+    r += warmthDelta;
+    b -= warmthDelta;
+
+    // Tint：绿通道 vs 品红（R+B）
+    g += tintDelta;
+    r -= tintDelta * 0.5;
+    b -= tintDelta * 0.5;
+
+    // 高光 / 阴影：对亮 / 暗区域做不同调节
+    const brightness = (r + g + b) / 3;
+    const bNorm = brightness / 255;
+    let shadowBoost = 0;
+    let highlightCut = 0;
+    if (shadowAdj !== 0 && bNorm < 0.5) {
+      shadowBoost = (0.5 - bNorm) * shadowAdj * 1.2;
     }
+    if (highlightAdj !== 0 && bNorm > 0.5) {
+      highlightCut = (bNorm - 0.5) * highlightAdj * 1.2;
+    }
+    const toneDelta = shadowBoost - highlightCut;
+    r += toneDelta;
+    g += toneDelta;
+    b += toneDelta;
 
-    if (toBWStrength > 0) {
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      r = gray * toBWStrength + r * (1 - toBWStrength);
-      g = gray * toBWStrength + g * (1 - toBWStrength);
-      b = gray * toBWStrength + b * (1 - toBWStrength);
+    // 褪色：向白色靠拢
+    if (fadeAmount > 0) {
+      r = r + (255 - r) * fadeAmount;
+      g = g + (255 - g) * fadeAmount;
+      b = b + (255 - b) * fadeAmount;
     }
 
     data[i] = Math.round(Math.max(0, Math.min(255, r)));
     data[i + 1] = Math.round(Math.max(0, Math.min(255, g)));
     data[i + 2] = Math.round(Math.max(0, Math.min(255, b)));
   }
+
+  // 颗粒 / 暗角 / 锐化 / 数码噪点（单独 pass）
+  if (grainAmount > 0) {
+    addFilmGrain(imageData, grainAmount);
+  }
+  if (vignetteStrength > 0) {
+    addVignette(imageData, width, height, vignetteStrength);
+  }
+  if (sharpenAmount !== 0) {
+    if (sharpenAmount > 0) {
+      sharpen(imageData, width, height, sharpenAmount);
+    } else {
+      // 负锐度：使用轻微褪色 + 高光柔化近似“柔焦”
+      softenHighlights(imageData, -sharpenAmount * 0.8);
+    }
+  }
+  // 高参数场景可以稍加数码噪点，保持细节质感
+  const noiseBase = Math.max(0, (Math.abs(params.sharpness) + params.contrast + params.grain) / 3);
+  if (noiseBase > 10) {
+    addDigitalNoise(imageData, norm(noiseBase, 2));
+  }
 };
 
-/**
- * 根据「风格描述 + 强度」动态应用滤镜。
- * 所有滤镜共用这套逻辑，避免为单个滤镜写死参数。
- */
-export const applyDynamicStyleToImageData = (
-  imageData: ImageData,
-  width: number,
-  height: number,
-  description: string,
-  intensity: number
-): void => {
-  const safeIntensity = Math.max(0, Math.min(1, intensity));
-  if (safeIntensity === 0 || !description.trim()) return;
-
-  const descAdjust = parseDescriptionToAdjustments(description);
-
-  applyDynamicBaseAdjustments(imageData, descAdjust, safeIntensity);
-
-  // 次级效果（颗粒 / 暗角 / 高光柔化 / 锐化 / 噪点）也按 intensity 缩放
-  if (descAdjust.grain > 0) {
-    addFilmGrain(imageData, descAdjust.grain * safeIntensity);
-  }
-  if (descAdjust.vignette > 0) {
-    addVignette(imageData, width, height, descAdjust.vignette * safeIntensity);
-  }
-  if (descAdjust.softenHighlights > 0) {
-    softenHighlights(imageData, descAdjust.softenHighlights * safeIntensity);
-  }
-  if (descAdjust.sharpenAmount > 0) {
-    sharpen(imageData, width, height, descAdjust.sharpenAmount * safeIntensity);
-  }
-  if (descAdjust.digitalNoise > 0) {
-    addDigitalNoise(imageData, descAdjust.digitalNoise * safeIntensity);
-  }
-};
 

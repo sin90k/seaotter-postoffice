@@ -1,9 +1,9 @@
 /**
- * 滤镜引擎 - 根据可编辑文本描述动态应用滤镜
+ * 滤镜引擎 - 根据可编辑数值预设应用滤镜
  * 单次 getImageData → 处理 → putImageData，保证性能。
  */
 
-import { applyDynamicStyleToImageData } from './filters';
+import { applyParamsStyleToImageData, type FilterParams } from './filters';
 import {
   getTravelFilterById,
   type TravelFilterId,
@@ -32,7 +32,13 @@ export function applyFilterById(
   const preset = getTravelFilterById(filterId as TravelFilterId);
   if (!preset || preset.id === 'original') return false;
   const imageData = ctx.getImageData(sx, sy, width, height);
-  applyDynamicStyleToImageData(imageData, width, height, preset.description, intensity);
+  applyParamsStyleToImageData(
+    imageData,
+    width,
+    height,
+    preset.params as FilterParams,
+    intensity
+  );
   ctx.putImageData(imageData, sx, sy);
   return true;
 }
