@@ -119,7 +119,7 @@ const translations: Record<string, any> = {
 };
 
 export default function HistoryView({ history, user, onClose, onDownload, onDelete, onBatchDelete, onEdit, language }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [groupBy, setGroupBy] = useState<'date' | 'location' | 'theme'>('date');
   const [isDownloading, setIsDownloading] = useState(false);

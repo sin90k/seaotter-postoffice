@@ -1,8 +1,9 @@
 import { useState, Dispatch, SetStateAction } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, ImagePlus, X, Loader2, HelpCircle } from 'lucide-react';
+import { UploadCloud, ImagePlus, X, Loader2, HelpCircle, FolderUp } from 'lucide-react';
 import JSZip from 'jszip';
 import exifr from 'exifr';
+import heic2any from 'heic2any';
 import { Photo } from '../App';
 import { cn } from '../lib/utils';
 
@@ -25,6 +26,8 @@ const translations: Record<string, any> = {
     clearAll: 'Clear All',
     continue: 'Continue',
     uploadFolder: 'Upload Folder',
+    parseError: 'Could not read the selected files. Please check format and try again.',
+    feedbackHint: 'Feedback & help',
   },
   zh: {
     title: '上传照片',
@@ -36,45 +39,74 @@ const translations: Record<string, any> = {
     clearAll: '一键清除',
     continue: '继续',
     uploadFolder: '上传文件夹',
+    parseError: '无法解析所选文件，请确认格式后重试。',
+    feedbackHint: '意见与帮助',
   },
   ja: {
     title: '写真をアップロード',
     desc: 'デバイスから写真をアップロードします。',
     dropzone: 'クリックまたはドラッグしてアップロード',
     processing: '処理中...',
-    supports: 'JPG, PNG, HEIC, LIVP に対応',
+    supports: 'JPG, PNG, LIVP, ZIP, フォルダ対応',
     added: '追加された写真',
     clearAll: 'すべて削除',
     continue: '次へ',
+    parseError: '選択したファイルを読み込めませんでした。形式を確認して再試行してください。',
   },
   ko: {
     title: '사진 업로드',
     desc: '기기에서 사진을 업로드하세요.',
     dropzone: '여기를 클릭하거나 사진을 드래그하세요',
     processing: '처리 중...',
-    supports: 'JPG, PNG, HEIC, LIVP 지원',
+    supports: 'JPG, PNG, LIVP, ZIP, 폴더 지원',
     added: '추가된 사진',
     clearAll: '모두 지우기',
     continue: '계속하기',
-  }
+    parseError: '선택한 파일을 읽을 수 없습니다. 형식을 확인한 후 다시 시도해 주세요.',
+    feedbackHint: '피드백 및 도움말',
+  },
+  fr: { title: 'Télécharger des photos', desc: 'Téléchargez des photos depuis votre appareil.', dropzone: 'Cliquez ou glissez des photos ici', processing: 'Traitement...', supports: 'JPG, PNG, LIVP, ZIP, dossiers', added: 'Photos ajoutées', clearAll: 'Tout effacer', continue: 'Continuer', uploadFolder: 'Dossier', parseError: 'Impossible de lire les fichiers. Vérifiez le format.', feedbackHint: 'Aide' },
+  de: { title: 'Fotos hochladen', desc: 'Fotos von Ihrem Gerät hochladen.', dropzone: 'Klicken oder Fotos hierher ziehen', processing: 'Wird verarbeitet...', supports: 'JPG, PNG, LIVP, ZIP, Ordner', added: 'Fotos hinzugefügt', clearAll: 'Alle löschen', continue: 'Weiter', uploadFolder: 'Ordner', parseError: 'Dateien konnten nicht gelesen werden.', feedbackHint: 'Hilfe' },
+  es: { title: 'Subir fotos', desc: 'Sube fotos desde tu dispositivo.', dropzone: 'Haz clic o arrastra fotos aquí', processing: 'Procesando...', supports: 'JPG, PNG, LIVP, ZIP, carpetas', added: 'Fotos añadidas', clearAll: 'Borrar todo', continue: 'Continuar', uploadFolder: 'Carpeta', parseError: 'No se pudieron leer los archivos.', feedbackHint: 'Ayuda' },
+  it: { title: 'Carica foto', desc: 'Carica foto dal tuo dispositivo.', dropzone: 'Clicca o trascina le foto qui', processing: 'Elaborazione...', supports: 'JPG, PNG, LIVP, ZIP, cartelle', added: 'Foto aggiunte', clearAll: 'Cancella tutto', continue: 'Continua', uploadFolder: 'Cartella', parseError: 'Impossibile leggere i file.', feedbackHint: 'Aiuto' },
+  th: { title: 'อัปโหลดรูปภาพ', desc: 'อัปโหลดรูปจากอุปกรณ์ของคุณ', dropzone: 'คลิกหรือลากรูปมาที่นี่', processing: 'กำลังประมวลผล...', supports: 'รองรับ JPG, PNG, LIVP, ZIP', added: 'รูปที่เพิ่ม', clearAll: 'ล้างทั้งหมด', continue: 'ดำเนินการต่อ', uploadFolder: 'โฟลเดอร์', parseError: 'อ่านไฟล์ไม่ได้', feedbackHint: 'ความช่วยเหลือ' },
+  vi: { title: 'Tải ảnh lên', desc: 'Tải ảnh từ thiết bị của bạn.', dropzone: 'Nhấp hoặc kéo ảnh vào đây', processing: 'Đang xử lý...', supports: 'Hỗ trợ JPG, PNG, LIVP, ZIP', added: 'Ảnh đã thêm', clearAll: 'Xóa tất cả', continue: 'Tiếp tục', uploadFolder: 'Thư mục', parseError: 'Không đọc được tệp.', feedbackHint: 'Trợ giúp' },
+  id: { title: 'Unggah foto', desc: 'Unggah foto dari perangkat Anda.', dropzone: 'Klik atau seret foto ke sini', processing: 'Memproses...', supports: 'JPG, PNG, LIVP, ZIP', added: 'Foto ditambahkan', clearAll: 'Hapus semua', continue: 'Lanjutkan', uploadFolder: 'Folder', parseError: 'Tidak dapat membaca file.', feedbackHint: 'Bantuan' },
+  ms: { title: 'Muat naik foto', desc: 'Muat naik foto dari peranti anda.', dropzone: 'Klik atau seret foto ke sini', processing: 'Memproses...', supports: 'JPG, PNG, LIVP, ZIP', added: 'Foto ditambah', clearAll: 'Padam semua', continue: 'Teruskan', uploadFolder: 'Folder', parseError: 'Tidak dapat membaca fail.', feedbackHint: 'Bantuan' },
 };
 
 export default function Step1Upload({ photos, setPhotos, onNext, language, onFeedback }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const processFile = async (file: File): Promise<Photo[]> => {
     const results: Photo[] = [];
     
     const isImage = (name: string) => {
       const ext = name.toLowerCase().split('.').pop();
-      return ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '');
+      return ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext || '');
     };
 
     const handleSingleFile = async (f: File | Blob, name: string): Promise<Photo | null> => {
       try {
         let finalBlob: Blob = f;
         let finalName = name;
+        const ext = (name.split('.').pop() || '').toLowerCase();
+        if (ext === 'heic' || ext === 'heif') {
+          try {
+            const converted = await heic2any({
+              blob: finalBlob as Blob,
+              toType: 'image/jpeg',
+              quality: 0.9,
+            });
+            finalBlob = Array.isArray(converted) ? converted[0] : converted;
+            finalName = name.replace(/\.(heic|heif)$/i, '.jpg');
+          } catch (heicErr) {
+            console.warn('HEIC conversion failed, skipping', name, heicErr);
+            return null;
+          }
+        }
 
         // Create preview URL
         let url = '';
@@ -153,14 +185,27 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
     };
 
     try {
-      if (file.name.toLowerCase().endsWith('.livp') || file.name.toLowerCase().endsWith('.zip')) {
-        const zip = await JSZip.loadAsync(file);
-        const files = Object.values(zip.files).filter(f => !f.dir && isImage(f.name));
-        
-        for (const zipFile of files) {
-          const blob = await zipFile.async('blob');
-          const photo = await handleSingleFile(blob, zipFile.name);
-          if (photo) results.push(photo);
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.livp') || lower.endsWith('.zip')) {
+        let extracted = false;
+        try {
+          const zip = await JSZip.loadAsync(file);
+          const files = Object.values(zip.files).filter(f => !f.dir && isImage(f.name));
+          for (const zipFile of files) {
+            const blob = await zipFile.async('blob');
+            const photo = await handleSingleFile(blob, zipFile.name);
+            if (photo) {
+              results.push(photo);
+              extracted = true;
+            }
+          }
+        } catch (zipErr) {
+          console.warn('LIVP/ZIP not a standard zip archive, fallback to single-file handling', zipErr);
+        }
+        // 如果 zip 解析失败或没有提取到任何图片，尝试直接按单张图片处理（部分环境可能直接支持 livp/heic）
+        if (!extracted && isImage(file.name)) {
+          const fallbackPhoto = await handleSingleFile(file, file.name);
+          if (fallbackPhoto) results.push(fallbackPhoto);
         }
       } else if (isImage(file.name)) {
         const photo = await handleSingleFile(file, file.name);
@@ -174,17 +219,26 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: async (acceptedFiles: File[]) => {
+      setUploadError(null);
       setIsProcessingFiles(true);
       const allProcessed = await Promise.all(acceptedFiles.map(processFile));
       const validPhotos = allProcessed.flat();
       setPhotos((prev) => [...prev, ...validPhotos]);
       setIsProcessingFiles(false);
+      if (acceptedFiles.length > 0 && validPhotos.length === 0) {
+        setUploadError(t.parseError || 'Could not read the selected files. Please try again.');
+      }
     },
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
+      'image/jpeg': ['.jpeg', '.jpg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/heic': ['.heic', '.heif'],
       'application/zip': ['.zip', '.livp'],
-      'application/x-zip-compressed': ['.zip']
-    }
+      'application/x-zip-compressed': ['.zip', '.livp'],
+      'application/octet-stream': ['.livp']
+    },
+    maxFiles: 100
   } as any);
 
   const removePhoto = (id: string) => {
@@ -198,8 +252,11 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           <h2 className="text-[clamp(1.25rem,4vw,1.5rem)] font-semibold tracking-tight mb-2">{t.title}</h2>
           <p className="text-stone-500 text-[clamp(0.875rem,2vw,1rem)]">{t.desc}</p>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={onFeedback}
+          title={t.feedbackHint ?? 'Feedback'}
+          aria-label={t.feedbackHint ?? 'Feedback'}
           className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-all"
         >
           <HelpCircle className="w-5 h-5" />
@@ -229,37 +286,51 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           <p className="text-stone-500">{t.supports}</p>
           
           <div className="mt-6 flex items-center gap-4">
-            <div className="h-px w-12 bg-stone-200"></div>
+            <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
             <span className="text-xs text-stone-400 uppercase tracking-widest font-medium">or</span>
-            <div className="h-px w-12 bg-stone-200"></div>
+            <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
           </div>
 
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              setUploadError(null);
               const input = document.createElement('input');
               input.type = 'file';
               input.webkitdirectory = true;
-              input.onchange = async (ev: any) => {
-                const files = Array.from(ev.target.files) as File[];
+              input.multiple = true;
+              input.onchange = async (ev: Event) => {
+                const target = ev.target as HTMLInputElement;
+                const files = Array.from(target.files || []) as File[];
                 if (files.length > 0) {
                   setIsProcessingFiles(true);
                   const allProcessed = await Promise.all(files.map(processFile));
                   const validPhotos = allProcessed.flat();
                   setPhotos((prev) => [...prev, ...validPhotos]);
                   setIsProcessingFiles(false);
+                  if (validPhotos.length === 0) setUploadError(t.parseError || 'Could not read the selected files.');
                 }
               };
               input.click();
             }}
-            className="mt-6 px-4 py-2 rounded-lg border border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all flex items-center gap-2"
+            className="mt-6 px-5 py-2.5 rounded-xl border-2 border-dashed border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all flex items-center gap-2 mx-auto"
           >
-            <UploadCloud className="w-4 h-4" />
+            <FolderUp className="w-5 h-5" />
             {t.uploadFolder}
           </button>
         </div>
       </div>
+
+      {uploadError && (
+        <div className="mt-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+          <X className="w-4 h-4 shrink-0" />
+          <span>{uploadError}</span>
+          <button type="button" onClick={() => setUploadError(null)} className="ml-auto p-1 rounded hover:bg-amber-100" aria-label="Dismiss">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Preview Strip */}
       {photos.length > 0 && (

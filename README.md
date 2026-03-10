@@ -41,6 +41,12 @@ AI 驱动的艺术明信片生成器。
 2.  **注册/登录**：用户完成注册或首次社交登录后，系统将自动发放 **5 个初始积分**。
 3.  **持久化**：用户信息和积分将保存在本地存储中（模拟真实数据库）。
 
+## 📦 Supabase（可选）
+
+若使用 Supabase 做登录与明信片存储，请在 Supabase 控制台 **SQL Editor** 中执行项目根目录的 **`supabase-setup.sql`**，以创建 `profiles`、`postcards`、`events` 表及 RLS。若未执行，注册后可能出现 404（表不存在）；当前版本会静默降级，不影响注册与登录。
+
+**管理员入口**：登录后右上角头像 → 个人资料中需显示「Admin Panel」按钮。方式一：在 `.env` 中设置 `VITE_ADMIN_EMAIL=你的登录邮箱` 后重新构建部署。方式二：在 Supabase **SQL Editor** 执行 `UPDATE profiles SET role = 'admin' WHERE email = '你的登录邮箱';`，然后刷新页面。
+
 ## 🛠 技术栈
 *   React + Vite + TypeScript
 *   Tailwind CSS

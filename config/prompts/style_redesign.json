@@ -1,0 +1,10 @@
+{
+  "style_redesign": {
+    "editorial_photography": "Transform this photo into editorial photography style. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: color palette (refined, magazine-like), lighting (controlled, professional), contrast and clarity. Output should look like a high-end magazine cover.",
+    "vintage_film": "Transform this photo into vintage film style. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: color palette (faded, film stock), subtle grain texture, soft lighting, nostalgic tone. Keep all content and framing identical.",
+    "travel_poster": "Transform this photo into a travel poster style. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: color palette (bold, poster-like), simplified lighting, flat illustration feel, texture. Content and composition must stay the same.",
+    "hand_drawn_illustration": "Transform this photo into hand-drawn illustration style. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: apply illustration texture and hand-drawn look, color palette, line work feel. Keep every element in the same position.",
+    "cinematic": "Transform this photo with cinematic color grading. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: color grading (film-like, teal/orange or mood-based), lighting depth, subtle vignette. Content must remain identical.",
+    "modern_magazine": "Transform this photo into modern magazine style. Preserve the main subject, all people and faces, and the exact composition. Do not remove or add objects. Only modify: clean color palette, crisp lighting, modern editorial look, slight clarity. No cropping or content change."
+  }
+}

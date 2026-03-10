@@ -21,6 +21,7 @@ const translations: Record<string, any> = {
     upgrade: 'Upgrade',
     credits: 'Available Credits',
     creditsLeft: '{count} generations left',
+    creditsBreakdown: 'Promo {promo} · Paid {paid}',
     buyMore: 'Buy More',
     retention: 'History Retention',
     logout: 'Log Out',
@@ -38,6 +39,7 @@ const translations: Record<string, any> = {
     delete: 'Delete',
     setDefault: 'Set Default',
     default: 'Default',
+    logoutConfirm: 'Are you sure you want to log out?',
   },
   zh: {
     vip: 'VIP 会员',
@@ -46,6 +48,7 @@ const translations: Record<string, any> = {
     upgrade: '升级',
     credits: '可用积分',
     creditsLeft: '剩余 {count} 次生成',
+    creditsBreakdown: '赠送 {promo} · 付费 {paid}',
     buyMore: '购买更多',
     retention: '历史记录保存',
     logout: '退出登录',
@@ -63,15 +66,16 @@ const translations: Record<string, any> = {
     delete: '删除',
     setDefault: '设为默认',
     default: '默认',
+    logoutConfirm: '确定要退出登录吗？',
   },
-  // ... (keep other languages, default to English for missing keys)
 };
 
 export default function UserProfileModal({ user, setUser, onClose, onLogout, onUpgrade, onAdminEnter, language }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Address>>({});
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const getLevelDetails = () => {
     switch (user.level) {
@@ -172,7 +176,7 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
           </div>
 
           <div className="space-y-4 mb-8">
-            {(user.role === 'admin' || user.email === 'admin@seaotter.com') && (
+            {(user.role === 'admin') && (
               <button
                 onClick={() => {
                   onClose();
@@ -209,7 +213,14 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
                   <Zap className="w-5 h-5 text-yellow-500" />
                   <div>
                     <p className="text-sm font-medium text-stone-900">{t.credits}</p>
-                    <p className="text-xs text-stone-500">{t.creditsLeft.replace('{count}', user.credits.toString())}</p>
+                    <p className="text-xs text-stone-500">{t.creditsLeft.replace('{count}', String(user.credits ?? (user.promo_credits ?? 0) + (user.paid_credits ?? 0)))}</p>
+                    {((user.promo_credits ?? 0) + (user.paid_credits ?? 0)) > 0 && (
+                      <p className="text-[10px] text-stone-400 mt-0.5">
+                        {(t.creditsBreakdown || 'Promo {promo} · Paid {paid}')
+                          .replace('{promo}', String(user.promo_credits ?? 0))
+                          .replace('{paid}', String(user.paid_credits ?? 0))}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
@@ -348,7 +359,7 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
           </div>
 
           <button
-            onClick={onLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full py-3 rounded-xl border-2 border-stone-200 text-stone-600 font-medium hover:bg-stone-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2"
           >
             <LogOut className="w-4 h-4" />
@@ -356,6 +367,46 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
           </button>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4"
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            >
+              <p className="text-stone-800 font-medium mb-6">{t.logoutConfirm}</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50"
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    onClose();
+                    onLogout();
+                  }}
+                  className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600"
+                >
+                  {t.logout}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

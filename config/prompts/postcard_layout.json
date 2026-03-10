@@ -1,0 +1,5 @@
+{
+  "postcard_layout": {
+    "default": "Generate a postcard front layout. Use the provided image as the main visual. Add space for optional title and location text. Keep the design elegant and suitable for print."
+  }
+}

@@ -35,6 +35,10 @@ const translations: Record<string, any> = {
     alipay: "Alipay",
     wechat: "WeChat Pay",
     backToPlans: "Back to plans",
+    purchasingCredits: "Purchasing {count} Credits",
+    purchasingPlan: "Purchasing {plan}",
+    appName: "Sea Otter Post",
+    membershipCta: "Join our membership to unlock exclusive features and keep your memories forever.",
     unit: "Cards",
     flexible: "Flexible",
     starter: "Starter",
@@ -71,6 +75,10 @@ const translations: Record<string, any> = {
     alipay: "支付宝",
     wechat: "微信支付",
     backToPlans: "返回方案",
+    purchasingCredits: "购买 {count} 张额度",
+    purchasingPlan: "购买 {plan}",
+    appName: "海獭邮局",
+    membershipCta: "加入我们的会员，解锁更多专属功能，让您的回忆永不褪色。",
     unit: "张",
     flexible: "灵活试用",
     starter: "入门尝鲜",
@@ -431,7 +439,7 @@ const translations: Record<string, any> = {
 };
 
 export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequireLogin, language, countryConfig }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const [activeTab, setActiveTab] = useState<'subscription' | 'credits'>('credits');
   const [selectedPlan, setSelectedPlan] = useState<UserLevel | number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -657,14 +665,14 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                   className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors mb-8 text-sm font-medium"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  {language === 'zh' ? '返回方案' : 'Back to plans'}
+                  {t.backToPlans}
                 </button>
 
                 <h2 className="text-2xl font-bold text-stone-900 mb-2">{t.selectPayment}</h2>
                 <p className="text-stone-500 mb-8">
-                  {language === 'zh' 
-                    ? `购买 ${typeof selectedPlan === 'number' ? `${selectedPlan} 张额度` : (selectedPlan === 'vip' ? 'VIP 用户' : selectedPlan)}` 
-                    : `Purchasing ${typeof selectedPlan === 'number' ? `${selectedPlan} Credits` : selectedPlan}`}
+                  {typeof selectedPlan === 'number' 
+                    ? (t.purchasingCredits ?? 'Purchasing {count} Credits').replace('{count}', String(selectedPlan))
+                    : (t.purchasingPlan ?? 'Purchasing {plan}').replace('{plan}', selectedPlan === 'vip' ? t.vip : String(selectedPlan))}
                 </p>
 
                 <div className="space-y-3 mb-10">
@@ -707,12 +715,10 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                 <SeaOtterLogo className="w-12 h-12 text-stone-900" />
               </div>
               <h3 className="text-xl font-bold text-stone-900 mb-4">
-                {language === 'zh' ? '海獭邮局' : 'Sea Otter Post'}
+                {t.appName ?? 'Sea Otter Post'}
               </h3>
               <p className="text-sm text-stone-500 leading-relaxed">
-                {language === 'zh' 
-                  ? '加入我们的会员，解锁更多专属功能，让您的回忆永不褪色。' 
-                  : 'Join our membership to unlock exclusive features and keep your memories forever.'}
+                {t.membershipCta ?? 'Join our membership to unlock exclusive features and keep your memories forever.'}
               </p>
             </div>
           </div>

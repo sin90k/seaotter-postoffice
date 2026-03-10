@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ConfigGroup, SettingsType, defaultSettings } from '../App';
-import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History, Type, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface Props {
@@ -17,6 +17,12 @@ const translations: Record<string, any> = {
     title: 'Global Settings',
     desc: 'Define the settings for all your postcards.',
     size: 'Postcard Size',
+    sizeUseCase: 'Use case (Size)',
+    size4x6: 'Standard Postcard',
+    size5x7: 'Large',
+    sizeSquare: 'Square',
+    sizePolaroid: 'Polaroid',
+    sizeCustom: 'Custom',
     fit: 'Image Fit',
     fill: 'Fill',
     fillDesc: 'Stretch or compress to fill (no cropping)',
@@ -32,6 +38,8 @@ const translations: Record<string, any> = {
     aiBackDesc: 'Generate a personalized message and layout for the back of the postcard.',
     outputLang: 'Output Language',
     copyStyle: 'Copywriting Style',
+    cardStoryLabel: 'Story for this postcard',
+    cardStoryPlaceholder: 'Tell the story or mood behind this photo. The AI will use it to design the back and message.',
     styleAuto: 'Auto',
     stylePoetic: 'Poetic',
     styleModern: 'Modern',
@@ -42,11 +50,38 @@ const translations: Record<string, any> = {
     continue: 'Continue',
     width: 'Width (inches)',
     height: 'Height (inches)',
+    feedbackHint: 'Feedback & help',
+    font: 'Font',
+    fontHandwritten: 'Handwritten',
+    fontSerif: 'Serif',
+    fontSans: 'Sans',
+    filter: 'Photo Filter',
+    filterNone: 'None',
+    filterPolaroid: 'Polaroid',
+    filterFilm: 'Film',
+    filterCcd: 'CCD',
+    filterVintageTravel: 'Vintage',
+    filterVintage: 'Vintage Classic',
+    filterBw: 'Black & White',
+    filterWarm: 'Warm',
+    filterFresh: 'Fresh',
+    filterSpectacular: 'Spectacular',
+    filterCool: 'Cool',
+    filterFade: 'Fade',
+    filterDreamy: 'Dreamy',
+    filterCinematic: 'Cinematic',
+    filterVivid: 'Vivid',
   },
   zh: {
     title: '全局设置',
     desc: '为您的所有明信片定义设置。',
     size: '明信片尺寸',
+    sizeUseCase: '适用场景(尺寸)',
+    size4x6: '标准明信片',
+    size5x7: '大尺寸',
+    sizeSquare: '方形',
+    sizePolaroid: '拍立得',
+    sizeCustom: '自定义',
     fit: '图片适配',
     fill: '顶格 (Fill)',
     fillDesc: '拉伸或压缩以填满 (不裁剪)',
@@ -62,6 +97,8 @@ const translations: Record<string, any> = {
     aiBackDesc: '为明信片背面生成个性化消息和布局。',
     outputLang: '输出语言',
     copyStyle: '文案风格',
+    cardStoryLabel: '明信片故事',
+    cardStoryPlaceholder: '写一段关于这张照片的故事或心情，大模型将根据故事与情感设计背面与文案。',
     styleAuto: '自动判定',
     stylePoetic: '诗情画意',
     styleModern: '现代简约',
@@ -72,11 +109,37 @@ const translations: Record<string, any> = {
     continue: '继续',
     width: '宽度 (英寸)',
     height: '高度 (英寸)',
+    font: '字体',
+    fontHandwritten: '手写',
+    fontSerif: '衬线',
+    fontSans: '无衬线',
+    filter: '照片滤镜',
+    filterNone: '无',
+    filterPolaroid: '拍立得',
+    filterFilm: '胶片',
+    filterCcd: 'CCD',
+    filterVintageTravel: '复古旅行',
+    filterVintage: '复古',
+    filterBw: '黑白',
+    filterWarm: '暖色',
+    filterFresh: '清新',
+    filterSpectacular: '壮观',
+    filterCool: '冷调',
+    filterFade: '褪色',
+    filterDreamy: '梦幻',
+    filterCinematic: '电影感',
+    filterVivid: '鲜艳',
   },
   ja: {
     title: 'グローバル設定',
     desc: 'すべてのポストカードの設定を定義します。',
     size: 'ポストカードのサイズ',
+    sizeUseCase: '用途（サイズ）',
+    size4x6: '標準はがき',
+    size5x7: '大判',
+    sizeSquare: '正方形',
+    sizePolaroid: 'チェキ',
+    sizeCustom: 'カスタム',
     fit: '画像のフィット',
     fill: '塗りつぶし (Fill)',
     fillDesc: '伸縮して埋める (クロップなし)',
@@ -95,11 +158,37 @@ const translations: Record<string, any> = {
     continue: '続行',
     width: '幅 (インチ)',
     height: '高さ (インチ)',
+    font: 'フォント',
+    fontHandwritten: '手書き',
+    fontSerif: 'セリフ',
+    fontSans: 'サンセリフ',
+    filter: '写真フィルター',
+    filterNone: 'なし',
+    filterPolaroid: 'ポラロイド',
+    filterFilm: 'フィルム',
+    filterCcd: 'CCD',
+    filterVintageTravel: 'ビンテージ旅行',
+    filterVintage: 'ビンテージ',
+    filterBw: 'モノクロ',
+    filterWarm: 'ウォーム',
+    filterFresh: 'フレッシュ',
+    filterSpectacular: 'ドラマチック',
+    filterCool: 'クール',
+    filterFade: 'フェード',
+    filterDreamy: 'ドリーミー',
+    filterCinematic: 'シネマ',
+    filterVivid: 'ビビッド',
   },
   ko: {
     title: '전체 설정',
     desc: '모든 엽서에 대한 설정을 정의합니다.',
     size: '엽서 크기',
+    sizeUseCase: '용도(크기)',
+    size4x6: '표준 엽서',
+    size5x7: '대형',
+    sizeSquare: '정사각형',
+    sizePolaroid: '폴라로이드',
+    sizeCustom: '맞춤',
     fit: '이미지 맞춤',
     fill: '채우기 (Fill)',
     fillDesc: '늘리거나 줄여서 채우기 (자르기 없음)',
@@ -118,11 +207,40 @@ const translations: Record<string, any> = {
     continue: '계속하기',
     width: '너비 (인치)',
     height: '높이 (인치)',
-  }
+    feedbackHint: '피드백 및 도움말',
+    font: '글꼴',
+    fontHandwritten: '손글씨',
+    fontSerif: '세리프',
+    fontSans: '산세리프',
+    filter: '사진 필터',
+    filterNone: '없음',
+    filterPolaroid: '폴라로이드',
+    filterFilm: '필름',
+    filterCcd: 'CCD',
+    filterVintageTravel: '빈티지 여행',
+    filterVintage: '빈티지',
+    filterBw: '흑백',
+    filterWarm: '따뜻한',
+    filterFresh: '상쾌',
+    filterSpectacular: '장엄',
+    filterCool: '쿨톤',
+    filterFade: '페이드',
+    filterDreamy: '몽환',
+    filterCinematic: '시네마',
+    filterVivid: '선명',
+  },
+  fr: { title: 'Paramètres globaux', desc: 'Définissez les réglages pour toutes vos cartes.', size: 'Taille', back: 'Retour', continue: 'Continuer', feedbackHint: 'Aide' },
+  de: { title: 'Globale Einstellungen', desc: 'Einstellungen für alle Ihre Karten.', size: 'Größe', back: 'Zurück', continue: 'Weiter', feedbackHint: 'Hilfe' },
+  es: { title: 'Configuración global', desc: 'Define la configuración de tus postales.', size: 'Tamaño', back: 'Atrás', continue: 'Continuar', feedbackHint: 'Ayuda' },
+  it: { title: 'Impostazioni globali', desc: 'Imposta le opzioni per le tue cartoline.', size: 'Dimensione', back: 'Indietro', continue: 'Continua', feedbackHint: 'Aiuto' },
+  th: { title: 'การตั้งค่าทั่วไป', desc: 'กำหนดการตั้งค่าสำหรับโปสการ์ดทั้งหมด', size: 'ขนาด', back: 'กลับ', continue: 'ดำเนินการต่อ', feedbackHint: 'ความช่วยเหลือ' },
+  vi: { title: 'Cài đặt chung', desc: 'Định nghĩa cài đặt cho tất cả bưu thiếp.', size: 'Kích thước', back: 'Quay lại', continue: 'Tiếp tục', feedbackHint: 'Trợ giúp' },
+  id: { title: 'Pengaturan global', desc: 'Tentukan pengaturan untuk semua kartu pos.', size: 'Ukuran', back: 'Kembali', continue: 'Lanjutkan', feedbackHint: 'Bantuan' },
+  ms: { title: 'Tetapan global', desc: 'Tentukan tetapan untuk semua poskad.', size: 'Saiz', back: 'Kembali', continue: 'Teruskan', feedbackHint: 'Bantuan' },
 };
 
 export default function Step3Configure({ editingGroupId, configGroups, onSave, onCancel, language, onFeedback }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const existingGroup = editingGroupId ? configGroups.find(g => g.id === editingGroupId) : null;
   
   // Map language code to full language name for AI
@@ -142,7 +260,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
   };
 
   const [settings, setSettings] = useState<SettingsType>(() => {
-    const base = existingGroup?.settings || defaultSettings;
+    const base = { ...defaultSettings, ...(existingGroup?.settings || {}) };
     if (!existingGroup && langMap[language]) {
       return { ...base, aiLanguage: langMap[language] };
     }
@@ -171,8 +289,11 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
           </h2>
           <p className="text-stone-500 text-[clamp(0.875rem,2vw,1rem)]">{t.desc}</p>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={onFeedback}
+          title={t.feedbackHint ?? 'Feedback'}
+          aria-label={t.feedbackHint ?? 'Feedback'}
           className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-all"
         >
           <HelpCircle className="w-5 h-5" />
@@ -181,25 +302,31 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
 
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar flex flex-col pb-8">
         <div className="grid gap-8">
-          {/* Size Selection */}
+          {/* 适用场景(尺寸) */}
           <section>
             <div className="flex items-center gap-2 mb-4">
               <BoxSelect className="w-5 h-5 text-stone-400" />
-              <h3 className="font-medium text-stone-900">{t.size}</h3>
+              <h3 className="font-medium text-stone-900">{t.sizeUseCase || t.size}</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {(['3.5x5.5', '4x6', '4.1x5.8', '4.1x5.9', '4.7x6.7', '5x7', '5.8x8.3', 'square', 'custom'] as const).map((size) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {([
+                { id: '4x6', label: t.size4x6 || '4×6' },
+                { id: '5x7', label: t.size5x7 || '5×7' },
+                { id: 'square', label: t.sizeSquare || 'Square' },
+                { id: 'polaroid', label: t.sizePolaroid || 'Polaroid' },
+                { id: 'custom', label: t.sizeCustom || 'Custom' },
+              ] as const).map(({ id, label }) => (
                 <button
-                  key={size}
-                  onClick={() => updateSetting('size', size)}
+                  key={id}
+                  onClick={() => updateSetting('size', id)}
                   className={cn(
                     "border-2 rounded-xl p-3 text-center transition-all",
-                    settings.size === size
+                    settings.size === id
                       ? "border-stone-900 bg-stone-50 text-stone-900 font-medium"
                       : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
                   )}
                 >
-                  <span className="capitalize text-sm">{size}</span>
+                  <span className="text-sm font-medium">{label}</span>
                 </button>
               ))}
             </div>
@@ -280,6 +407,74 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             </div>
           </section>
 
+          {/* Font */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Type className="w-5 h-5 text-stone-400" />
+              <h3 className="font-medium text-stone-900">{t.font}</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { id: 'handwritten' as const, label: t.fontHandwritten },
+                { id: 'serif' as const, label: t.fontSerif },
+                { id: 'sans' as const, label: t.fontSans },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => updateSetting('font', opt.id)}
+                  className={cn(
+                    "py-3 px-4 rounded-xl border-2 transition-all text-sm font-medium",
+                    settings.font === opt.id
+                      ? "border-stone-900 bg-stone-50 text-stone-900"
+                      : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* 照片滤镜 */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Image className="w-5 h-5 text-stone-400" />
+              <h3 className="font-medium text-stone-900">{t.filter || 'Photo Filter'}</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {[
+                { id: 'none' as const, label: t.filterNone || 'None' },
+                { id: 'polaroid' as const, label: t.filterPolaroid || 'Polaroid' },
+                { id: 'film' as const, label: t.filterFilm || 'Film' },
+                { id: 'ccd' as const, label: t.filterCcd || 'CCD' },
+                { id: 'vintageTravel' as const, label: t.filterVintageTravel || 'Vintage' },
+                { id: 'vintage' as const, label: t.filterVintage || 'Vintage Classic' },
+                { id: 'bw' as const, label: t.filterBw || 'B&W' },
+                { id: 'warm' as const, label: t.filterWarm || 'Warm' },
+                { id: 'fresh' as const, label: t.filterFresh || 'Fresh' },
+                { id: 'spectacular' as const, label: t.filterSpectacular || 'Spectacular' },
+                { id: 'cool' as const, label: t.filterCool || 'Cool' },
+                { id: 'fade' as const, label: t.filterFade || 'Fade' },
+                { id: 'dreamy' as const, label: t.filterDreamy || 'Dreamy' },
+                { id: 'cinematic' as const, label: t.filterCinematic || 'Cinematic' },
+                { id: 'vivid' as const, label: t.filterVivid || 'Vivid' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => updateSetting('filter', opt.id)}
+                  className={cn(
+                    "py-3 px-4 rounded-xl border-2 transition-all text-sm font-medium",
+                    settings.filter === opt.id
+                      ? "border-stone-900 bg-stone-50 text-stone-900"
+                      : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* AI Features */}
           <section>
             <div className="flex items-center gap-2 mb-4">
@@ -346,6 +541,21 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
               <option value="French">Français (French)</option>
               <option value="German">Deutsch (German)</option>
             </select>
+          </section>
+
+          {/* 明信片故事 - 根据故事与情感设计背面与文案 */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <PenTool className="w-5 h-5 text-stone-400" />
+              <h3 className="font-medium text-stone-900">{t.cardStoryLabel}</h3>
+            </div>
+            <textarea
+              value={settings.cardStory ?? ''}
+              onChange={(e) => updateSetting('cardStory', e.target.value)}
+              placeholder={t.cardStoryPlaceholder}
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-stone-900 focus:ring-1 focus:ring-stone-900 outline-none transition-all resize-y min-h-[100px] text-stone-900 placeholder:text-stone-400"
+            />
           </section>
 
           {/* Copywriting Style Selection */}

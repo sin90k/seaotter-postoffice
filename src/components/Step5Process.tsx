@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { useEffect, useState } from 'react';
-import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User } from '../App';
+import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
 import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from 'openai';
@@ -8,6 +8,8 @@ import JSZip from 'jszip';
 import exifr from 'exifr';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
+import { brandConfig } from '../config/brand';
+import { applyFilter, isPixelFilter } from '../lib/filter-engine';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -265,8 +267,14 @@ export default function Step5Process({
         return;
       }
 
-      if (user.credits < configuredPhotos.length) {
-        setError(t.creditsError.replace('{need}', configuredPhotos.length.toString()).replace('{have}', user.credits.toString()));
+      const creditsPerCard = (() => {
+        const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
+        const n = v != null ? parseInt(v, 10) : NaN;
+        return Number.isFinite(n) && n >= 0 ? n : 1;
+      })();
+      const totalNeed = creditsPerCard * configuredPhotos.length;
+      if (user.credits < totalNeed) {
+        setError(t.creditsError.replace('{need}', totalNeed.toString()).replace('{have}', user.credits.toString()));
         setIsProcessing(false);
         setShowPricing(true);
         return;
@@ -288,7 +296,8 @@ export default function Step5Process({
           const group = configGroups.find(g => g.id === photo.groupId);
           
           if (group) {
-            const settings = group.settings;
+            // 确保与 defaultSettings 合并，避免 aiTitle/aiBackTemplate 等关键项丢失（如仅修改滤镜时）
+            const settings = { ...defaultSettings, ...(group.settings || {}) };
 
             try {
               // 1. Load image
@@ -324,16 +333,24 @@ export default function Step5Process({
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
               
-              if (settings.aiTitle || settings.aiBackTemplate) {
+              // 当 filter 非 none 时也强制运行 AI，避免因配置合并顺序导致跳过
+              const runAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
+              if (runAi) {
                 const base64Data = getCompressedBase64(img);
                 
                 try {
-                  const openAiKey = import.meta.env.VITE_OPENAI_API_KEY;
+                  const envKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+                  const adminKey = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_key') : null;
+                  const openAiKey = (typeof envKey === 'string' && envKey.trim()) ? envKey.trim() : (adminKey && adminKey.trim()) || null;
+                  const baseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_base_url') : null;
                   if (!openAiKey) {
-                    throw new Error("OpenAI API Key is missing.");
+                    throw new Error(language === 'zh' 
+                      ? "OpenAI API Key 未配置。请在 Admin 后台填写，或设置 VITE_OPENAI_API_KEY 环境变量。" 
+                      : "OpenAI API Key is missing. Please set it in Admin panel or VITE_OPENAI_API_KEY env.");
                   }
                   const openai = new OpenAI({
                     apiKey: openAiKey,
+                    baseURL: (typeof baseUrl === 'string' && baseUrl.trim()) ? baseUrl.trim() : undefined,
                     dangerouslyAllowBrowser: true
                   });
 
@@ -520,8 +537,9 @@ Output JSON strictly in this format:
               }
               const authorStr = settings.authorName || '';
               
+              const useWatermark = (user.promo_credits ?? 0) > 0;
               const frontDataUrl = generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, dateStr);
-              const backDataUrl = await generateBack(img, message, location, postmark, theme, settings, defaultBackStyle, authorStr, dateStr, artisticIcons, generatedBackImageBase64 || undefined);
+              const backDataUrl = await generateBack(img, message, location, postmark, theme, settings, defaultBackStyle, authorStr, dateStr, artisticIcons, generatedBackImageBase64 || undefined, useWatermark);
 
               newResults.push({
                 id: photo.id,
@@ -578,9 +596,14 @@ Output JSON strictly in this format:
           setCurrentBatchIds(newResults.map(r => r.id));
           setPhotos([]);
           setIsProcessing(false);
+          const creditsPerCard = (() => {
+            const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
+            const n = v != null ? parseInt(v, 10) : NaN;
+            return Number.isFinite(n) && n >= 0 ? n : 1;
+          })();
           setUser(prev => ({ 
             ...prev, 
-            credits: Math.max(0, prev.credits - configuredPhotos.length),
+            credits: Math.max(0, prev.credits - creditsPerCard * configuredPhotos.length),
             generatedCount: (prev.generatedCount || 0) + configuredPhotos.length 
           }));
         }
@@ -604,17 +627,18 @@ Output JSON strictly in this format:
     if (settings.size === 'custom') {
       return { w: Math.round((settings.customWidth || 6) * 300), h: Math.round((settings.customHeight || 4) * 300) };
     }
-    switch (settings.size) {
-      case '3.5x5.5': return { w: 1650, h: 1050 };
-      case '4x6': return { w: 1800, h: 1200 };
-      case '4.1x5.8': return { w: 1740, h: 1230 };
-      case '4.1x5.9': return { w: 1770, h: 1230 };
-      case '4.7x6.7': return { w: 2010, h: 1410 };
-      case '5x7': return { w: 2100, h: 1500 };
-      case '5.8x8.3': return { w: 2490, h: 1740 };
-      case 'square': return { w: 1500, h: 1500 };
-      default: return { w: 1800, h: 1200 };
-    }
+    const sizeMap: Record<string, { w: number; h: number }> = {
+      '3.5x5.5': { w: 1650, h: 1050 },
+      '4x6': { w: 1800, h: 1200 },
+      '4.1x5.8': { w: 1740, h: 1230 },
+      '4.1x5.9': { w: 1770, h: 1230 },
+      '4.7x6.7': { w: 2010, h: 1410 },
+      '5x7': { w: 2100, h: 1500 },
+      '5.8x8.3': { w: 2490, h: 1740 },
+      square: { w: 1500, h: 1500 },
+      polaroid: { w: 1500, h: 1500 },
+    };
+    return sizeMap[settings.size] ?? { w: 1800, h: 1200 };
   };
 
   const generateFront = (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string) => {
@@ -629,76 +653,109 @@ Output JSON strictly in this format:
     
     const cw = canvas.width;
     const ch = canvas.height;
+    const isSquare = cw === ch; // 拍立得/方形
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, cw, ch);
 
     const fillMode = safeSettings.fill || 'fill';
     const hasAiTitle = safeSettings.aiTitle !== undefined ? safeSettings.aiTitle : true;
+    const filter = safeSettings.filter || 'none';
+    const filterMap: Record<string, string> = {
+      vintage: 'sepia(0.5) brightness(0.95)',
+      bw: 'grayscale(100%)',
+      warm: 'sepia(0.2) saturate(1.2)',
+      fresh: 'brightness(1.08) saturate(1.15) contrast(0.98)',        // 清新：明亮通透
+      spectacular: 'contrast(1.15) saturate(1.25) brightness(1.02)',  // 壮观：对比强烈
+      cool: 'brightness(1.03) saturate(1.05) hue-rotate(-10deg)',    // 冷调
+      fade: 'brightness(1.05) contrast(0.9) saturate(0.85)',         // 褪色/柔焦
+      dreamy: 'brightness(1.05) contrast(0.92) saturate(0.88)', // 梦幻：柔和朦胧
+      cinematic: 'contrast(1.12) saturate(0.9) brightness(0.96)',     // 电影感
+      vivid: 'saturate(1.35) contrast(1.08) brightness(1.02)',       // 鲜艳：色彩饱满
+    };
+    const usePixelFilter = isPixelFilter(filter);
+    const filterCss = usePixelFilter ? 'none' : (filterMap[filter] || 'none');
+
+    let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
     if (fillMode === 'fill') {
-      // Cover (Crop to fill)
-      const scale = Math.max(cw / img.width, ch / img.height);
-      const x = (cw / 2) - (img.width / 2) * scale;
-      const y = (ch / 2) - (img.height / 2) * scale;
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      // 拉伸/压缩至填满画布，图片完整不裁剪
+      if (filterCss !== 'none') ctx.filter = filterCss;
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, cw, ch);
+      if (filterCss !== 'none') ctx.filter = 'none';
+      imgX = 0; imgY = 0; imgW = cw; imgH = ch;
     } else if (fillMode === 'border') {
       const paddingX = cw * 0.05;
       const paddingTop = cw * 0.05;
       const paddingBottom = ch * 0.15;
       const availW = cw - paddingX * 2;
       const availH = ch - paddingTop - paddingBottom;
-      const scale = Math.min(availW / img.width, availH / img.height);
-      const x = (cw / 2) - (img.width / 2) * scale;
-      const y = paddingTop + (availH / 2) - (img.height / 2) * scale;
-      
+      const dx = paddingX;
+      const dy = paddingTop;
+      imgX = dx; imgY = dy; imgW = availW; imgH = availH;
+
       ctx.shadowColor = 'rgba(0,0,0,0.1)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 10;
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      if (filterCss !== 'none') ctx.filter = filterCss;
+      ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, availW, availH);
+      if (filterCss !== 'none') ctx.filter = 'none';
       ctx.shadowColor = 'transparent';
     } else if (fillMode === 'bottom-border') {
-      const paddingBottom = ch * 0.15;
+      const paddingBottom = isSquare ? ch * 0.18 : ch * 0.15; // 拍立得底部留白稍大
       const availW = cw;
       const availH = ch - paddingBottom;
-      
-      const scale = Math.max(availW / img.width, availH / img.height);
-      const imgW = img.width * scale;
-      const imgH = img.height * scale;
-      const x = (availW - imgW) / 2;
-      const y = (availH - imgH) / 2;
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, availW, availH);
-      ctx.clip();
-      ctx.drawImage(img, x, y, imgW, imgH);
-      ctx.restore();
-      
+      imgX = 0; imgY = 0; imgW = availW; imgH = availH;
+      // 拉伸/压缩至填满可用区域，确保图片完整显示不裁剪（仅缩放变换）
+      if (filterCss !== 'none') ctx.filter = filterCss;
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, availW, availH);
+      if (filterCss !== 'none') ctx.filter = 'none';
+
       // Add subtle shadow line at the bottom of the image
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0, availH, cw, 2);
     } else {
-      // Default to fill if mode is unknown
-      ctx.drawImage(img, 0, 0, cw, ch);
+      // Default: 拉伸/压缩至填满，图片完整不裁剪
+      if (filterCss !== 'none') ctx.filter = filterCss;
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, cw, ch);
+      if (filterCss !== 'none') ctx.filter = 'none';
+      imgX = 0; imgY = 0; imgW = cw; imgH = ch;
+    }
+
+    // 像素级滤镜：绘制后对图像区域应用
+    if (usePixelFilter) {
+      applyFilter(filter, ctx, imgW, imgH, imgX, imgY);
     }
 
     if (hasAiTitle) {
       const style = frontStyle || { fontSize: 5, color: '#ffffff', position: 'bottom-left' };
       const referenceSize = Math.min(cw, ch);
-      const locationSize = Math.max(referenceSize * (style.fontSize / 100) * 1.2, 16);
-      const titleSize = locationSize * 0.5; // Title is now smaller than location
+      const sizeScale = isSquare ? 0.85 : 1; // 方形略缩小以适配留白
+      let locationSize = Math.max(referenceSize * (style.fontSize / 100) * 1.2 * sizeScale, 14);
+      let titleSize = locationSize * 0.5;
       
-      // Draw gradient based on position (only if fill mode is 'fill' or 'border')
-      // For 'bottom-border', we'll draw text in the white space, so no gradient needed
-      // Actually, for 'border', we might also want text in the white space if it's at the bottom?
-      // Let's keep gradient for 'fill' and 'border' if text is over image.
-      // But for 'bottom-border', text goes in the bottom white space.
-      
+      // 底部留白/四周留白时：限制文字不超出留白范围，统一各规格表现
       const isBottomBorder = settings.fill === 'bottom-border';
       const isBorder = settings.fill === 'border';
-      const hasTextInBorder = isBottomBorder || isBorder;
+      const hasTextInBorderArea = isBottomBorder || isBorder;
+      const maxTextWidth = cw * (hasTextInBorderArea ? 0.88 : 1); // 留白模式左右各留 6%
       
+      if (hasTextInBorderArea && (location || title)) {
+        const testTitle = (theme === 'modern' || theme === 'vintage') ? (title || '').toUpperCase() : (title || '');
+        ctx.font = `500 ${locationSize}px "Inter", sans-serif`;
+        const locW = location ? ctx.measureText(location.toUpperCase()).width : 0;
+        ctx.font = `600 ${titleSize}px "Playfair Display", serif`;
+        const titleW = testTitle ? ctx.measureText(testTitle).width : 0;
+        const maxW = Math.max(locW, titleW, 1);
+        if (maxW > maxTextWidth && maxW > 0) {
+          const scale = maxTextWidth / maxW;
+          locationSize = Math.max(12, locationSize * scale);
+          titleSize = Math.max(10, titleSize * scale);
+        }
+      }
+      
+      // Draw gradient based on position (only if fill mode is 'fill' or 'border')
+      const hasTextInBorder = hasTextInBorderArea;
       if (!hasTextInBorder) {
         const gradientHeight = ch * 0.4;
         let gradient;
@@ -780,8 +837,8 @@ Output JSON strictly in this format:
       const totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
 
       if (hasTextInBorder) {
-        // Force text to the bottom border area
-        const bottomBorderHeight = ch * 0.15;
+        // 拍立得/方形：底部留白稍大(18%)以容纳标题；其他规格 15%
+        const bottomBorderHeight = isSquare ? ch * 0.18 : ch * 0.15;
         
         // Center vertically within the bottom border
         let currentY = ch - bottomBorderHeight + (bottomBorderHeight - totalHeight) / 2;
@@ -1143,7 +1200,7 @@ Output JSON strictly in this format:
     ctx.restore();
   };
 
-  const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string) => {
+  const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, useWatermark?: boolean) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
@@ -1479,6 +1536,62 @@ Output JSON strictly in this format:
       }
     }
 
+    // 9. Watermark (Logo + 服务名 + 网址) - 使用 promo 积分时显示，布局：第一行 Logo 服务名，第二行 网址
+    const watermark = useWatermark && (brandConfig.logoUrl() || brandConfig.brandName('zh'));
+    if (watermark) {
+      const locale = isChinese ? 'zh' : 'en';
+      const brandName = brandConfig.brandName(locale);
+      const domain = brandConfig.domain();
+      const logoUrl = brandConfig.logoUrl();
+      const pos = brandConfig.watermarkPosition() || 'bottom-center';
+      const opacity = brandConfig.watermarkOpacity();
+      const relSize = brandConfig.watermarkSize();
+      const shortSide = Math.min(cw, ch);
+      const wmPadding = padding * 2;
+      // Logo 随画布尺寸缩放，适中大小：短边的 5%~10%， clamp 32~80
+      const logoSize = Math.max(32, Math.min(80, shortSide * 0.06 * relSize));
+      const gap = Math.max(logoSize * 0.8, 16); // 足够间距避免重叠
+      const lineHeight = shortSide * 0.04;
+      const fontSize1 = Math.max(12, shortSide * 0.022);
+      const fontSize2 = Math.max(10, shortSide * 0.018);
+      ctx.save();
+      ctx.font = `${fontSize1}px "Inter", sans-serif`;
+      const brandWidth = ctx.measureText(brandName).width;
+      const totalLine1W = logoUrl ? logoSize + gap + brandWidth : brandWidth;
+      ctx.globalAlpha = opacity;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      let line1StartX = wmPadding;
+      if (pos.includes('center')) {
+        line1StartX = Math.max(wmPadding, (cw - totalLine1W) / 2);
+      } else if (pos.includes('right')) {
+        line1StartX = Math.max(wmPadding, cw - wmPadding - totalLine1W);
+      }
+      const line1Y = ch - wmPadding - lineHeight - fontSize2 - lineHeight * 0.5 - fontSize1 / 2;
+      const line2Y = ch - wmPadding - fontSize2 / 2 - lineHeight * 0.5;
+      const baseStartX = line1StartX;
+      let textX = line1StartX;
+      if (logoUrl) {
+        try {
+          const logoImg = await loadImage(logoUrl);
+          ctx.drawImage(logoImg, line1StartX, line1Y - logoSize / 2, logoSize, logoSize);
+          textX = line1StartX + logoSize + gap;
+        } catch (_) {}
+      }
+      ctx.font = `${fontSize1}px "Inter", sans-serif`;
+      ctx.fillStyle = '#44403c';
+      ctx.fillText(brandName, textX, line1Y);
+      ctx.font = `${fontSize2}px "Inter", sans-serif`;
+      ctx.fillStyle = '#78716c';
+      const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
+      const urlWidth = ctx.measureText(urlText).width;
+      let urlX = baseStartX;
+      if (pos.includes('center')) urlX = (cw - urlWidth) / 2;
+      else if (pos.includes('right')) urlX = cw - wmPadding - urlWidth;
+      ctx.fillText(urlText, urlX, line2Y);
+      ctx.restore();
+    }
+
     return canvas.toDataURL('image/jpeg', 0.9);
   };
 
@@ -1597,8 +1710,9 @@ Output JSON strictly in this format:
 
     try {
       const img = await loadImage(result.imgUrl || '');
+      const useWatermark = (user.promo_credits ?? 0) > 0;
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
-      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage);
+      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage, useWatermark);
 
       const updatedPostcard = { 
         ...result, 
@@ -1650,8 +1764,9 @@ Output JSON strictly in this format:
 
     try {
       const img = await loadImage(result.imgUrl);
+      const useWatermark = (user.promo_credits ?? 0) > 0;
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
-      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage);
+      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage, useWatermark);
       setLivePreview({ front: newFront, back: newBack });
     } catch (e) {
       console.error("Failed to generate live preview", e);

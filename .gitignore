@@ -14,3 +14,4 @@ dist-ssr/
 
 # 日志
 *.log
+.vercel

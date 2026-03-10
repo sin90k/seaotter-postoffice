@@ -1,334 +1,351 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Settings, Users, Image as ImageIcon, ArrowLeft, Save, TrendingUp, CreditCard, Activity, Calendar, Zap } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { logEvent } from '../lib/events';
+import { supabase, isSupabaseConnected } from '../lib/supabaseClient';
 import { User } from '../App';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import AdminLayout, { type AdminPage } from './admin/AdminLayout';
+import AdminDashboard, { type DashboardStats, type TodayStats } from './admin/AdminDashboard';
+import AdminUsers from './admin/AdminUsers';
+import AdminCreditsLedger, { type LedgerEntry } from './admin/AdminCreditsLedger';
+import AdminPostcards, { type PostcardRow } from './admin/AdminPostcards';
+import AdminSettings from './admin/AdminSettings';
+import AdminPrompts from './admin/AdminPrompts';
+import AdminBrand from './admin/AdminBrand';
 
-export default function AdminPanel({ onBack, users }: { onBack: () => void, users: User[] }) {
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [stats, setStats] = useState({ users: 0, generated: 0 });
+const PROFILES_SELECT = 'id, email, nickname, role, credits, promo_credits, paid_credits, generated_count, created_at';
+
+export default function AdminPanel({ onBack, users, currentUser }: { onBack: () => void; users: User[]; currentUser?: User }) {
+  const [page, setPage] = useState<AdminPage>('dashboard');
+  const [supabaseUsers, setSupabaseUsers] = useState<User[]>([]);
+  const [creditsLedger, setCreditsLedger] = useState<LedgerEntry[]>([]);
+  const [postcardsList, setPostcardsList] = useState<PostcardRow[]>([]);
+  const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
+  const [userDetailLedger, setUserDetailLedger] = useState<LedgerEntry[]>([]);
+  const [userDetailPostcards, setUserDetailPostcards] = useState<PostcardRow[]>([]);
+  const [chartsReady, setChartsReady] = useState(false);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  const useSupabase = isSupabaseConnected && currentUser?.id && (currentUser?.role === 'admin' || currentUser?.role === 'support');
+  const isAdmin = currentUser?.role === 'admin';
+
+  const fetchProfiles = useCallback(() => {
+    if (!useSupabase) return;
+    supabase
+      .from('profiles')
+      .select(PROFILES_SELECT)
+      .order('created_at', { ascending: false })
+      .then((res: { data: unknown; error: { message?: string; code?: string } | null }) => {
+        const { data, error } = res;
+        if (error) {
+          console.error('[AdminPanel] fetch profiles:', error);
+          return;
+        }
+        setSupabaseUsers(
+          (Array.isArray(data) ? data : []).map((r: { id?: string; email?: string; nickname?: string; role?: string; credits?: number; promo_credits?: number; paid_credits?: number; generated_count?: number; created_at?: string }) => {
+            const promo = typeof r.promo_credits === 'number' ? r.promo_credits : (r.credits ?? 0);
+            const paid = typeof r.paid_credits === 'number' ? r.paid_credits : 0;
+            return {
+              isLoggedIn: true as const,
+              id: r.id,
+              email: r.email,
+              nickname: r.nickname,
+              role: (['admin', 'user', 'support', 'banned'].includes(r.role || '') ? r.role : 'user') as User['role'],
+              credits: (r.credits ?? 0) || promo + paid,
+              promo_credits: promo,
+              paid_credits: paid,
+              generatedCount: r.generated_count ?? 0,
+              createdAt: r.created_at ? new Date(r.created_at).getTime() : undefined,
+              level: 'free' as const,
+              addresses: [] as const,
+            };
+          })
+        );
+      });
+  }, [useSupabase]);
+
+  const fetchCreditsLedger = useCallback(() => {
+    if (!useSupabase) return;
+    setLedgerLoading(true);
+    supabase
+      .from('credits_ledger')
+      .select('id, user_id, credit_type, source, amount, created_at')
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .then((res: { data: unknown; error: { message?: string; code?: string } | null }) => {
+        setLedgerLoading(false);
+        const { data, error } = res;
+        if (error) {
+          if (error.code === 'PGRST205' || (error.message || '').includes('Could not find the table')) {
+            setCreditsLedger([]);
+            return;
+          }
+          console.error('[AdminPanel] fetch credits_ledger:', error);
+          return;
+        }
+        setCreditsLedger((data as LedgerEntry[]) || []);
+      });
+  }, [useSupabase]);
+
+  const fetchPostcards = useCallback(() => {
+    if (!useSupabase) return;
+    supabase
+      .from('postcards')
+      .select('id, user_id, payload, created_at')
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .then((res: { data: unknown; error: { message?: string } | null }) => {
+        const { data, error } = res;
+        if (error) {
+          console.error('[AdminPanel] fetch postcards:', error);
+          return;
+        }
+        setPostcardsList((data as PostcardRow[]) || []);
+      });
+  }, [useSupabase]);
+
+  const fetchTodayStats = useCallback(() => {
+    if (!useSupabase) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayIso = today.toISOString();
+
+    Promise.all([
+      supabase.from('events').select('id, event_type, payload, created_at').gte('created_at', todayIso),
+      supabase
+        .from('credits_ledger')
+        .select('credit_type, amount, source, created_at')
+        .gte('created_at', todayIso)
+        .eq('source', 'postcard'),
+    ]).then(([eventsRes, ledgerRes]: [{ data: unknown }, { data: unknown }]) => {
+      const eventsData = eventsRes.data;
+      const events = (eventsData != null && Array.isArray(eventsData) ? eventsData : []) as { event_type: string; payload?: { count?: number } }[];
+      const postcardsToday = events.filter((e) => e.event_type === 'postcard_generated').reduce((sum, e) => sum + (e.payload?.count ?? 1), 0);
+      const newUsersToday = events.filter((e) => e.event_type === 'sign_up').length;
+      const ledgerData = ledgerRes.data;
+      const ledger = (ledgerData != null && Array.isArray(ledgerData) ? ledgerData : []) as { credit_type: string; amount: number }[];
+      let promoConsumedToday = 0;
+      let paidConsumedToday = 0;
+      ledger.forEach((r) => {
+        if (r.amount < 0) {
+          if (r.credit_type === 'promo') promoConsumedToday += Math.abs(r.amount);
+          else if (r.credit_type === 'paid') paidConsumedToday += Math.abs(r.amount);
+        }
+      });
+      setTodayStats({
+        postcardsToday,
+        newUsersToday,
+        promoConsumedToday,
+        paidConsumedToday,
+      });
+    });
+  }, [useSupabase]);
 
   useEffect(() => {
-    setApiKey(localStorage.getItem('admin_openai_key') || '');
-    setBaseUrl(localStorage.getItem('admin_openai_base_url') || 'https://api.chatanywhere.tech/v1');
-    setStats({
-      users: users.length,
-      generated: users.reduce((acc, u) => acc + (u.generatedCount || 0), 0)
-    });
-  }, [users]);
+    const t = setTimeout(() => setChartsReady(true), 150);
+    return () => clearTimeout(t);
+  }, []);
 
-  const handleSave = () => {
-    localStorage.setItem('admin_openai_key', apiKey.trim());
-    localStorage.setItem('admin_openai_base_url', baseUrl.trim());
-    alert('Admin settings saved successfully!');
-  };
+  useEffect(() => {
+    if (useSupabase) {
+      logEvent('admin_panel_view');
+      fetchProfiles();
+      fetchCreditsLedger();
+      fetchPostcards();
+      fetchTodayStats();
+    }
+  }, [useSupabase, fetchProfiles, fetchCreditsLedger, fetchPostcards, fetchTodayStats]);
 
-  // Operational Intelligence Calculations
-  const operationalIntel = useMemo(() => {
-    const totalCredits = users.reduce((acc, u) => acc + (u.credits || 0), 0);
-    const vipCount = users.filter(u => u.level === 'vip').length;
-    const freeCount = users.length - vipCount;
-    
-    // Group users by join date (last 7 days)
+  const displayUsers = useSupabase ? supabaseUsers : users;
+
+  const dashboardStats: DashboardStats = useMemo(() => {
+    const totalPromo = displayUsers.reduce((acc, u) => acc + (u.promo_credits ?? (typeof u.credits === 'number' ? u.credits : 0)), 0);
+    const totalPaid = displayUsers.reduce((acc, u) => acc + (u.paid_credits ?? 0), 0);
     const now = Date.now();
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(now - (6 - i) * 24 * 60 * 60 * 1000);
       const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      const count = users.filter(u => {
-        if (!u.createdAt) return false;
-        const joinDate = new Date(u.createdAt);
-        return joinDate.toDateString() === date.toDateString();
-      }).length;
+      const count = displayUsers.filter((u) => u.createdAt && new Date(u.createdAt).toDateString() === date.toDateString()).length;
       return { name: dateStr, users: count };
     });
-
-    const levelData = [
-      { name: 'VIP', value: vipCount, color: '#6366f1' },
-      { name: 'Free', value: freeCount, color: '#94a3b8' }
-    ];
-
+    const vipCount = displayUsers.filter((u) => u.level === 'vip').length;
     return {
-      totalCredits,
+      users: displayUsers.length,
+      generated: displayUsers.reduce((acc, u) => acc + (u.generatedCount || 0), 0),
+      totalCredits: totalPromo + totalPaid,
+      totalPromo,
+      totalPaid,
       vipCount,
-      freeCount,
       last7Days,
-      levelData
+      levelData: [
+        { name: 'VIP', value: vipCount, color: '#6366f1' },
+        { name: 'Free', value: displayUsers.length - vipCount, color: '#94a3b8' },
+      ],
     };
-  }, [users]);
+  }, [displayUsers]);
+
+  const userMap = useMemo(() => {
+    const m: Record<string, { email?: string; nickname?: string }> = {};
+    displayUsers.forEach((u) => {
+      if (u.id) m[u.id] = { email: u.email, nickname: u.nickname };
+    });
+    return m;
+  }, [displayUsers]);
+
+  const loadUserDetail = useCallback(
+    (userId: string) => {
+      if (!useSupabase) return;
+      supabase
+        .from('credits_ledger')
+        .select('id, user_id, credit_type, source, amount, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+        .then((res: { data: LedgerEntry[] | null }) => setUserDetailLedger(res.data || []));
+      supabase
+        .from('postcards')
+        .select('id, user_id, payload, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+        .then((res: { data: PostcardRow[] | null }) => setUserDetailPostcards(res.data || []));
+    },
+    [useSupabase]
+  );
+
+  const handleSaveCredits = useCallback(
+    async (u: User, promo: number, paid: number) => {
+      if (!u.id || !useSupabase || !isAdmin) return;
+      const oldPromo = u.promo_credits ?? (typeof u.credits === 'number' ? u.credits : 0);
+      const oldPaid = u.paid_credits ?? 0;
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({
+          credits: promo + paid,
+          promo_credits: promo,
+          paid_credits: paid,
+          generated_count: u.generatedCount ?? 0,
+        })
+        .eq('id', u.id);
+      if (updateErr) {
+        console.error('[AdminPanel] update credits:', updateErr);
+        alert('Update failed: ' + (updateErr.message || 'Check RLS'));
+        return;
+      }
+      const rows: { user_id: string; credit_type: string; source: string; amount: number }[] = [];
+      if (promo - oldPromo !== 0) rows.push({ user_id: u.id, credit_type: 'promo', source: 'admin_adjust', amount: promo - oldPromo });
+      if (paid - oldPaid !== 0) rows.push({ user_id: u.id, credit_type: 'paid', source: 'admin_adjust', amount: paid - oldPaid });
+      if (rows.length > 0) {
+        await supabase.from('credits_ledger').insert(rows);
+      }
+      fetchProfiles();
+      fetchCreditsLedger();
+    },
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+  );
+
+  const handleBan = useCallback(
+    async (u: User) => {
+      if (!u.id || !useSupabase || !isAdmin) return;
+      if (!confirm(`Ban user ${u.email || u.id}? They will not be able to use the app.`)) return;
+      const { error } = await supabase.from('profiles').update({ role: 'banned' }).eq('id', u.id);
+      if (error) {
+        console.error('[AdminPanel] ban:', error);
+        alert('Ban failed: ' + error.message);
+        return;
+      }
+      fetchProfiles();
+    },
+    [useSupabase, isAdmin, fetchProfiles]
+  );
+
+  const handleReset = useCallback(
+    async (u: User) => {
+      if (!u.id || !useSupabase || !isAdmin) return;
+      if (!confirm(`Reset all credits for ${u.email || u.id} to 0?`)) return;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ credits: 0, promo_credits: 0, paid_credits: 0 })
+        .eq('id', u.id);
+      if (error) {
+        console.error('[AdminPanel] reset:', error);
+        alert('Reset failed: ' + error.message);
+        return;
+      }
+      await supabase.from('credits_ledger').insert([
+        { user_id: u.id, credit_type: 'promo', source: 'admin_adjust', amount: -(u.promo_credits ?? 0) },
+        { user_id: u.id, credit_type: 'paid', source: 'admin_adjust', amount: -(u.paid_credits ?? 0) },
+      ]);
+      fetchProfiles();
+      fetchCreditsLedger();
+    },
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+  );
+
+  const handleManualCompensate = useCallback(
+    async (userId: string, creditType: 'promo' | 'paid', amount: number) => {
+      if (!useSupabase || !isAdmin || amount <= 0) return;
+      const { data: profile } = await supabase.from('profiles').select('promo_credits, paid_credits').eq('id', userId).single();
+      if (!profile) {
+        alert('User not found');
+        return;
+      }
+      const currentPromo = (profile as { promo_credits?: number }).promo_credits ?? 0;
+      const currentPaid = (profile as { paid_credits?: number }).paid_credits ?? 0;
+      const newPromo = creditType === 'promo' ? currentPromo + amount : currentPromo;
+      const newPaid = creditType === 'paid' ? currentPaid + amount : currentPaid;
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ credits: newPromo + newPaid, promo_credits: newPromo, paid_credits: newPaid })
+        .eq('id', userId);
+      if (updateErr) {
+        alert('Update failed: ' + updateErr.message);
+        return;
+      }
+      await supabase.from('credits_ledger').insert({
+        user_id: userId,
+        credit_type: creditType,
+        source: 'admin_adjust',
+        amount,
+      });
+      fetchProfiles();
+      fetchCreditsLedger();
+    },
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+  );
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-300 bg-stone-50 min-h-screen">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
-            <ArrowLeft className="w-6 h-6 text-stone-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Operational Intelligence</h1>
-            <p className="text-sm text-stone-500">Real-time metrics and system configuration</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-stone-200 shadow-sm">
-          <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">System Live</span>
-        </div>
-      </div>
-
-      {/* Top Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-              <Users className="w-6 h-6" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div>
-            <div className="text-sm text-stone-500 font-medium">Total Users</div>
-            <div className="text-3xl font-bold text-stone-900">{stats.users}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <Activity className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div>
-            <div className="text-sm text-stone-500 font-medium">Postcards Generated</div>
-            <div className="text-3xl font-bold text-stone-900">{stats.generated}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-stone-300" />
-          </div>
-          <div>
-            <div className="text-sm text-stone-500 font-medium">Circulating Credits</div>
-            <div className="text-3xl font-bold text-stone-900">{operationalIntel.totalCredits}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-              {((operationalIntel.vipCount / (stats.users || 1)) * 100).toFixed(1)}% Conv.
-            </span>
-          </div>
-          <div>
-            <div className="text-sm text-stone-500 font-medium">VIP Members</div>
-            <div className="text-3xl font-bold text-stone-900">{operationalIntel.vipCount}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-stone-200 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-stone-400" />
-              <h2 className="text-lg font-bold text-stone-900">User Growth (Last 7 Days)</h2>
-            </div>
-          </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={operationalIntel.last7Days}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                />
-                <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="users" radius={[6, 6, 0, 0]}>
-                  {operationalIntel.last7Days.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 6 ? '#0f172a' : '#cbd5e1'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm">
-          <h2 className="text-lg font-bold text-stone-900 mb-8">User Distribution</h2>
-          <div className="h-[240px] w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={operationalIntel.levelData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {operationalIntel.levelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <div className="text-2xl font-bold text-stone-900">{stats.users}</div>
-              <div className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">Total</div>
-            </div>
-          </div>
-          <div className="space-y-3 mt-4">
-            {operationalIntel.levelData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-sm font-medium text-stone-600">{item.name}</span>
-                </div>
-                <span className="text-sm font-bold text-stone-900">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* User Table */}
-      <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-stone-400" />
-            <h2 className="text-lg font-bold text-stone-900">User Directory</h2>
-          </div>
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">{users.length} Registered</span>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50">
-                <th className="px-6 py-4 font-bold">Identity</th>
-                <th className="px-6 py-4 font-bold">Contact</th>
-                <th className="px-6 py-4 font-bold">Status</th>
-                <th className="px-6 py-4 font-bold">Generated</th>
-                <th className="px-6 py-4 font-bold">Balance</th>
-                <th className="px-6 py-4 font-bold">Joined</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-stone-400 italic">No users found in the system.</td>
-                </tr>
-              ) : (
-                users.map((u, idx) => (
-                  <tr key={idx} className="text-sm hover:bg-stone-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-stone-100 rounded-2xl flex items-center justify-center text-stone-600 font-bold">
-                          {u.nickname?.[0] || u.email?.[0] || '?'}
-                        </div>
-                        <div>
-                          <div className="font-bold text-stone-900">{u.nickname || 'Anonymous'}</div>
-                          <div className="text-[10px] text-stone-400 uppercase font-bold tracking-tighter">ID: {idx + 1000}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-stone-600 font-medium">{u.email || u.phoneNumber}</span>
-                        {u.email && u.phoneNumber && <span className="text-[10px] text-stone-400">{u.phoneNumber}</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        u.level === 'vip' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
-                        'bg-stone-100 text-stone-600 border border-stone-200'
-                      }`}>
-                        {u.level}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <ImageIcon className="w-3 h-3 text-stone-400" />
-                        <span className="font-bold text-stone-700">{u.generatedCount || 0}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <Zap className="w-3 h-3 text-amber-500" />
-                        <span className="font-bold text-stone-700">{u.credits}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-stone-400 font-medium">
-                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* API Config Section */}
-      <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm space-y-8">
-        <div className="flex items-center gap-2 border-b border-stone-100 pb-4">
-          <Settings className="w-5 h-5 text-stone-400" />
-          <h2 className="text-lg font-bold text-stone-900">System Configuration</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">OpenAI API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full border border-stone-200 rounded-2xl px-4 py-4 focus:outline-none focus:ring-4 focus:ring-stone-900/5 focus:border-stone-900 transition-all bg-stone-50/50"
-            />
-            <p className="text-[10px] text-stone-400 font-medium italic">Overrides the environment variable if set. Leave blank to use .env key.</p>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">OpenAI Base URL</label>
-            <input
-              type="text"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.chatanywhere.tech/v1"
-              className="w-full border border-stone-200 rounded-2xl px-4 py-4 focus:outline-none focus:ring-4 focus:ring-stone-900/5 focus:border-stone-900 transition-all bg-stone-50/50"
-            />
-            <p className="text-[10px] text-stone-400 font-medium italic">Default is https://api.chatanywhere.tech/v1</p>
-          </div>
-        </div>
-        
-        <div className="pt-4">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 bg-stone-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-stone-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-stone-900/10"
-          >
-            <Save className="w-5 h-5" /> Save System Configuration
-          </button>
-        </div>
-      </div>
-    </div>
+    <AdminLayout
+      currentPage={page}
+      onPageChange={setPage}
+      onBack={onBack}
+    >
+      {page === 'dashboard' && (
+        <AdminDashboard stats={dashboardStats} todayStats={todayStats} chartsReady={chartsReady} />
+      )}
+      {page === 'users' && (
+        <AdminUsers
+          displayUsers={displayUsers}
+          isAdmin={!!isAdmin}
+          onSaveCredits={handleSaveCredits}
+          onBan={isAdmin ? handleBan : undefined}
+          onReset={isAdmin ? handleReset : undefined}
+          userLedger={userDetailLedger}
+          userPostcards={userDetailPostcards}
+          loadUserDetail={loadUserDetail}
+        />
+      )}
+      {page === 'credits' && (
+        <AdminCreditsLedger
+          entries={creditsLedger}
+          userMap={userMap}
+          isAdmin={!!isAdmin}
+          onManualCompensate={handleManualCompensate}
+          loading={ledgerLoading}
+        />
+      )}
+      {page === 'postcards' && <AdminPostcards rows={postcardsList} userMap={userMap} />}
+      {page === 'prompts' && <AdminPrompts />}
+      {page === 'brand' && <AdminBrand />}
+      {page === 'settings' && <AdminSettings />}
+    </AdminLayout>
   );
 }

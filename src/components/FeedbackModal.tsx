@@ -39,7 +39,7 @@ const translations: Record<string, any> = {
 };
 
 export default function FeedbackModal({ isOpen, onClose, language, initialType = 'suggestion' }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) };
   const [type, setType] = useState(initialType);
   const [message, setMessage] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -75,7 +75,9 @@ export default function FeedbackModal({ isOpen, onClose, language, initialType =
             className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative"
           >
             <button
+              type="button"
               onClick={onClose}
+              aria-label={t.close}
               className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors z-10"
             >
               <X className="w-5 h-5" />
