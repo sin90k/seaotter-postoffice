@@ -9,7 +9,9 @@ import exifr from 'exifr';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
 import { brandConfig } from '../config/brand';
-import { applyFilter, isPixelFilter } from '../lib/filter-engine';
+import { applyFilterById } from '../lib/filter-engine';
+import { syncCreditsToSupabase, recordPostcardConsumption } from '../lib/profileSync';
+import { isSupabaseConnected } from '../lib/supabaseClient';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -596,16 +598,39 @@ Output JSON strictly in this format:
           setCurrentBatchIds(newResults.map(r => r.id));
           setPhotos([]);
           setIsProcessing(false);
+
           const creditsPerCard = (() => {
             const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
             const n = v != null ? parseInt(v, 10) : NaN;
             return Number.isFinite(n) && n >= 0 ? n : 1;
           })();
-          setUser(prev => ({ 
-            ...prev, 
-            credits: Math.max(0, prev.credits - creditsPerCard * configuredPhotos.length),
-            generatedCount: (prev.generatedCount || 0) + configuredPhotos.length 
-          }));
+          const totalUse = creditsPerCard * configuredPhotos.length;
+
+          setUser(prev => {
+            // 优先消耗赠送积分，再消耗付费积分
+            const currentPromo = prev.promo_credits ?? 0;
+            const currentPaid = prev.paid_credits ?? 0;
+            const promoUsed = Math.min(currentPromo, totalUse);
+            const paidUsed = Math.max(0, totalUse - promoUsed);
+            const newPromo = currentPromo - promoUsed;
+            const newPaid = currentPaid - paidUsed;
+            const newGenerated = (prev.generatedCount || 0) + configuredPhotos.length;
+            const newCredits = Math.max(0, newPromo + newPaid);
+
+            if (prev.id && isSupabaseConnected) {
+              // 同步最新积分到 Supabase，并记录本次消耗
+              syncCreditsToSupabase(prev.id, newPromo, newPaid, newGenerated).catch(console.error);
+              recordPostcardConsumption(prev.id, promoUsed, paidUsed).catch(console.error);
+            }
+
+            return {
+              ...prev,
+              credits: newCredits,
+              promo_credits: newPromo,
+              paid_credits: newPaid,
+              generatedCount: newGenerated,
+            };
+          });
         }
       } catch (err: any) {
         console.error(err);
@@ -659,30 +684,14 @@ Output JSON strictly in this format:
     ctx.fillRect(0, 0, cw, ch);
 
     const fillMode = safeSettings.fill || 'fill';
-    const hasAiTitle = safeSettings.aiTitle !== undefined ? safeSettings.aiTitle : true;
-    const filter = safeSettings.filter || 'none';
-    const filterMap: Record<string, string> = {
-      vintage: 'sepia(0.5) brightness(0.95)',
-      bw: 'grayscale(100%)',
-      warm: 'sepia(0.2) saturate(1.2)',
-      fresh: 'brightness(1.08) saturate(1.15) contrast(0.98)',        // 清新：明亮通透
-      spectacular: 'contrast(1.15) saturate(1.25) brightness(1.02)',  // 壮观：对比强烈
-      cool: 'brightness(1.03) saturate(1.05) hue-rotate(-10deg)',    // 冷调
-      fade: 'brightness(1.05) contrast(0.9) saturate(0.85)',         // 褪色/柔焦
-      dreamy: 'brightness(1.05) contrast(0.92) saturate(0.88)', // 梦幻：柔和朦胧
-      cinematic: 'contrast(1.12) saturate(0.9) brightness(0.96)',     // 电影感
-      vivid: 'saturate(1.35) contrast(1.08) brightness(1.02)',       // 鲜艳：色彩饱满
-    };
-    const usePixelFilter = isPixelFilter(filter);
-    const filterCss = usePixelFilter ? 'none' : (filterMap[filter] || 'none');
+    const filterId = safeSettings.filter || 'original';
+    const filterIntensity = safeSettings.filterIntensity ?? 0.8;
 
     let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
     if (fillMode === 'fill') {
       // 拉伸/压缩至填满画布，图片完整不裁剪
-      if (filterCss !== 'none') ctx.filter = filterCss;
       ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, cw, ch);
-      if (filterCss !== 'none') ctx.filter = 'none';
       imgX = 0; imgY = 0; imgW = cw; imgH = ch;
     } else if (fillMode === 'border') {
       const paddingX = cw * 0.05;
@@ -697,9 +706,7 @@ Output JSON strictly in this format:
       ctx.shadowColor = 'rgba(0,0,0,0.1)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 10;
-      if (filterCss !== 'none') ctx.filter = filterCss;
       ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, availW, availH);
-      if (filterCss !== 'none') ctx.filter = 'none';
       ctx.shadowColor = 'transparent';
     } else if (fillMode === 'bottom-border') {
       const paddingBottom = isSquare ? ch * 0.18 : ch * 0.15; // 拍立得底部留白稍大
@@ -707,27 +714,23 @@ Output JSON strictly in this format:
       const availH = ch - paddingBottom;
       imgX = 0; imgY = 0; imgW = availW; imgH = availH;
       // 拉伸/压缩至填满可用区域，确保图片完整显示不裁剪（仅缩放变换）
-      if (filterCss !== 'none') ctx.filter = filterCss;
       ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, availW, availH);
-      if (filterCss !== 'none') ctx.filter = 'none';
 
       // Add subtle shadow line at the bottom of the image
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0, availH, cw, 2);
     } else {
       // Default: 拉伸/压缩至填满，图片完整不裁剪
-      if (filterCss !== 'none') ctx.filter = filterCss;
       ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, cw, ch);
-      if (filterCss !== 'none') ctx.filter = 'none';
       imgX = 0; imgY = 0; imgW = cw; imgH = ch;
     }
 
-    // 像素级滤镜：绘制后对图像区域应用
-    if (usePixelFilter) {
-      applyFilter(filter, ctx, imgW, imgH, imgX, imgY);
-    }
+    // 描述驱动的像素级滤镜：绘制后对图像区域应用
+    applyFilterById(filterId, ctx, imgW, imgH, filterIntensity, imgX, imgY);
 
-    if (hasAiTitle) {
+    // 只要有标题 / 地点 / 作者 / 日期，就在正面展示文字
+    const shouldRenderText = !!(title || location || author || date);
+    if (shouldRenderText) {
       const style = frontStyle || { fontSize: 5, color: '#ffffff', position: 'bottom-left' };
       const referenceSize = Math.min(cw, ch);
       const sizeScale = isSquare ? 0.85 : 1; // 方形略缩小以适配留白
@@ -839,9 +842,11 @@ Output JSON strictly in this format:
       if (hasTextInBorder) {
         // 拍立得/方形：底部留白稍大(18%)以容纳标题；其他规格 15%
         const bottomBorderHeight = isSquare ? ch * 0.18 : ch * 0.15;
+        // 在留白区内再预留上下安全距离，避免贴边
+        const innerPaddingY = bottomBorderHeight * 0.15;
         
-        // Center vertically within the bottom border
-        let currentY = ch - bottomBorderHeight + (bottomBorderHeight - totalHeight) / 2;
+        // 从留白区顶部 + 安全距离开始排布，保证与图片和底边都有间距
+        let currentY = ch - bottomBorderHeight + innerPaddingY;
         
         if (titleCase) {
           titleY = currentY + actualTitleHeight;

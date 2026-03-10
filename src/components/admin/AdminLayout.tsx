@@ -1,7 +1,7 @@
-import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type AdminPage = 'dashboard' | 'users' | 'credits' | 'postcards' | 'prompts' | 'brand' | 'settings';
+export type AdminPage = 'dashboard' | 'users' | 'credits' | 'postcards' | 'prompts' | 'brand' | 'filters' | 'settings';
 
 const nav: { id: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const nav: { id: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'postcards', label: 'Postcards', icon: ImageIcon },
   { id: 'prompts', label: 'AI Prompts', icon: FileText },
   { id: 'brand', label: 'Brand Settings', icon: Palette },
+   { id: 'filters', label: 'Photo Filters', icon: SlidersHorizontal },
   { id: 'settings', label: 'System Config', icon: Settings },
 ];
 

@@ -10,6 +10,7 @@ import AdminPostcards, { type PostcardRow } from './admin/AdminPostcards';
 import AdminSettings from './admin/AdminSettings';
 import AdminPrompts from './admin/AdminPrompts';
 import AdminBrand from './admin/AdminBrand';
+import AdminFilters from './admin/AdminFilters';
 
 const PROFILES_SELECT = 'id, email, nickname, role, credits, promo_credits, paid_credits, generated_count, created_at';
 
@@ -345,6 +346,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       {page === 'postcards' && <AdminPostcards rows={postcardsList} userMap={userMap} />}
       {page === 'prompts' && <AdminPrompts />}
       {page === 'brand' && <AdminBrand />}
+      {page === 'filters' && <AdminFilters />}
       {page === 'settings' && <AdminSettings />}
     </AdminLayout>
   );

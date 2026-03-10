@@ -56,21 +56,18 @@ const translations: Record<string, any> = {
     fontSerif: 'Serif',
     fontSans: 'Sans',
     filter: 'Photo Filter',
-    filterNone: 'None',
+    filterNone: 'Original',
+    filterFilmTravel: 'Film Travel',
     filterPolaroid: 'Polaroid',
-    filterFilm: 'Film',
-    filterCcd: 'CCD',
-    filterVintageTravel: 'Vintage',
-    filterVintage: 'Vintage Classic',
-    filterBw: 'Black & White',
-    filterWarm: 'Warm',
-    filterFresh: 'Fresh',
-    filterSpectacular: 'Spectacular',
-    filterCool: 'Cool',
-    filterFade: 'Fade',
-    filterDreamy: 'Dreamy',
+    filterSummerBright: 'Summer Bright',
+    filterGoldenSunset: 'Golden Sunset',
+    filterTokyoNight: 'Tokyo Night',
+    filterNordicCool: 'Nordic Cool',
+    filterVintageEurope: 'Vintage Europe',
     filterCinematic: 'Cinematic',
-    filterVivid: 'Vivid',
+    filterDreamy: 'Dreamy',
+    filterVividLandscape: 'Vivid Landscape',
+    filterBlackWhiteClassic: 'Black & White Classic',
   },
   zh: {
     title: '全局设置',
@@ -114,21 +111,18 @@ const translations: Record<string, any> = {
     fontSerif: '衬线',
     fontSans: '无衬线',
     filter: '照片滤镜',
-    filterNone: '无',
+    filterNone: '原片',
+    filterFilmTravel: '胶片旅行',
     filterPolaroid: '拍立得',
-    filterFilm: '胶片',
-    filterCcd: 'CCD',
-    filterVintageTravel: '复古旅行',
-    filterVintage: '复古',
-    filterBw: '黑白',
-    filterWarm: '暖色',
-    filterFresh: '清新',
-    filterSpectacular: '壮观',
-    filterCool: '冷调',
-    filterFade: '褪色',
-    filterDreamy: '梦幻',
+    filterSummerBright: '盛夏明亮',
+    filterGoldenSunset: '金色日落',
+    filterTokyoNight: '东京之夜',
+    filterNordicCool: '北欧冷调',
+    filterVintageEurope: '复古欧洲',
     filterCinematic: '电影感',
-    filterVivid: '鲜艳',
+    filterDreamy: '梦幻',
+    filterVividLandscape: '鲜艳风景',
+    filterBlackWhiteClassic: '经典黑白',
   },
   ja: {
     title: 'グローバル設定',
@@ -163,21 +157,18 @@ const translations: Record<string, any> = {
     fontSerif: 'セリフ',
     fontSans: 'サンセリフ',
     filter: '写真フィルター',
-    filterNone: 'なし',
+    filterNone: 'オリジナル',
+    filterFilmTravel: 'フィルムトラベル',
     filterPolaroid: 'ポラロイド',
-    filterFilm: 'フィルム',
-    filterCcd: 'CCD',
-    filterVintageTravel: 'ビンテージ旅行',
-    filterVintage: 'ビンテージ',
-    filterBw: 'モノクロ',
-    filterWarm: 'ウォーム',
-    filterFresh: 'フレッシュ',
-    filterSpectacular: 'ドラマチック',
-    filterCool: 'クール',
-    filterFade: 'フェード',
+    filterSummerBright: 'サマーブライト',
+    filterGoldenSunset: 'ゴールデンサンセット',
+    filterTokyoNight: '東京ナイト',
+    filterNordicCool: 'ノルディッククール',
+    filterVintageEurope: 'ビンテージ・ヨーロッパ',
+    filterCinematic: 'シネマティック',
     filterDreamy: 'ドリーミー',
-    filterCinematic: 'シネマ',
-    filterVivid: 'ビビッド',
+    filterVividLandscape: 'ビビッドランドスケープ',
+    filterBlackWhiteClassic: 'クラシックモノクロ',
   },
   ko: {
     title: '전체 설정',
@@ -213,21 +204,18 @@ const translations: Record<string, any> = {
     fontSerif: '세리프',
     fontSans: '산세리프',
     filter: '사진 필터',
-    filterNone: '없음',
+    filterNone: '원본',
+    filterFilmTravel: '필름 여행',
     filterPolaroid: '폴라로이드',
-    filterFilm: '필름',
-    filterCcd: 'CCD',
-    filterVintageTravel: '빈티지 여행',
-    filterVintage: '빈티지',
-    filterBw: '흑백',
-    filterWarm: '따뜻한',
-    filterFresh: '상쾌',
-    filterSpectacular: '장엄',
-    filterCool: '쿨톤',
-    filterFade: '페이드',
+    filterSummerBright: '여름 브라이트',
+    filterGoldenSunset: '골든 선셋',
+    filterTokyoNight: '도쿄의 밤',
+    filterNordicCool: '노르딕 쿨',
+    filterVintageEurope: '빈티지 유럽',
+    filterCinematic: '시네마틱',
     filterDreamy: '몽환',
-    filterCinematic: '시네마',
-    filterVivid: '선명',
+    filterVividLandscape: '비비드 풍경',
+    filterBlackWhiteClassic: '클래식 흑백',
   },
   fr: { title: 'Paramètres globaux', desc: 'Définissez les réglages pour toutes vos cartes.', size: 'Taille', back: 'Retour', continue: 'Continuer', feedbackHint: 'Aide' },
   de: { title: 'Globale Einstellungen', desc: 'Einstellungen für alle Ihre Karten.', size: 'Größe', back: 'Zurück', continue: 'Weiter', feedbackHint: 'Hilfe' },
@@ -443,21 +431,18 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {[
-                { id: 'none' as const, label: t.filterNone || 'None' },
+                { id: 'original' as const, label: t.filterNone || 'Original' },
+                { id: 'filmTravel' as const, label: t.filterFilmTravel || 'Film Travel' },
                 { id: 'polaroid' as const, label: t.filterPolaroid || 'Polaroid' },
-                { id: 'film' as const, label: t.filterFilm || 'Film' },
-                { id: 'ccd' as const, label: t.filterCcd || 'CCD' },
-                { id: 'vintageTravel' as const, label: t.filterVintageTravel || 'Vintage' },
-                { id: 'vintage' as const, label: t.filterVintage || 'Vintage Classic' },
-                { id: 'bw' as const, label: t.filterBw || 'B&W' },
-                { id: 'warm' as const, label: t.filterWarm || 'Warm' },
-                { id: 'fresh' as const, label: t.filterFresh || 'Fresh' },
-                { id: 'spectacular' as const, label: t.filterSpectacular || 'Spectacular' },
-                { id: 'cool' as const, label: t.filterCool || 'Cool' },
-                { id: 'fade' as const, label: t.filterFade || 'Fade' },
-                { id: 'dreamy' as const, label: t.filterDreamy || 'Dreamy' },
+                { id: 'summerBright' as const, label: t.filterSummerBright || 'Summer Bright' },
+                { id: 'goldenSunset' as const, label: t.filterGoldenSunset || 'Golden Sunset' },
+                { id: 'tokyoNight' as const, label: t.filterTokyoNight || 'Tokyo Night' },
+                { id: 'nordicCool' as const, label: t.filterNordicCool || 'Nordic Cool' },
+                { id: 'vintageEurope' as const, label: t.filterVintageEurope || 'Vintage Europe' },
                 { id: 'cinematic' as const, label: t.filterCinematic || 'Cinematic' },
-                { id: 'vivid' as const, label: t.filterVivid || 'Vivid' },
+                { id: 'dreamy' as const, label: t.filterDreamy || 'Dreamy' },
+                { id: 'vividLandscape' as const, label: t.filterVividLandscape || 'Vivid Landscape' },
+                { id: 'blackWhiteClassic' as const, label: t.filterBlackWhiteClassic || 'Black & White Classic' },
               ].map((opt) => (
                 <button
                   key={opt.id}
@@ -472,6 +457,23 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                   {opt.label}
                 </button>
               ))}
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">
+                Filter intensity
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={Math.round((settings.filterIntensity ?? 0.8) * 100)}
+                onChange={(e) => updateSetting('filterIntensity', Number(e.target.value) / 100)}
+                className="w-full"
+              />
+              <div className="mt-1 text-xs text-stone-500">
+                {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+              </div>
             </div>
           </section>
 

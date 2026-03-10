@@ -58,7 +58,22 @@ export type SettingsType = {
   showDate: boolean;
   showLocation: boolean;
   showWeather: boolean;
-  filter: 'none' | 'polaroid' | 'film' | 'ccd' | 'vintageTravel' | 'vintage' | 'bw' | 'warm' | 'fresh' | 'spectacular' | 'cool' | 'fade' | 'dreamy' | 'cinematic' | 'vivid';
+  /** 旅行照片滤镜类型（前端 + Admin 可配置） */
+  filter:
+    | 'original'
+    | 'filmTravel'
+    | 'polaroid'
+    | 'summerBright'
+    | 'goldenSunset'
+    | 'tokyoNight'
+    | 'nordicCool'
+    | 'vintageEurope'
+    | 'cinematic'
+    | 'dreamy'
+    | 'vividLandscape'
+    | 'blackWhiteClassic';
+  /** 滤镜强度（0–1），0 表示关闭效果但仍保留类型选择 */
+  filterIntensity?: number;
   paperType: 'standard' | 'premium' | 'textured';
   stampStyle: 'classic' | 'modern' | 'none';
   message: string;
@@ -157,7 +172,8 @@ export const defaultSettings: SettingsType = { // Exported
   showDate: true,
   showLocation: true,
   showWeather: true,
-  filter: 'none',
+  filter: 'original',
+  filterIntensity: 0.8,
   paperType: 'standard',
   stampStyle: 'classic',
   message: '',
