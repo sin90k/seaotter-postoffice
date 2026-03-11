@@ -268,24 +268,24 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
         <div
           {...getRootProps()}
           className={cn(
-            "border-2 border-dashed rounded-2xl p-16 flex flex-col items-center justify-center text-center cursor-pointer transition-colors h-full min-h-[300px]",
+            "border-2 border-dashed rounded-2xl px-6 py-8 sm:px-10 sm:py-10 flex flex-col items-center justify-center text-center cursor-pointer transition-colors min-h-[190px] sm:min-h-[220px]",
             isDragActive ? "border-stone-900 bg-stone-50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
           )}
         >
           <input {...getInputProps()} />
-          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mb-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
             {isProcessingFiles ? (
-              <Loader2 className="w-10 h-10 text-stone-600 animate-spin" />
+              <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-stone-600 animate-spin" />
             ) : (
-              <UploadCloud className="w-10 h-10 text-stone-600" />
+              <UploadCloud className="w-7 h-7 sm:w-8 sm:h-8 text-stone-600" />
             )}
           </div>
-          <p className="font-medium text-lg text-stone-900 mb-2">
+          <p className="font-medium text-base sm:text-lg text-stone-900 mb-1.5">
             {isProcessingFiles ? t.processing : t.dropzone}
           </p>
-          <p className="text-stone-500">{t.supports}</p>
+          <p className="text-sm text-stone-500">{t.supports}</p>
           
-          <div className="mt-6 flex items-center gap-4">
+          <div className="mt-4 flex items-center gap-4">
             <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
             <span className="text-xs text-stone-400 uppercase tracking-widest font-medium">or</span>
             <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
@@ -314,7 +314,7 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
               };
               input.click();
             }}
-            className="mt-6 px-5 py-2.5 rounded-xl border-2 border-dashed border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all flex items-center gap-2 mx-auto"
+            className="mt-4 px-5 py-3 rounded-xl border-2 border-dashed border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all flex items-center gap-2 mx-auto min-h-[44px]"
           >
             <FolderUp className="w-5 h-5" />
             {t.uploadFolder}
@@ -358,7 +358,7 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
                 />
                 <button
                   onClick={() => removePhoto(photo.id)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-stone-200 rounded-full flex items-center justify-center text-stone-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-stone-200 rounded-full flex items-center justify-center text-stone-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -368,11 +368,11 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
         </div>
       )}
 
-      <div className="mt-auto pt-8 flex justify-end">
+      <div className="mt-auto pt-6 pb-[max(8px,env(safe-area-inset-bottom))] flex justify-end">
         <button
           onClick={onNext}
           disabled={photos.length === 0}
-          className="bg-stone-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="w-full sm:w-auto bg-stone-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[46px]"
         >
           {t.continue}
           <ImagePlus className="w-4 h-4" />

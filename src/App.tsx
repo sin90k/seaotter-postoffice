@@ -985,7 +985,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 sm:p-8 min-h-[600px] flex flex-col"
+              className="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 sm:p-8 min-h-[calc(100dvh-170px)] sm:min-h-[600px] flex flex-col"
             >
               {currentStep === 1 && (
                 <Step1Upload 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type MouseEvent } from 'react';
 import { ConfigGroup, SettingsType, defaultSettings } from '../App';
 import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History, Type, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -255,6 +255,8 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
   const existingGroup = editingGroupId ? configGroups.find(g => g.id === editingGroupId) : null;
 
   const [hoverFilterId, setHoverFilterId] = useState<SettingsType['filter'] | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [hoverPreviewPos, setHoverPreviewPos] = useState({ x: 0, y: 0 });
   const hoverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Preload filter thumbnails when component mounts
@@ -265,10 +267,31 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
     });
   }, []);
 
-  const handleFilterMouseEnter = useCallback((id: SettingsType['filter']) => {
-    if (hoverDebounceRef.current) clearTimeout(hoverDebounceRef.current);
-    hoverDebounceRef.current = setTimeout(() => setHoverFilterId(id), HOVER_DEBOUNCE_MS);
+  useEffect(() => {
+    const media = window.matchMedia('(hover: none), (pointer: coarse)');
+    const update = () => setIsTouchDevice(media.matches);
+    update();
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverDebounceRef.current) clearTimeout(hoverDebounceRef.current);
+    };
+  }, []);
+
+  const handleFilterMouseEnter = useCallback((id: SettingsType['filter'], e: MouseEvent<HTMLButtonElement>) => {
+    if (isTouchDevice || !previewImageUrl) return;
+    if (hoverDebounceRef.current) clearTimeout(hoverDebounceRef.current);
+    setHoverPreviewPos({ x: e.clientX, y: e.clientY });
+    hoverDebounceRef.current = setTimeout(() => setHoverFilterId(id), HOVER_DEBOUNCE_MS);
+  }, [isTouchDevice, previewImageUrl]);
+
+  const handleFilterMouseMove = useCallback((e: MouseEvent<HTMLButtonElement>) => {
+    if (isTouchDevice || !hoverFilterId) return;
+    setHoverPreviewPos({ x: e.clientX, y: e.clientY });
+  }, [isTouchDevice, hoverFilterId]);
 
   const handleFilterMouseLeave = useCallback(() => {
     if (hoverDebounceRef.current) {
@@ -305,8 +328,6 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
   const updateSetting = <K extends keyof SettingsType>(key: K, value: SettingsType[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
-
-  const effectiveFilterId = hoverFilterId ?? settings.filter;
 
   const handleSave = () => {
     onSave({
@@ -345,7 +366,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
               <BoxSelect className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.sizeUseCase || t.size}</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
               {([
                 { id: '4x6', label: t.size4x6 || '4×6' },
                 { id: '5x7', label: t.size5x7 || '5×7' },
@@ -357,7 +378,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                   key={id}
                   onClick={() => updateSetting('size', id)}
                   className={cn(
-                    "border-2 rounded-xl p-3 text-center transition-all",
+                    "border-2 rounded-xl p-3 text-center transition-all min-h-[46px] active:scale-[0.98]",
                     settings.size === id
                       ? "border-stone-900 bg-stone-50 text-stone-900 font-medium"
                       : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
@@ -404,11 +425,11 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
               <LayoutTemplate className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.fit}</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <button
                 onClick={() => updateSetting('fill', 'fill')}
                 className={cn(
-                  "border-2 rounded-xl p-4 text-left transition-all",
+                  "border-2 rounded-xl p-4 text-left transition-all min-h-[64px] active:scale-[0.98]",
                   settings.fill === 'fill'
                     ? "border-stone-900 bg-stone-50 text-stone-900 font-medium"
                     : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
@@ -420,7 +441,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
               <button
                 onClick={() => updateSetting('fill', 'border')}
                 className={cn(
-                  "border-2 rounded-xl p-4 text-left transition-all",
+                  "border-2 rounded-xl p-4 text-left transition-all min-h-[64px] active:scale-[0.98]",
                   settings.fill === 'border'
                     ? "border-stone-900 bg-stone-50 text-stone-900 font-medium"
                     : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
@@ -432,7 +453,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
               <button
                 onClick={() => updateSetting('fill', 'bottom-border')}
                 className={cn(
-                  "border-2 rounded-xl p-4 text-left transition-all",
+                  "border-2 rounded-xl p-4 text-left transition-all min-h-[64px] active:scale-[0.98]",
                   settings.fill === 'bottom-border'
                     ? "border-stone-900 bg-stone-50 text-stone-900 font-medium"
                     : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
@@ -460,7 +481,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                   key={opt.id}
                   onClick={() => updateSetting('font', opt.id)}
                   className={cn(
-                    "py-3 px-4 rounded-xl border-2 transition-all text-sm font-medium",
+                    "py-3 px-4 rounded-xl border-2 transition-all text-sm font-medium min-h-[44px] active:scale-[0.98]",
                     settings.font === opt.id
                       ? "border-stone-900 bg-stone-50 text-stone-900"
                       : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
@@ -472,132 +493,103 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             </div>
           </section>
 
-          {/* 照片滤镜 — 现代卡片布局：左预览 + 右缩略图列表 */}
+          {/* 照片滤镜 — 默认不显示预览，仅 hover 时显示浮层 */}
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Image className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.filter || 'Photo Filter'}</h3>
             </div>
-            <div className="rounded-2xl border border-stone-200 bg-gradient-to-br from-stone-50 via-white to-stone-50/80 p-4 sm:p-5">
-              <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-                {/* 左侧：主预览 + 强度控制 */}
-                <div className="flex-1 min-w-0 flex flex-col gap-4">
-                  <div className="flex items-center justify-between text-xs text-stone-500">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="inline-flex h-6 items-center rounded-full border border-stone-200 bg-white/80 px-3 text-[11px] font-medium text-stone-600">
-                        {t.filter || 'Photo Filter'}
-                        <span className="mx-1 text-stone-300">·</span>
-                        <span className="text-stone-900">
-                          {(t as any)[FILTER_OPTIONS.find(f => f.id === effectiveFilterId)?.labelKey || 'filterNone'] ??
-                            effectiveFilterId}
-                        </span>
-                      </span>
-                    </span>
-                    <span className="uppercase tracking-[0.12em] text-[10px] text-stone-400">
-                      REAL-TIME PREVIEW
-                    </span>
-                  </div>
-                  <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-stone-100/60 min-h-[140px] flex items-center justify-center">
-                    {previewImageUrl ? (
-                      <FilterPreviewCanvas
-                        imageUrl={previewImageUrl}
-                        filterId={effectiveFilterId}
-                        intensity={settings.filterIntensity ?? 0.8}
-                        maxWidth={480}
-                        maxHeight={320}
-                        className="max-h-[320px] w-auto"
+            <div className="rounded-2xl border border-stone-200 bg-white p-3 sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="text-[11px] font-semibold text-stone-500 tracking-[0.14em] uppercase">
+                  {isTouchDevice ? 'TAP TO APPLY' : 'HOVER TO PREVIEW, CLICK TO APPLY'}
+                </span>
+                <span className="text-xs text-stone-500">
+                  {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+                </span>
+              </div>
+              <div
+                className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3"
+                onMouseLeave={handleFilterMouseLeave}
+              >
+                {FILTER_OPTIONS.map((opt) => {
+                  const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
+                  const isHovered = hoverFilterId === opt.id;
+                  const isSelected = settings.filter === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => updateSetting('filter', opt.id)}
+                      onMouseEnter={(e) => handleFilterMouseEnter(opt.id, e)}
+                      onMouseMove={handleFilterMouseMove}
+                      className={cn(
+                        'group min-h-[102px] sm:min-h-[108px] rounded-xl border bg-white px-2 py-2.5 transition-all active:scale-[0.98] touch-manipulation',
+                        'flex flex-col items-center justify-center gap-1.5',
+                        isSelected
+                          ? 'border-stone-900 text-stone-900 shadow-[0_0_0_1px_rgba(15,23,42,0.2)]'
+                          : 'border-stone-200 text-stone-500 hover:border-stone-400 hover:text-stone-800',
+                        isHovered && !isSelected ? 'border-stone-500 bg-stone-50/80 text-stone-800' : null
+                      )}
+                    >
+                      <img
+                        src={`${THUMB_BASE}/${opt.id}.png`}
+                        alt=""
+                        width={THUMB_SIZE}
+                        height={THUMB_SIZE}
+                        className={cn(
+                          'w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg transition-transform duration-150',
+                          !isTouchDevice ? 'group-hover:scale-[1.03]' : null
+                        )}
                       />
-                    ) : (
-                      <div className="py-10 px-6 text-center text-xs text-stone-400">
-                        {language === 'zh'
-                          ? '上传一张照片后，可以在这里实时预览不同滤镜效果。'
-                          : 'Upload a photo to preview filters here in real time.'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-1.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-stone-500 tracking-[0.16em] uppercase">
-                        FILTER INTENSITY
-                      </label>
-                      <span className="text-xs text-stone-500">
-                        {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+                      <span className="text-[11px] sm:text-xs font-medium text-center leading-tight line-clamp-2">
+                        {label}
                       </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={Math.round((settings.filterIntensity ?? 0.8) * 100)}
-                      onChange={(e) => updateSetting('filterIntensity', Number(e.target.value) / 100)}
-                      className="w-full accent-stone-900"
-                    />
-                  </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-stone-500 tracking-[0.16em] uppercase">
+                    Filter intensity
+                  </label>
+                  <span className="text-xs text-stone-500">
+                    {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+                  </span>
                 </div>
-
-                {/* 右侧：可滚动滤镜缩略图面板 */}
-                <div
-                  className="w-full md:w-[260px] lg:w-[280px] flex-shrink-0 rounded-xl border border-stone-200 bg-white/90 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
-                  onMouseLeave={handleFilterMouseLeave}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-semibold text-stone-500 tracking-[0.16em] uppercase">
-                      FILTER PRESETS
-                    </span>
-                    <span className="text-[11px] text-stone-400">{FILTER_OPTIONS.length}</span>
-                  </div>
-                  <div className="max-h-[260px] overflow-y-auto pr-1 grid grid-cols-2 gap-2.5 custom-scrollbar">
-                    {FILTER_OPTIONS.map((opt) => {
-                      const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
-                      const isHovered = hoverFilterId === opt.id;
-                      const isSelected = settings.filter === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => updateSetting('filter', opt.id)}
-                          onMouseEnter={() => handleFilterMouseEnter(opt.id)}
-                          className={cn(
-                            'group flex flex-col items-center rounded-xl border text-[11px] px-2.5 py-2 transition-all shadow-sm/10',
-                            'bg-white/90 backdrop-blur-sm',
-                            isSelected
-                              ? 'border-stone-900 text-stone-900 shadow-[0_0_0_1px_rgba(15,23,42,0.18)]'
-                              : 'border-stone-200 text-stone-500 hover:border-stone-400 hover:text-stone-800 hover:shadow-[0_8px_18px_rgba(15,23,42,0.08)]',
-                            isHovered && !isSelected ? 'border-stone-500 bg-stone-50/80 text-stone-800' : null
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              'relative w-[56px] h-[56px] rounded-lg overflow-hidden mb-1',
-                              'bg-gradient-to-br from-stone-100 via-stone-50 to-stone-100'
-                            )}
-                          >
-                            <img
-                              src={`${THUMB_BASE}/${opt.id}.png`}
-                              alt=""
-                              width={THUMB_SIZE}
-                              height={THUMB_SIZE}
-                              className={cn(
-                                'absolute inset-0 w-full h-full object-cover transition-transform duration-150',
-                                'group-hover:scale-[1.04]',
-                                isHovered ? 'ring-2 ring-stone-300' : null
-                              )}
-                            />
-                            {isSelected && (
-                              <div className="absolute inset-0 ring-2 ring-stone-900 rounded-lg pointer-events-none" />
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-center leading-snug line-clamp-2">
-                            {label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={Math.round((settings.filterIntensity ?? 0.8) * 100)}
+                  onChange={(e) => updateSetting('filterIntensity', Number(e.target.value) / 100)}
+                  className="w-full accent-stone-900 h-5"
+                />
               </div>
             </div>
+
+            {!isTouchDevice && previewImageUrl && hoverFilterId && (
+              <div
+                className="fixed z-40 pointer-events-none"
+                style={{
+                  left: `${Math.min(window.innerWidth - 230, hoverPreviewPos.x + 18)}px`,
+                  top: `${Math.max(12, hoverPreviewPos.y - 150)}px`,
+                }}
+              >
+                <div className="rounded-xl border border-stone-200 bg-white/95 shadow-xl p-2 backdrop-blur-sm">
+                  <FilterPreviewCanvas
+                    imageUrl={previewImageUrl}
+                    filterId={hoverFilterId}
+                    intensity={settings.filterIntensity ?? 0.8}
+                    maxWidth={210}
+                    maxHeight={140}
+                    className="rounded-lg overflow-hidden"
+                  />
+                </div>
+              </div>
+            )}
           </section>
 
           {/* AI Features */}
@@ -702,7 +694,7 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                   key={style.id}
                   onClick={() => updateSetting('copywritingStyle', style.id as any)}
                   className={cn(
-                    "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
+                    "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all min-h-[78px] active:scale-[0.98]",
                     settings.copywritingStyle === style.id
                       ? "border-stone-900 bg-stone-50 text-stone-900"
                       : "border-stone-100 text-stone-400 hover:border-stone-200 hover:bg-stone-50/50"
@@ -717,11 +709,11 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
         </div>
       </div>
 
-      <div className="mt-auto pt-6 flex items-center justify-between border-t border-stone-100">
-        <button onClick={onCancel} className="text-stone-500 hover:text-stone-900 px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2">
+      <div className="mt-auto pt-6 pb-[max(8px,env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 sm:gap-0 sm:justify-between border-t border-stone-100">
+        <button onClick={onCancel} className="text-stone-500 hover:text-stone-900 px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 min-h-[44px]">
           <ArrowLeft className="w-4 h-4" /> {t.back}
         </button>
-        <button onClick={handleSave} className="bg-stone-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center gap-2">
+        <button onClick={handleSave} className="w-full sm:w-auto bg-stone-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center justify-center gap-2 min-h-[46px]">
           {t.continue} <CheckCircle2 className="w-4 h-4" />
         </button>
       </div>
