@@ -472,78 +472,130 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             </div>
           </section>
 
-          {/* 照片滤镜 — thumbnails + hover/click preview */}
+          {/* 照片滤镜 — 现代卡片布局：左预览 + 右缩略图列表 */}
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Image className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.filter || 'Photo Filter'}</h3>
             </div>
-            {previewImageUrl && (
-              <div className="mb-4 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 flex justify-center items-center min-h-[120px]">
-                <FilterPreviewCanvas
-                  imageUrl={previewImageUrl}
-                  filterId={effectiveFilterId}
-                  intensity={settings.filterIntensity ?? 0.8}
-                  maxWidth={400}
-                  maxHeight={280}
-                  className="max-h-[280px] w-auto"
-                />
-              </div>
-            )}
-            <div
-              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3"
-              onMouseLeave={handleFilterMouseLeave}
-            >
-              {FILTER_OPTIONS.map((opt) => {
-                const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
-                const isHovered = hoverFilterId === opt.id;
-                const isSelected = settings.filter === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => updateSetting('filter', opt.id)}
-                    onMouseEnter={() => handleFilterMouseEnter(opt.id)}
-                    className={cn(
-                      'flex flex-col items-center rounded-xl border-2 transition-all p-2',
-                      isSelected
-                        ? 'border-stone-900 bg-stone-50 text-stone-900'
-                        : 'border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50',
-                      isHovered && !isSelected ? 'border-stone-500 bg-white text-stone-700 shadow-sm' : null
-                    )}
-                  >
-                    <img
-                      src={`${THUMB_BASE}/${opt.id}.png`}
-                      alt=""
-                      width={THUMB_SIZE}
-                      height={THUMB_SIZE}
-                      className={cn(
-                        'w-16 h-16 sm:w-[72px] sm:h-[72px] object-cover rounded-lg shrink-0',
-                        isHovered ? 'ring-2 ring-stone-300' : null
-                      )}
-                    />
-                    <span className="mt-1.5 text-xs font-medium text-center leading-tight line-clamp-2">
-                      {label}
+            <div className="rounded-2xl border border-stone-200 bg-gradient-to-br from-stone-50 via-white to-stone-50/80 p-4 sm:p-5">
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                {/* 左侧：主预览 + 强度控制 */}
+                <div className="flex-1 min-w-0 flex flex-col gap-4">
+                  <div className="flex items-center justify-between text-xs text-stone-500">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex h-6 items-center rounded-full border border-stone-200 bg-white/80 px-3 text-[11px] font-medium text-stone-600">
+                        {t.filter || 'Photo Filter'}
+                        <span className="mx-1 text-stone-300">·</span>
+                        <span className="text-stone-900">
+                          {(t as any)[FILTER_OPTIONS.find(f => f.id === effectiveFilterId)?.labelKey || 'filterNone'] ??
+                            effectiveFilterId}
+                        </span>
+                      </span>
                     </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-4">
-              <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">
-                Filter intensity
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={Math.round((settings.filterIntensity ?? 0.8) * 100)}
-                onChange={(e) => updateSetting('filterIntensity', Number(e.target.value) / 100)}
-                className="w-full"
-              />
-              <div className="mt-1 text-xs text-stone-500">
-                {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+                    <span className="uppercase tracking-[0.12em] text-[10px] text-stone-400">
+                      REAL-TIME PREVIEW
+                    </span>
+                  </div>
+                  <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-stone-100/60 min-h-[140px] flex items-center justify-center">
+                    {previewImageUrl ? (
+                      <FilterPreviewCanvas
+                        imageUrl={previewImageUrl}
+                        filterId={effectiveFilterId}
+                        intensity={settings.filterIntensity ?? 0.8}
+                        maxWidth={480}
+                        maxHeight={320}
+                        className="max-h-[320px] w-auto"
+                      />
+                    ) : (
+                      <div className="py-10 px-6 text-center text-xs text-stone-400">
+                        {language === 'zh'
+                          ? '上传一张照片后，可以在这里实时预览不同滤镜效果。'
+                          : 'Upload a photo to preview filters here in real time.'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-1.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-stone-500 tracking-[0.16em] uppercase">
+                        FILTER INTENSITY
+                      </label>
+                      <span className="text-xs text-stone-500">
+                        {Math.round((settings.filterIntensity ?? 0.8) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={Math.round((settings.filterIntensity ?? 0.8) * 100)}
+                      onChange={(e) => updateSetting('filterIntensity', Number(e.target.value) / 100)}
+                      className="w-full accent-stone-900"
+                    />
+                  </div>
+                </div>
+
+                {/* 右侧：可滚动滤镜缩略图面板 */}
+                <div
+                  className="w-full md:w-[260px] lg:w-[280px] flex-shrink-0 rounded-xl border border-stone-200 bg-white/90 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+                  onMouseLeave={handleFilterMouseLeave}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-semibold text-stone-500 tracking-[0.16em] uppercase">
+                      FILTER PRESETS
+                    </span>
+                    <span className="text-[11px] text-stone-400">{FILTER_OPTIONS.length}</span>
+                  </div>
+                  <div className="max-h-[260px] overflow-y-auto pr-1 grid grid-cols-2 gap-2.5 custom-scrollbar">
+                    {FILTER_OPTIONS.map((opt) => {
+                      const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
+                      const isHovered = hoverFilterId === opt.id;
+                      const isSelected = settings.filter === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateSetting('filter', opt.id)}
+                          onMouseEnter={() => handleFilterMouseEnter(opt.id)}
+                          className={cn(
+                            'group flex flex-col items-center rounded-xl border text-[11px] px-2.5 py-2 transition-all shadow-sm/10',
+                            'bg-white/90 backdrop-blur-sm',
+                            isSelected
+                              ? 'border-stone-900 text-stone-900 shadow-[0_0_0_1px_rgba(15,23,42,0.18)]'
+                              : 'border-stone-200 text-stone-500 hover:border-stone-400 hover:text-stone-800 hover:shadow-[0_8px_18px_rgba(15,23,42,0.08)]',
+                            isHovered && !isSelected ? 'border-stone-500 bg-stone-50/80 text-stone-800' : null
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'relative w-[56px] h-[56px] rounded-lg overflow-hidden mb-1',
+                              'bg-gradient-to-br from-stone-100 via-stone-50 to-stone-100'
+                            )}
+                          >
+                            <img
+                              src={`${THUMB_BASE}/${opt.id}.png`}
+                              alt=""
+                              width={THUMB_SIZE}
+                              height={THUMB_SIZE}
+                              className={cn(
+                                'absolute inset-0 w-full h-full object-cover transition-transform duration-150',
+                                'group-hover:scale-[1.04]',
+                                isHovered ? 'ring-2 ring-stone-300' : null
+                              )}
+                            />
+                            {isSelected && (
+                              <div className="absolute inset-0 ring-2 ring-stone-900 rounded-lg pointer-events-none" />
+                            )}
+                          </div>
+                          <span className="text-[11px] font-medium text-center leading-snug line-clamp-2">
+                            {label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </section>
