@@ -8,7 +8,7 @@ import { CountryConfig } from '../config/countries';
 
 interface Props {
   onClose: () => void;
-  onBuyCredits: (amount: number) => void;
+  onBuyCredits: (amount: number, provider?: string) => void;
   isLoggedIn: boolean;
   onRequireLogin: () => void;
   language: string;
@@ -32,6 +32,7 @@ const translations: Record<string, any> = {
     selectPayment: "Select Payment Method",
     purchasing: "Processing",
     creditCard: "Credit Card",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     backToPlans: "Back to plans",
@@ -72,6 +73,7 @@ const translations: Record<string, any> = {
     selectPayment: "选择支付方式",
     purchasing: "正在处理",
     creditCard: "信用卡",
+    paypal: "PayPal 支付",
     alipay: "支付宝",
     wechat: "微信支付",
     backToPlans: "返回方案",
@@ -117,6 +119,7 @@ const translations: Record<string, any> = {
     purchasing: "購入中",
     subscribingTo: "購読中",
     creditCard: "クレジットカード",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -151,6 +154,7 @@ const translations: Record<string, any> = {
     purchasing: "구매 중",
     subscribingTo: "구독 중",
     creditCard: "신용카드",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -185,6 +189,7 @@ const translations: Record<string, any> = {
     purchasing: "Achat de",
     subscribingTo: "Abonnement à",
     creditCard: "Carte de crédit",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -219,6 +224,7 @@ const translations: Record<string, any> = {
     purchasing: "Comprando",
     subscribingTo: "Suscribiéndose a",
     creditCard: "Tarjeta de crédito",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -287,6 +293,7 @@ const translations: Record<string, any> = {
     purchasing: "Acquisto",
     subscribingTo: "Abbonamento a",
     creditCard: "Carta di Credito",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -321,6 +328,7 @@ const translations: Record<string, any> = {
     purchasing: "Membeli",
     subscribingTo: "Berlangganan",
     creditCard: "Kartu Kredit",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -355,6 +363,7 @@ const translations: Record<string, any> = {
     purchasing: "กำลังซื้อ",
     subscribingTo: "กำลังสมัคร",
     creditCard: "บัตรเครดิต",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -389,6 +398,7 @@ const translations: Record<string, any> = {
     purchasing: "Đang mua",
     subscribingTo: "Đang đăng ký",
     creditCard: "Thẻ tín dụng",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -423,6 +433,7 @@ const translations: Record<string, any> = {
     purchasing: "Membeli",
     subscribingTo: "Melanggan",
     creditCard: "Kad Kredit",
+    paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
     features: {
@@ -462,6 +473,15 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
       onRequireLogin();
       return;
     }
+    // 若尚未配置收款方式，则禁止进入支付流程
+    if (!wechatQr && !alipayQr) {
+      if (language === 'zh') {
+        alert('当前尚未配置收款方式，暂时无法完成支付，请稍后再试或联系管理员。');
+      } else {
+        alert('Payment is not configured yet. Please contact the admin before purchasing.');
+      }
+      return;
+    }
     setSelectedPlan(level);
     setShowPayment(true);
   };
@@ -471,17 +491,26 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
       onRequireLogin();
       return;
     }
+    // 若尚未配置收款方式，则禁止进入支付流程
+    if (!wechatQr && !alipayQr) {
+      if (language === 'zh') {
+        alert('当前尚未配置收款方式，暂时无法完成支付，请稍后再试或联系管理员。');
+      } else {
+        alert('Payment is not configured yet. Please contact the admin before purchasing.');
+      }
+      return;
+    }
     setSelectedPlan(amount);
     setShowPayment(true);
   };
 
-  const confirmPurchase = () => {
+  const confirmPurchase = (provider?: string) => {
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       setShowPayment(false);
       if (typeof selectedPlan === 'number') {
-        onBuyCredits(selectedPlan);
+        onBuyCredits(selectedPlan, provider);
       }
       onClose();
     }, 2000);
@@ -514,6 +543,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
   ];
 
   const renderPaymentIcon = (provider: string) => {
+    if (provider.includes('PayPal')) return <Wallet className="w-5 h-5 text-sky-500" />;
     if (provider.includes('Card')) return <CreditCard className="w-5 h-5" />;
     if (provider.includes('Alipay')) return <Wallet className="w-5 h-5 text-blue-500" />;
     if (provider.includes('WeChat')) return <Smartphone className="w-5 h-5 text-green-500" />;
@@ -691,7 +721,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                   {countryConfig.payment.map((provider) => (
                     <button
                       key={provider}
-                      onClick={confirmPurchase}
+                      onClick={() => confirmPurchase(provider)}
                       disabled={isProcessing}
                       className="w-full p-4 rounded-2xl border border-stone-100 hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-between group"
                     >
@@ -700,9 +730,15 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                           {renderPaymentIcon(provider)}
                         </div>
                         <span className="font-medium text-stone-900">
-                          {provider === 'Credit/Debit Card' ? t.creditCard : 
-                           provider === 'Alipay' ? t.alipay : 
-                           provider === 'WeChat Pay' ? t.wechat : provider}
+                          {provider === 'Credit/Debit Card'
+                            ? t.creditCard
+                            : provider === 'Alipay'
+                            ? t.alipay
+                            : provider === 'WeChat Pay'
+                            ? t.wechat
+                            : provider === 'PayPal'
+                            ? (t.paypal ?? 'PayPal')
+                            : provider}
                         </span>
                       </div>
                       <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-stone-900 transition-colors" />

@@ -209,3 +209,47 @@ DROP POLICY IF EXISTS "Admins can read all postcards" ON public.postcards;
 CREATE POLICY "Admins can read all postcards"
   ON public.postcards FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+
+-- ========== payments 表（支付订单，人工确认后自动充值） ==========
+CREATE TABLE IF NOT EXISTS public.payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount integer NOT NULL, -- 购买的积分数量
+  status text NOT NULL CHECK (status IN ('pending', 'paid', 'cancelled')),
+  provider text, -- wechat / alipay / paypal / other
+  note text, -- 备注或渠道单号
+  created_at timestamptz DEFAULT now(),
+  paid_at timestamptz,
+  meta jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON public.payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON public.payments(created_at DESC);
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+-- 普通用户可以插入自己的 pending 订单（前台创建）
+DROP POLICY IF EXISTS "Users can insert own pending payments" ON public.payments;
+CREATE POLICY "Users can insert own pending payments"
+  ON public.payments FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND status = 'pending');
+
+-- 普通用户可以查看自己的订单（仅前台展示）
+DROP POLICY IF EXISTS "Users can read own payments" ON public.payments;
+CREATE POLICY "Users can read own payments"
+  ON public.payments FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Admin/Support 可读取全部订单（后台列表）
+DROP POLICY IF EXISTS "Admins can read all payments" ON public.payments;
+CREATE POLICY "Admins can read all payments"
+  ON public.payments FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+
+-- 仅 admin 可以更新订单状态（标记已支付 / 取消）
+DROP POLICY IF EXISTS "Admins can update any payments" ON public.payments;
+CREATE POLICY "Admins can update any payments"
+  ON public.payments FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
+  WITH CHECK (true);

@@ -35,7 +35,8 @@ export const countriesConfig: CountryConfig[] = [
     nativeLanguage: "简体中文",
     langCode: "zh",
     login: ["Email+Password", "Phone+SMS", "WeChat/QQ/Weibo"],
-    payment: ["Alipay", "WeChat Pay", "Credit/Debit Card"],
+    // 中国区只提供个人支付宝 / 微信 / PayPal 收款，不展示信用卡
+    payment: ["Alipay", "WeChat Pay", "PayPal"],
     imageRules: { resize: "1480x1000", template: "cn_standard", overlay: "red_stamp" },
     currency: { symbol: "¥", code: "CNY" },
     pricing: {

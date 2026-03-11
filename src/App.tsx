@@ -15,8 +15,7 @@ import UserProfileModal from './components/UserProfileModal';
 import { CountryConfig, countriesConfig } from './config/countries';
 import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
-import { supabase, isSupabaseConnected } from './lib/supabaseClient';
-import { syncCreditsToSupabase } from './lib/profileSync';
+import { supabase } from './lib/supabaseClient';
 import { logEvent } from './lib/events';
 
 
@@ -1085,17 +1084,47 @@ export default function App() {
               setShowAuth(true);
             }}
             onClose={() => setShowPricing(false)}
-            onBuyCredits={(amount) => {
-              setUser(prev => {
-                const newPaid = (prev.paid_credits ?? 0) + amount;
-                const newCredits = (prev.promo_credits ?? 0) + newPaid;
-                if (prev.id && isSupabaseConnected) {
-                  syncCreditsToSupabase(prev.id, prev.promo_credits ?? 0, newPaid, prev.generatedCount || 0).catch(console.error);
+            onBuyCredits={async (amount, selectedProvider) => {
+              // 创建 payments 订单，但不直接加积分，防止未确认支付被误充值。
+              if (!user.isLoggedIn || !user.id) {
+                if (language === 'zh') {
+                  alert('请先登录账号，再发起购买请求。');
+                } else {
+                  alert('Please log in before creating a purchase request.');
                 }
-                logEvent('credits_purchased', { amount });
-                return { ...prev, paid_credits: newPaid, credits: newCredits };
-              });
-              setShowPricing(false);
+                setShowPricing(false);
+                return;
+              }
+              try {
+                const { data, error } = await supabase
+                  .from('payments')
+                  .insert({
+                    user_id: user.id,
+                    amount,
+                    status: 'pending',
+                    provider: selectedProvider || null,
+                  })
+                  .select('id, created_at')
+                  .single();
+                if (error) {
+                  console.error('[App] create payment order failed:', error);
+                  throw error;
+                }
+                logEvent('credits_purchased', { amount, manual: true, payment_id: data?.id, provider: selectedProvider });
+                if (language === 'zh') {
+                  alert(`已创建购买订单：\n订单编号：${data?.id}\n积分数量：${amount}\n\n请用户扫码支付后，由管理员在后台「支付订单」中标记为已支付，系统会自动为该账号充值积分。`);
+                } else {
+                  alert(`Created purchase order.\nOrder ID: ${data?.id}\nAmount: ${amount} credits.\n\nPlease complete the payment, then an admin should mark this order as paid in the dashboard to apply credits.`);
+                }
+              } catch (e: any) {
+                if (language === 'zh') {
+                  alert(`创建购买订单失败，请稍后重试。\n错误：${e?.message || e}`);
+                } else {
+                  alert(`Failed to create purchase order. Please try again later.\nError: ${e?.message || e}`);
+                }
+              } finally {
+                setShowPricing(false);
+              }
             }}
           />
         )}
