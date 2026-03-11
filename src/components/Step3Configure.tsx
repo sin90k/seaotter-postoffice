@@ -498,6 +498,9 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             <div className="flex items-center gap-2 mb-4">
               <Image className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.filter || 'Photo Filter'}</h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-stone-200 text-stone-500 bg-stone-50">
+                {isTouchDevice ? 'Touch Mode' : 'Hover Preview Mode'}
+              </span>
             </div>
             <div className="rounded-2xl border border-stone-200 bg-white p-3 sm:p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
