@@ -96,7 +96,7 @@ export default function AdminFilters() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
-                    Numeric parameters (-60 to +60)
+                    Numeric parameters (-100 to +100)
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                     {[
@@ -128,8 +128,8 @@ export default function AdminFilters() {
                             })
                           }
                           className="border border-stone-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
-                          min={-60}
-                          max={60}
+                          min={-100}
+                          max={100}
                         />
                       </label>
                     ))}

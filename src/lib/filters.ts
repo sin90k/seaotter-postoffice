@@ -176,7 +176,7 @@ const addDigitalNoise = (
   }
 };
 
-/** 数值滤镜参数（-60 ~ +60），与 config/travelFilters.ts 对应 */
+/** 数值滤镜参数（-100 ~ +100），与 config/travelFilters.ts 对应 */
 export interface FilterParams {
   exposure: number;
   contrast: number;
@@ -207,13 +207,10 @@ export const applyParamsStyleToImageData = (
 
   const { data } = imageData;
 
-  // 归一化参数：[-60,60] → 合理的数值范围
-  // 说明：
-  // - 先把输入 clamp 到 [-60,60]
-  // - 再按 [-30,30] 映射到 scale，这样 |v|=30 时等于旧系统的最大效果，|v|=60 时效果加倍
+  // 归一化参数：[-100, 100] → 实际效果强度
   const norm = (v: number, scale: number) => {
-    const clamped = Math.max(-60, Math.min(60, v));
-    return (clamped / 30) * scale * safeIntensity;
+    const clamped = Math.max(-100, Math.min(100, v));
+    return (clamped / 100) * scale * safeIntensity;
   };
 
   const exposureOffset = norm(params.exposure, 40); // 亮度偏移，最多 ±40

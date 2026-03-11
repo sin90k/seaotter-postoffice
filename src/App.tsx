@@ -61,17 +61,17 @@ export type SettingsType = {
   /** 旅行照片滤镜类型（前端 + Admin 可配置） */
   filter:
     | 'original'
-    | 'filmTravel'
-    | 'polaroid'
-    | 'summerBright'
+    | 'summer'
+    | 'film'
     | 'goldenSunset'
-    | 'tokyoNight'
-    | 'nordicCool'
-    | 'vintageEurope'
+    | 'tropical'
     | 'cinematic'
-    | 'dreamy'
-    | 'vividLandscape'
-    | 'blackWhiteClassic';
+    | 'polaroid'
+    | 'vintagePostcard'
+    | 'nordic'
+    | 'tokyoNight'
+    | 'moody'
+    | 'underwaterRestore';
   /** 滤镜强度（0–1），0 表示关闭效果但仍保留类型选择 */
   filterIntensity?: number;
   paperType: 'standard' | 'premium' | 'textured';

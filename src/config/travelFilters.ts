@@ -1,18 +1,18 @@
 export type TravelFilterId =
   | 'original'
-  | 'filmTravel'
-  | 'polaroid'
-  | 'summerBright'
+  | 'summer'
+  | 'film'
   | 'goldenSunset'
-  | 'tokyoNight'
-  | 'nordicCool'
-  | 'vintageEurope'
+  | 'tropical'
   | 'cinematic'
-  | 'dreamy'
-  | 'vividLandscape'
-  | 'blackWhiteClassic';
+  | 'polaroid'
+  | 'vintagePostcard'
+  | 'nordic'
+  | 'tokyoNight'
+  | 'moody'
+  | 'underwaterRestore';
 
-/** 数值滤镜参数，范围约为 -30 ~ +30 */
+/** 数值滤镜参数，范围 -100 ~ +100 */
 export interface TravelFilterParams {
   exposure: number;
   contrast: number;
@@ -30,18 +30,16 @@ export interface TravelFilterParams {
 export interface TravelFilterPreset {
   id: TravelFilterId;
   name: string;
-  /** 人类可读的风格描述（给运营看的），不参与计算，可在后台自由编辑。 */
   description: string;
-  /** 数值参数预设，可在后台调节。 */
   params: TravelFilterParams;
 }
 
-/** 默认滤镜预设（仅描述，不包含任何具体数值参数） */
+/** 默认 12 个滤镜，顺序固定 */
 export const defaultTravelFilters: TravelFilterPreset[] = [
   {
     id: 'original',
     name: 'Original',
-    description: 'Keep the photo as it is, with no stylistic adjustments.',
+    description: 'Keep the photo exactly as it is with no color or lighting modification.',
     params: {
       exposure: 0,
       contrast: 0,
@@ -57,213 +55,212 @@ export const defaultTravelFilters: TravelFilterPreset[] = [
     },
   },
   {
-    id: 'filmTravel',
-    name: 'Film Travel',
+    id: 'summer',
+    name: 'Summer',
     description:
-      'Soft film travel look with gentle contrast, slightly faded colors and visible grain, suitable for documentary-style travel postcards.',
+      'Enhance the photo with bright summer sunlight, vibrant colors, and warm highlights similar to a sunny vacation photo.',
     params: {
-      exposure: 2,
-      contrast: 14,
-      saturation: 10,
-      temperature: 8,
-      tint: 2,
-      fade: 6,
-      grain: 20,
-      vignette: 10,
-      sharpness: -2,
-      highlight: -12,
-      shadow: 10,
-    },
-  },
-  {
-    id: 'polaroid',
-    name: 'Polaroid',
-    description:
-      'Instant camera style with warm tones, low contrast, slight fade and noticeable film grain, like a casual snapshot from a vintage Polaroid.',
-    params: {
-      exposure: 6,
-      contrast: -8,
-      saturation: -6,
-      temperature: 8,
-      tint: 1,
-      fade: 22,
-      grain: 10,
-      vignette: 6,
-      sharpness: -4,
-      highlight: -4,
-      shadow: 12,
-    },
-  },
-  {
-    id: 'summerBright',
-    name: 'Summer Bright',
-    description:
-      'Bright, high-key summer look with crisp highlights, slightly increased saturation and a clean, sunny atmosphere for beaches and blue skies.',
-    params: {
-      exposure: 8,
-      contrast: 12,
-      saturation: 20,
-      temperature: 12,
-      tint: 2,
+      exposure: 35,
+      contrast: 35,
+      saturation: 60,
+      temperature: 40,
+      tint: 10,
       fade: 0,
-      grain: 2,
-      vignette: 4,
-      sharpness: 4,
-      highlight: -10,
-      shadow: 10,
+      grain: 5,
+      vignette: 10,
+      sharpness: 15,
+      highlight: -35,
+      shadow: 35,
+    },
+  },
+  {
+    id: 'film',
+    name: 'Film',
+    description:
+      'Apply a classic travel film photography style similar to Kodak film with warm tones, strong contrast, and visible film grain.',
+    params: {
+      exposure: 10,
+      contrast: 45,
+      saturation: 30,
+      temperature: 25,
+      tint: 10,
+      fade: 20,
+      grain: 60,
+      vignette: 35,
+      sharpness: -5,
+      highlight: -40,
+      shadow: 30,
     },
   },
   {
     id: 'goldenSunset',
     name: 'Golden Sunset',
     description:
-      'Warm golden-hour look with strong warm tones, soft contrast and gentle glow in the highlights, ideal for sunsets and evening cityscapes.',
+      'Apply dramatic golden sunset lighting with strong warm orange tones and glowing highlights.',
     params: {
-      exposure: 4,
-      contrast: 16,
-      saturation: 14,
-      temperature: 18,
-      tint: 5,
-      fade: 4,
-      grain: 4,
-      vignette: 8,
-      sharpness: 2,
-      highlight: -20,
-      shadow: 10,
+      exposure: 20,
+      contrast: 50,
+      saturation: 45,
+      temperature: 70,
+      tint: 25,
+      fade: 10,
+      grain: 10,
+      vignette: 20,
+      sharpness: 10,
+      highlight: -60,
+      shadow: 40,
     },
   },
   {
-    id: 'tokyoNight',
-    name: 'Tokyo Night',
+    id: 'tropical',
+    name: 'Tropical',
     description:
-      'High-contrast neon night style with cool shadows, deep blacks and vivid accent colors, inspired by modern Asian city nightlife.',
+      'Enhance the photo with tropical travel colors, strong blue sky and ocean tones, and vibrant greens.',
     params: {
-      exposure: -4,
-      contrast: 24,
-      saturation: 6,
-      temperature: -14,
-      tint: 6,
+      exposure: 30,
+      contrast: 30,
+      saturation: 70,
+      temperature: 20,
+      tint: -5,
       fade: 0,
-      grain: 12,
-      vignette: 18,
-      sharpness: 6,
-      highlight: -22,
-      shadow: 12,
-    },
-  },
-  {
-    id: 'nordicCool',
-    name: 'Nordic Cool',
-    description:
-      'Clean, cool-toned look with low saturation, soft highlights and slightly lifted shadows, evoking minimal Scandinavian landscapes.',
-    params: {
-      exposure: 2,
-      contrast: 18,
-      saturation: -10,
-      temperature: -18,
-      tint: -4,
-      fade: 4,
-      grain: 4,
-      vignette: 8,
-      sharpness: 2,
-      highlight: -10,
-      shadow: 10,
-    },
-  },
-  {
-    id: 'vintageEurope',
-    name: 'Vintage Europe',
-    description:
-      'Muted vintage postcard look with slightly yellowish tones, low saturation, soft contrast and subtle vignetting for old European towns.',
-    params: {
-      exposure: 3,
-      contrast: -6,
-      saturation: -12,
-      temperature: 10,
-      tint: 3,
-      fade: 26,
-      grain: 18,
-      vignette: 12,
-      sharpness: -6,
-      highlight: -14,
-      shadow: 8,
+      grain: 0,
+      vignette: 5,
+      sharpness: 20,
+      highlight: -25,
+      shadow: 25,
     },
   },
   {
     id: 'cinematic',
     name: 'Cinematic',
     description:
-      'Modern cinematic grading with deep contrast, rich midtones, slightly teal shadows and warm highlights, creating a dramatic movie-like feel.',
+      'Apply cinematic teal and orange color grading with dramatic contrast like a movie frame.',
     params: {
-      exposure: -2,
-      contrast: 28,
-      saturation: -4,
-      temperature: -6,
-      tint: 8,
-      fade: 6,
-      grain: 16,
-      vignette: 20,
-      sharpness: 4,
-      highlight: -24,
+      exposure: -10,
+      contrast: 70,
+      saturation: -10,
+      temperature: -20,
+      tint: 35,
+      fade: 15,
+      grain: 40,
+      vignette: 60,
+      sharpness: 20,
+      highlight: -70,
+      shadow: 50,
+    },
+  },
+  {
+    id: 'polaroid',
+    name: 'Polaroid',
+    description:
+      'Transform the image into a nostalgic Polaroid instant camera photo with faded colors, warm tones, and soft contrast.',
+    params: {
+      exposure: 25,
+      contrast: -30,
+      saturation: -20,
+      temperature: 30,
+      tint: 5,
+      fade: 60,
+      grain: 25,
+      vignette: 15,
+      sharpness: -15,
+      highlight: -10,
+      shadow: 35,
+    },
+  },
+  {
+    id: 'vintagePostcard',
+    name: 'Vintage Postcard',
+    description:
+      'Create a warm, faded vintage postcard look with muted colors, gentle contrast, visible soft grain, and a subtle vignette.',
+    params: {
+      exposure: 10,
+      contrast: -20,
+      saturation: -35,
+      temperature: 25,
+      tint: 10,
+      fade: 55,
+      grain: 45,
+      vignette: 30,
+      sharpness: -20,
+      highlight: -25,
       shadow: 20,
     },
   },
   {
-    id: 'dreamy',
-    name: 'Dreamy',
+    id: 'nordic',
+    name: 'Nordic',
     description:
-      'Soft dreamy look with reduced contrast, pastel colors, gentle bloom in highlights and a light, hazy atmosphere.',
+      'Apply a cool, minimalist Nordic look with clean whites, muted colors, and crisp contrast that feels calm and airy.',
     params: {
-      exposure: 10,
-      contrast: -16,
-      saturation: 12,
-      temperature: 6,
-      tint: 2,
-      fade: 14,
-      grain: 0,
-      vignette: -4,
-      sharpness: -8,
-      highlight: 10,
-      shadow: 16,
-    },
-  },
-  {
-    id: 'vividLandscape',
-    name: 'Vivid Landscape',
-    description:
-      'Vibrant landscape look with noticeably increased saturation, clear micro-contrast and crisp details in foliage, sky and water.',
-    params: {
-      exposure: 4,
-      contrast: 20,
-      saturation: 24,
-      temperature: 4,
-      tint: 0,
-      fade: 0,
-      grain: 4,
-      vignette: 6,
-      sharpness: 8,
-      highlight: -8,
-      shadow: 8,
-    },
-  },
-  {
-    id: 'blackWhiteClassic',
-    name: 'BlackWhite Classic',
-    description:
-      'Classic black and white photography look with strong luminance contrast, rich midtones and subtle film-like grain.',
-    params: {
-      exposure: 0,
-      contrast: 22,
+      exposure: 15,
+      contrast: 40,
       saturation: -30,
-      temperature: 0,
-      tint: 0,
-      fade: 6,
-      grain: 14,
-      vignette: 10,
-      sharpness: 6,
-      highlight: -12,
-      shadow: 12,
+      temperature: -40,
+      tint: -10,
+      fade: 10,
+      grain: 15,
+      vignette: 15,
+      sharpness: 15,
+      highlight: -15,
+      shadow: 20,
+    },
+  },
+  {
+    id: 'tokyoNight',
+    name: 'Tokyo Night',
+    description:
+      'Turn the scene into a neon city night with deep shadows, cool blue and magenta tones, and punchy highlights from signs and street lights.',
+    params: {
+      exposure: -25,
+      contrast: 65,
+      saturation: 20,
+      temperature: -50,
+      tint: 35,
+      fade: 0,
+      grain: 50,
+      vignette: 50,
+      sharpness: 25,
+      highlight: -80,
+      shadow: 35,
+    },
+  },
+  {
+    id: 'moody',
+    name: 'Moody',
+    description:
+      'Create a dark, moody travel look with lowered exposure, strong contrast, cool shadows, and a subtle cinematic vignette.',
+    params: {
+      exposure: -35,
+      contrast: 55,
+      saturation: -15,
+      temperature: -15,
+      tint: 10,
+      fade: 10,
+      grain: 30,
+      vignette: 45,
+      sharpness: 10,
+      highlight: -50,
+      shadow: 25,
+    },
+  },
+  {
+    id: 'underwaterRestore',
+    name: 'Underwater Restore',
+    description:
+      'Recover underwater travel photos by reducing green and blue color cast, brightening shadows, and restoring natural skin tones and details.',
+    params: {
+      exposure: 25,
+      contrast: 20,
+      saturation: 25,
+      temperature: -10,
+      tint: 40,
+      fade: 0,
+      grain: 5,
+      vignette: 5,
+      sharpness: 30,
+      highlight: -15,
+      shadow: 45,
     },
   },
 ];
-
