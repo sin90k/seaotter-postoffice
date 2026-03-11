@@ -490,21 +490,26 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                 />
               </div>
             )}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+            <div
+              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3"
+              onMouseLeave={handleFilterMouseLeave}
+            >
               {FILTER_OPTIONS.map((opt) => {
                 const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
+                const isHovered = hoverFilterId === opt.id;
+                const isSelected = settings.filter === opt.id;
                 return (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => updateSetting('filter', opt.id)}
                     onMouseEnter={() => handleFilterMouseEnter(opt.id)}
-                    onMouseLeave={handleFilterMouseLeave}
                     className={cn(
                       'flex flex-col items-center rounded-xl border-2 transition-all p-2',
-                      settings.filter === opt.id
+                      isSelected
                         ? 'border-stone-900 bg-stone-50 text-stone-900'
-                        : 'border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50'
+                        : 'border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50',
+                      isHovered && !isSelected ? 'border-stone-500 bg-white text-stone-700 shadow-sm' : null
                     )}
                   >
                     <img
@@ -512,7 +517,10 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                       alt=""
                       width={THUMB_SIZE}
                       height={THUMB_SIZE}
-                      className="w-16 h-16 sm:w-[72px] sm:h-[72px] object-cover rounded-lg shrink-0"
+                      className={cn(
+                        'w-16 h-16 sm:w-[72px] sm:h-[72px] object-cover rounded-lg shrink-0',
+                        isHovered ? 'ring-2 ring-stone-300' : null
+                      )}
                     />
                     <span className="mt-1.5 text-xs font-medium text-center leading-tight line-clamp-2">
                       {label}
