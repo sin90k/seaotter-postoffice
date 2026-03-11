@@ -11,13 +11,13 @@ export const syncCreditsToSupabase = async (
   const credits = promo_credits + paid_credits;
   const { error } = await supabase
     .from('profiles')
-    .update({
+    .upsert({
+      id: userId,
       credits,
       promo_credits: promo_credits,
       paid_credits: paid_credits,
       generated_count: generatedCount,
-    })
-    .eq('id', userId);
+    }, { onConflict: 'id' });
   if (error) {
     console.error('[profileSync] syncCreditsToSupabase error:', error);
   }

@@ -274,7 +274,13 @@ export default function Step5Process({
         const n = v != null ? parseInt(v, 10) : NaN;
         return Number.isFinite(n) && n >= 0 ? n : 1;
       })();
-      const totalNeed = creditsPerCard * configuredPhotos.length;
+      const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
+        const group = configGroups.find(g => g.id === photo.groupId);
+        const settings = { ...defaultSettings, ...(group?.settings || {}) };
+        const usesAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
+        return count + (usesAi ? 1 : 0);
+      }, 0);
+      const totalNeed = creditsPerCard * aiPhotosCount;
       if (user.credits < totalNeed) {
         setError(t.creditsError.replace('{need}', totalNeed.toString()).replace('{have}', user.credits.toString()));
         setIsProcessing(false);
@@ -335,7 +341,7 @@ export default function Step5Process({
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
               
-              // 当 filter 非 none 时也强制运行 AI，避免因配置合并顺序导致跳过
+              // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
               const runAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
               if (runAi) {
                 const base64Data = getCompressedBase64(img);
@@ -604,7 +610,13 @@ Output JSON strictly in this format:
             const n = v != null ? parseInt(v, 10) : NaN;
             return Number.isFinite(n) && n >= 0 ? n : 1;
           })();
-          const totalUse = creditsPerCard * configuredPhotos.length;
+          const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
+            const group = configGroups.find(g => g.id === photo.groupId);
+            const settings = { ...defaultSettings, ...(group?.settings || {}) };
+            const usesAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
+            return count + (usesAi ? 1 : 0);
+          }, 0);
+          const totalUse = creditsPerCard * aiPhotosCount;
 
           setUser(prev => {
             // 优先消耗赠送积分，再消耗付费积分

@@ -537,7 +537,7 @@ export default function App() {
       return;
     }
     const sUser = session.user;
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from('profiles')
       .select('credits, promo_credits, paid_credits, nickname, role')
       .eq('id', sUser.id)
@@ -547,13 +547,36 @@ export default function App() {
       const n = v != null ? parseInt(v, 10) : NaN;
       return Number.isFinite(n) && n >= 0 ? n : 3;
     })();
+    // If profile row is missing, create a minimal one instead of blindly resetting credits to defaults.
+    if (profileErr && (profileErr as { code?: string }).code === 'PGRST116') {
+      const { error: insertErr } = await supabase
+        .from('profiles')
+        .upsert({
+          id: sUser.id,
+          email: sUser.email || null,
+          nickname: sUser.email ? sUser.email.split('@')[0] : null,
+          credits: defaultPromo,
+          promo_credits: defaultPromo,
+          paid_credits: 0,
+          role: 'user',
+        }, { onConflict: 'id' });
+      if (insertErr) {
+        console.error('[App] create missing profile failed:', insertErr);
+      }
+    } else if (profileErr) {
+      console.error('[App] fetch profile failed:', profileErr);
+    }
+
+    const hasSplitCredits =
+      typeof (profile as { promo_credits?: number })?.promo_credits === 'number' ||
+      typeof (profile as { paid_credits?: number })?.paid_credits === 'number';
     const promo = typeof (profile as { promo_credits?: number })?.promo_credits === 'number'
       ? (profile as { promo_credits: number }).promo_credits
-      : (typeof profile?.credits === 'number' ? profile.credits : defaultPromo);
+      : (typeof profile?.credits === 'number' ? profile.credits : 0);
     const paid = typeof (profile as { paid_credits?: number })?.paid_credits === 'number'
       ? (profile as { paid_credits: number }).paid_credits
       : 0;
-    const total = promo + paid;
+    const total = hasSplitCredits || typeof profile?.credits === 'number' ? (promo + paid) : null;
     const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string)?.trim().toLowerCase();
     const emailMatchesAdmin = adminEmail && (sUser.email?.toLowerCase() === adminEmail);
     const skipCreditsOverwrite = Date.now() - creditsDeductedAtRef.current < 5000;
@@ -565,9 +588,10 @@ export default function App() {
       } else if (emailMatchesAdmin) {
         effectiveRole = 'admin';
       }
-      const finalCredits = skipCreditsOverwrite ? prev.credits : total;
-      const finalPromo = skipCreditsOverwrite ? (prev.promo_credits ?? 0) : promo;
-      const finalPaid = skipCreditsOverwrite ? (prev.paid_credits ?? 0) : paid;
+      // Do not overwrite local credits with default fallback when profile fetch failed/missing.
+      const finalCredits = skipCreditsOverwrite || total === null ? prev.credits : total;
+      const finalPromo = skipCreditsOverwrite || total === null ? (prev.promo_credits ?? 0) : promo;
+      const finalPaid = skipCreditsOverwrite || total === null ? (prev.paid_credits ?? 0) : paid;
       return {
         ...prev,
         isLoggedIn: true,
