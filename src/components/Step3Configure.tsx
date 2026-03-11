@@ -1,7 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ConfigGroup, SettingsType, defaultSettings } from '../App';
 import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History, Type, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
+import FilterPreviewCanvas from './FilterPreviewCanvas';
+
+/** Filter list: same order as config, do not change. */
+const FILTER_OPTIONS: { id: SettingsType['filter']; labelKey: string }[] = [
+  { id: 'original', labelKey: 'filterNone' },
+  { id: 'summer', labelKey: 'filterSummer' },
+  { id: 'film', labelKey: 'filterFilm' },
+  { id: 'goldenSunset', labelKey: 'filterGoldenSunset' },
+  { id: 'tropical', labelKey: 'filterTropical' },
+  { id: 'cinematic', labelKey: 'filterCinematic' },
+  { id: 'polaroid', labelKey: 'filterPolaroid' },
+  { id: 'vintagePostcard', labelKey: 'filterVintagePostcard' },
+  { id: 'nordic', labelKey: 'filterNordic' },
+  { id: 'tokyoNight', labelKey: 'filterTokyoNight' },
+  { id: 'moody', labelKey: 'filterMoody' },
+  { id: 'underwaterRestore', labelKey: 'filterUnderwaterRestore' },
+];
+
+const THUMB_SIZE = 128;
+const THUMB_BASE = '/filter-thumbnails';
+const HOVER_DEBOUNCE_MS = 50;
 
 interface Props {
   editingGroupId: string | null;
@@ -10,6 +31,8 @@ interface Props {
   onCancel: () => void;
   language: string;
   onFeedback: () => void;
+  /** First uploaded photo URL for real-time filter preview; not used for thumbnail source. */
+  previewImageUrl?: string | null;
 }
 
 const translations: Record<string, any> = {
@@ -227,10 +250,34 @@ const translations: Record<string, any> = {
   ms: { title: 'Tetapan global', desc: 'Tentukan tetapan untuk semua poskad.', size: 'Saiz', back: 'Kembali', continue: 'Teruskan', feedbackHint: 'Bantuan' },
 };
 
-export default function Step3Configure({ editingGroupId, configGroups, onSave, onCancel, language, onFeedback }: Props) {
+export default function Step3Configure({ editingGroupId, configGroups, onSave, onCancel, language, onFeedback, previewImageUrl }: Props) {
   const t = { ...translations.en, ...(translations[language] || {}) };
   const existingGroup = editingGroupId ? configGroups.find(g => g.id === editingGroupId) : null;
-  
+
+  const [hoverFilterId, setHoverFilterId] = useState<SettingsType['filter'] | null>(null);
+  const hoverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Preload filter thumbnails when component mounts
+  useEffect(() => {
+    FILTER_OPTIONS.forEach(({ id }) => {
+      const img = new window.Image();
+      img.src = `${THUMB_BASE}/${id}.png`;
+    });
+  }, []);
+
+  const handleFilterMouseEnter = useCallback((id: SettingsType['filter']) => {
+    if (hoverDebounceRef.current) clearTimeout(hoverDebounceRef.current);
+    hoverDebounceRef.current = setTimeout(() => setHoverFilterId(id), HOVER_DEBOUNCE_MS);
+  }, []);
+
+  const handleFilterMouseLeave = useCallback(() => {
+    if (hoverDebounceRef.current) {
+      clearTimeout(hoverDebounceRef.current);
+      hoverDebounceRef.current = null;
+    }
+    setHoverFilterId(null);
+  }, []);
+
   // Map language code to full language name for AI
   const langMap: Record<string, string> = {
     en: 'English',
@@ -258,6 +305,8 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
   const updateSetting = <K extends keyof SettingsType>(key: K, value: SettingsType[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
+
+  const effectiveFilterId = hoverFilterId ?? settings.filter;
 
   const handleSave = () => {
     onSave({
@@ -423,40 +472,54 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
             </div>
           </section>
 
-          {/* 照片滤镜 */}
+          {/* 照片滤镜 — thumbnails + hover/click preview */}
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Image className="w-5 h-5 text-stone-400" />
               <h3 className="font-medium text-stone-900">{t.filter || 'Photo Filter'}</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {[
-                { id: 'original' as const, label: t.filterNone || 'Original' },
-                { id: 'summer' as const, label: t.filterSummer || 'Summer' },
-                { id: 'film' as const, label: t.filterFilm || 'Film' },
-                { id: 'goldenSunset' as const, label: t.filterGoldenSunset || 'Golden Sunset' },
-                { id: 'tropical' as const, label: t.filterTropical || 'Tropical' },
-                { id: 'cinematic' as const, label: t.filterCinematic || 'Cinematic' },
-                { id: 'polaroid' as const, label: t.filterPolaroid || 'Polaroid' },
-                { id: 'vintagePostcard' as const, label: t.filterVintagePostcard || 'Vintage Postcard' },
-                { id: 'nordic' as const, label: t.filterNordic || 'Nordic' },
-                { id: 'tokyoNight' as const, label: t.filterTokyoNight || 'Tokyo Night' },
-                { id: 'moody' as const, label: t.filterMoody || 'Moody' },
-                { id: 'underwaterRestore' as const, label: t.filterUnderwaterRestore || 'Underwater Restore' },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => updateSetting('filter', opt.id)}
-                  className={cn(
-                    "py-3 px-4 rounded-xl border-2 transition-all text-sm font-medium",
-                    settings.filter === opt.id
-                      ? "border-stone-900 bg-stone-50 text-stone-900"
-                      : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            {previewImageUrl && (
+              <div className="mb-4 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 flex justify-center items-center min-h-[120px]">
+                <FilterPreviewCanvas
+                  imageUrl={previewImageUrl}
+                  filterId={effectiveFilterId}
+                  intensity={settings.filterIntensity ?? 0.8}
+                  maxWidth={400}
+                  maxHeight={280}
+                  className="max-h-[280px] w-auto"
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              {FILTER_OPTIONS.map((opt) => {
+                const label = (t as Record<string, string>)[opt.labelKey] ?? opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => updateSetting('filter', opt.id)}
+                    onMouseEnter={() => handleFilterMouseEnter(opt.id)}
+                    onMouseLeave={handleFilterMouseLeave}
+                    className={cn(
+                      'flex flex-col items-center rounded-xl border-2 transition-all p-2',
+                      settings.filter === opt.id
+                        ? 'border-stone-900 bg-stone-50 text-stone-900'
+                        : 'border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50/50'
+                    )}
+                  >
+                    <img
+                      src={`${THUMB_BASE}/${opt.id}.png`}
+                      alt=""
+                      width={THUMB_SIZE}
+                      height={THUMB_SIZE}
+                      className="w-16 h-16 sm:w-[72px] sm:h-[72px] object-cover rounded-lg shrink-0"
+                    />
+                    <span className="mt-1.5 text-xs font-medium text-center leading-tight line-clamp-2">
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-4">
               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">

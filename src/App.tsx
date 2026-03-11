@@ -1006,6 +1006,7 @@ export default function App() {
                   onSave={handleSaveGroup}
                   onCancel={handleBack}
                   language={language}
+                  previewImageUrl={photos[0]?.url ?? null}
                   onFeedback={() => {
                     setFeedbackType('question');
                     setShowFeedback(true);
