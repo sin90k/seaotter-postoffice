@@ -19,6 +19,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
   const [supabaseUsers, setSupabaseUsers] = useState<User[]>([]);
   const [creditsLedger, setCreditsLedger] = useState<LedgerEntry[]>([]);
   const [postcardsList, setPostcardsList] = useState<PostcardRow[]>([]);
+  const [totalPostcardsCount, setTotalPostcardsCount] = useState(0);
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [userDetailLedger, setUserDetailLedger] = useState<LedgerEntry[]>([]);
   const [userDetailPostcards, setUserDetailPostcards] = useState<PostcardRow[]>([]);
@@ -50,7 +51,8 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
               email: r.email,
               nickname: r.nickname,
               role: (['admin', 'user', 'support', 'banned'].includes(r.role || '') ? r.role : 'user') as User['role'],
-              credits: (r.credits ?? 0) || promo + paid,
+              // Always derive from split credits to avoid stale legacy `credits` values.
+              credits: promo + paid,
               promo_credits: promo,
               paid_credits: paid,
               generatedCount: r.generated_count ?? 0,
@@ -88,19 +90,27 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
 
   const fetchPostcards = useCallback(() => {
     if (!useSupabase) return;
-    supabase
-      .from('postcards')
-      .select('id, user_id, payload, created_at')
-      .order('created_at', { ascending: false })
-      .limit(500)
-      .then((res: { data: unknown; error: { message?: string } | null }) => {
-        const { data, error } = res;
-        if (error) {
-          console.error('[AdminPanel] fetch postcards:', error);
-          return;
-        }
-        setPostcardsList((data as PostcardRow[]) || []);
-      });
+    Promise.all([
+      supabase
+        .from('postcards')
+        .select('id, user_id, payload, created_at')
+        .order('created_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('postcards')
+        .select('id', { count: 'exact', head: true }),
+    ]).then(([listRes, countRes]: [{ data: unknown; error: { message?: string } | null }, { count?: number; error: { message?: string } | null }]) => {
+      const { data, error } = listRes;
+      if (error) {
+        console.error('[AdminPanel] fetch postcards:', error);
+        return;
+      }
+      if (countRes.error) {
+        console.error('[AdminPanel] count postcards:', countRes.error);
+      }
+      setPostcardsList((data as PostcardRow[]) || []);
+      setTotalPostcardsCount(typeof countRes.count === 'number' ? countRes.count : 0);
+    });
   }, [useSupabase]);
 
   const fetchTodayStats = useCallback(() => {
@@ -110,17 +120,19 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     const todayIso = today.toISOString();
 
     Promise.all([
-      supabase.from('events').select('id, event_type, payload, created_at').gte('created_at', todayIso),
+      supabase.from('postcards').select('id').gte('created_at', todayIso),
+      supabase.from('profiles').select('id').gte('created_at', todayIso),
       supabase
         .from('credits_ledger')
         .select('credit_type, amount, source, created_at')
         .gte('created_at', todayIso)
         .eq('source', 'postcard'),
-    ]).then(([eventsRes, ledgerRes]: [{ data: unknown }, { data: unknown }]) => {
-      const eventsData = eventsRes.data;
-      const events = (eventsData != null && Array.isArray(eventsData) ? eventsData : []) as { event_type: string; payload?: { count?: number } }[];
-      const postcardsToday = events.filter((e) => e.event_type === 'postcard_generated').reduce((sum, e) => sum + (e.payload?.count ?? 1), 0);
-      const newUsersToday = events.filter((e) => e.event_type === 'sign_up').length;
+    ]).then(([postcardsRes, profilesRes, ledgerRes]: [{ data: unknown; error?: { message?: string } | null }, { data: unknown; error?: { message?: string } | null }, { data: unknown; error?: { message?: string } | null }]) => {
+      if (postcardsRes.error) console.error('[AdminPanel] fetchTodayStats postcards:', postcardsRes.error);
+      if (profilesRes.error) console.error('[AdminPanel] fetchTodayStats profiles:', profilesRes.error);
+      if (ledgerRes.error) console.error('[AdminPanel] fetchTodayStats ledger:', ledgerRes.error);
+      const postcardsToday = Array.isArray(postcardsRes.data) ? postcardsRes.data.length : 0;
+      const newUsersToday = Array.isArray(profilesRes.data) ? profilesRes.data.length : 0;
       const ledgerData = ledgerRes.data;
       const ledger = (ledgerData != null && Array.isArray(ledgerData) ? ledgerData : []) as { credit_type: string; amount: number }[];
       let promoConsumedToday = 0;
@@ -137,6 +149,9 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
         promoConsumedToday,
         paidConsumedToday,
       });
+    }).catch((e: unknown) => {
+      console.error('[AdminPanel] fetchTodayStats failed:', e);
+      setTodayStats({ postcardsToday: 0, newUsersToday: 0, promoConsumedToday: 0, paidConsumedToday: 0 });
     });
   }, [useSupabase]);
 
@@ -155,6 +170,18 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     }
   }, [useSupabase, fetchProfiles, fetchCreditsLedger, fetchPostcards, fetchTodayStats]);
 
+  // Keep admin stats fresh even without navigation.
+  useEffect(() => {
+    if (!useSupabase) return;
+    const timer = window.setInterval(() => {
+      fetchProfiles();
+      fetchCreditsLedger();
+      fetchPostcards();
+      fetchTodayStats();
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [useSupabase, fetchProfiles, fetchCreditsLedger, fetchPostcards, fetchTodayStats]);
+
   const displayUsers = useSupabase ? supabaseUsers : users;
 
   const dashboardStats: DashboardStats = useMemo(() => {
@@ -170,7 +197,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     const vipCount = displayUsers.filter((u) => u.level === 'vip').length;
     return {
       users: displayUsers.length,
-      generated: displayUsers.reduce((acc, u) => acc + (u.generatedCount || 0), 0),
+      generated: useSupabase ? totalPostcardsCount : displayUsers.reduce((acc, u) => acc + (u.generatedCount || 0), 0),
       totalCredits: totalPromo + totalPaid,
       totalPromo,
       totalPaid,
@@ -181,7 +208,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
         { name: 'Free', value: displayUsers.length - vipCount, color: '#94a3b8' },
       ],
     };
-  }, [displayUsers]);
+  }, [displayUsers, useSupabase, totalPostcardsCount]);
 
   const userMap = useMemo(() => {
     const m: Record<string, { email?: string; nickname?: string }> = {};
@@ -239,8 +266,9 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       }
       fetchProfiles();
       fetchCreditsLedger();
+      fetchTodayStats();
     },
-    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger, fetchTodayStats]
   );
 
   const handleBan = useCallback(
@@ -277,8 +305,9 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       ]);
       fetchProfiles();
       fetchCreditsLedger();
+      fetchTodayStats();
     },
-    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger, fetchTodayStats]
   );
 
   const handleManualCompensate = useCallback(
@@ -309,8 +338,9 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       });
       fetchProfiles();
       fetchCreditsLedger();
+      fetchTodayStats();
     },
-    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger]
+    [useSupabase, isAdmin, fetchProfiles, fetchCreditsLedger, fetchTodayStats]
   );
 
   return (
@@ -319,6 +349,11 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       onPageChange={setPage}
       onBack={onBack}
     >
+      {!useSupabase && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          当前为本地模式（未连接 Supabase 或管理员账号未完成云端登录），积分流水与统计将不完整。请确认 `VITE_SUPABASE_*` 已配置且当前账号为云端 `admin/support`。
+        </div>
+      )}
       {page === 'dashboard' && (
         <AdminDashboard stats={dashboardStats} todayStats={todayStats} chartsReady={chartsReady} />
       )}

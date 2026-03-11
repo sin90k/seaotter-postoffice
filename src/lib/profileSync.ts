@@ -42,3 +42,23 @@ export const recordPostcardConsumption = async (
     console.error('[profileSync] recordPostcardConsumption error:', error);
   }
 };
+
+/** 写入单条积分流水（如 purchase / admin_adjust / event），用于后台统计与审计。 */
+export const recordCreditsLedgerEntry = async (
+  userId: string,
+  creditType: 'promo' | 'paid' | 'other',
+  source: 'registration' | 'purchase' | 'postcard' | 'admin_adjust' | 'event',
+  amount: number
+): Promise<void> => {
+  if (!isSupabaseConnected || !userId || amount === 0) return;
+  const { error } = await supabase.from('credits_ledger').insert({
+    user_id: userId,
+    credit_type: creditType,
+    source,
+    amount,
+  });
+  if (error) {
+    if (error.code === 'PGRST205' || (error.message || '').includes('Could not find the table')) return;
+    console.error('[profileSync] recordCreditsLedgerEntry error:', error);
+  }
+};
