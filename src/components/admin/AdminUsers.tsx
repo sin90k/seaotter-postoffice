@@ -56,27 +56,27 @@ export default function AdminUsers({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Users</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">用户管理</h1>
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-stone-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-stone-400" />
-            <h2 className="text-lg font-bold text-stone-900">User Directory</h2>
+            <h2 className="text-lg font-bold text-stone-900">用户列表</h2>
           </div>
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">{displayUsers.length} Registered</span>
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">共 {displayUsers.length} 个用户</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50">
-                <th className="px-4 py-3 font-bold">Identity</th>
-                <th className="px-4 py-3 font-bold">Contact</th>
-                <th className="px-4 py-3 font-bold">Status</th>
-                <th className="px-4 py-3 font-bold">Generated</th>
-                <th className="px-4 py-3 font-bold">Promo</th>
-                <th className="px-4 py-3 font-bold">Paid</th>
-                <th className="px-4 py-3 font-bold">Joined</th>
-                {isAdmin && <th className="px-4 py-3 font-bold">Actions</th>}
+                <th className="px-4 py-3 font-bold">用户</th>
+                <th className="px-4 py-3 font-bold">联系方式</th>
+                <th className="px-4 py-3 font-bold">状态</th>
+                <th className="px-4 py-3 font-bold">已生成</th>
+                <th className="px-4 py-3 font-bold">赠送积分</th>
+                <th className="px-4 py-3 font-bold">付费积分</th>
+                <th className="px-4 py-3 font-bold">注册时间</th>
+                {isAdmin && <th className="px-4 py-3 font-bold">操作</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
@@ -112,7 +112,7 @@ export default function AdminUsers({
                           u.role === 'banned' ? 'bg-red-50 text-red-600' : u.level === 'vip' ? 'bg-indigo-50 text-indigo-600' : 'bg-stone-100 text-stone-600'
                         )}
                       >
-                        {u.role === 'banned' ? 'Banned' : u.level}
+                        {u.role === 'banned' ? '已封禁' : u.level === 'vip' ? 'VIP' : '普通'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -136,7 +136,7 @@ export default function AdminUsers({
                             className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
                           >
                             <Gift className="w-3.5 h-3.5" />
-                            Credits
+                            调整积分
                           </button>
                           {onBan && (
                             <button
@@ -145,7 +145,7 @@ export default function AdminUsers({
                               className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
                             >
                               <Ban className="w-3.5 h-3.5" />
-                              Ban
+                              封禁
                             </button>
                           )}
                           {onReset && (
@@ -155,7 +155,7 @@ export default function AdminUsers({
                               className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200 hover:bg-stone-200"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
-                              Reset
+                              重置
                             </button>
                           )}
                         </div>
@@ -173,10 +173,10 @@ export default function AdminUsers({
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => !saving && setEditingUser(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-stone-900">Edit credits · {editingUser.nickname || editingUser.email || 'User'}</h3>
+            <h3 className="text-lg font-bold text-stone-900">编辑积分 · {editingUser.nickname || editingUser.email || '用户'}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Promo</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">赠送积分</label>
                 <input
                   type="number"
                   min={0}
@@ -186,7 +186,7 @@ export default function AdminUsers({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Paid</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">付费积分</label>
                 <input
                   type="number"
                   min={0}
@@ -197,19 +197,19 @@ export default function AdminUsers({
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <span className="text-xs text-stone-500 self-center">Quick add:</span>
+              <span className="text-xs text-stone-500 self-center">快速加赠：</span>
               {[3, 5, 10, 20].map((n) => (
                 <button key={n} type="button" onClick={() => setEditPromo((p) => p + n)} className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-200">
-                  +{n} promo
+                  +{n}
                 </button>
               ))}
             </div>
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={handleSaveCredits} disabled={saving} className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white font-medium hover:bg-stone-800 disabled:opacity-50">
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? '保存中…' : '保存'}
               </button>
               <button type="button" onClick={() => !saving && setEditingUser(null)} className="px-4 py-2.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">
-                Cancel
+                取消
               </button>
             </div>
           </div>

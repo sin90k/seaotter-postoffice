@@ -33,13 +33,13 @@ export default function AdminPrompts() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">AI Prompt Management</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">AI 提示词管理</h1>
       <p className="text-sm text-stone-500">
-        Edit and save prompts. Saved prompts override config file defaults. Changes apply without redeploying.
+        编辑并保存提示词。保存后会覆盖默认配置文件中的内容，无需重新部署即可生效。
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <h2 className="font-semibold text-stone-900 mb-3">Prompts</h2>
+          <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
+          <h2 className="font-semibold text-stone-900 mb-3">提示词列表</h2>
           <ul className="space-y-1 max-h-[400px] overflow-y-auto">
             {list.map((item) => (
               <li key={item.prompt_id}>
@@ -72,17 +72,17 @@ export default function AdminPrompts() {
                 onChange={(e) => setContent(e.target.value)}
                 rows={14}
                 className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
-                placeholder="Prompt content..."
+                placeholder="在这里编辑提示词内容..."
               />
               <button
                 onClick={handleSave}
                 className="mt-4 flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors"
               >
-                <Save className="w-4 h-4" /> {saved ? 'Saved' : 'Save'}
+                <Save className="w-4 h-4" /> {saved ? '已保存' : '保存'}
               </button>
             </>
           ) : (
-            <p className="text-stone-500 text-sm">Select a prompt to edit.</p>
+            <p className="text-stone-500 text-sm">在左侧选择一个提示词进行编辑。</p>
           )}
         </div>
       </div>

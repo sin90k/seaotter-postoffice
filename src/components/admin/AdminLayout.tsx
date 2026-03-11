@@ -1,17 +1,18 @@
-import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal, Wallet } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type AdminPage = 'dashboard' | 'users' | 'credits' | 'postcards' | 'prompts' | 'brand' | 'filters' | 'settings';
+export type AdminPage = 'dashboard' | 'users' | 'credits' | 'postcards' | 'payments' | 'prompts' | 'brand' | 'filters' | 'settings';
 
 const nav: { id: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'users', label: 'Users', icon: Users },
-  { id: 'credits', label: 'Credits Ledger', icon: CreditCard },
-  { id: 'postcards', label: 'Postcards', icon: ImageIcon },
-  { id: 'prompts', label: 'AI Prompts', icon: FileText },
-  { id: 'brand', label: 'Brand Settings', icon: Palette },
-   { id: 'filters', label: 'Photo Filters', icon: SlidersHorizontal },
-  { id: 'settings', label: 'System Config', icon: Settings },
+  { id: 'dashboard', label: '数据总览', icon: LayoutDashboard },
+  { id: 'users', label: '用户管理', icon: Users },
+  { id: 'credits', label: '积分流水', icon: CreditCard },
+  { id: 'postcards', label: '明信片记录', icon: ImageIcon },
+  { id: 'payments', label: '支付管理', icon: Wallet },
+  { id: 'prompts', label: 'AI 提示词', icon: FileText },
+  { id: 'brand', label: '品牌设置', icon: Palette },
+  { id: 'filters', label: '照片滤镜', icon: SlidersHorizontal },
+  { id: 'settings', label: '系统配置', icon: Settings },
 ];
 
 export default function AdminLayout({
@@ -33,7 +34,7 @@ export default function AdminLayout({
           className="flex items-center gap-2 p-2 rounded-xl hover:bg-white text-stone-600 hover:text-stone-900 transition-colors mb-2"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back to App</span>
+          <span className="text-sm font-medium">返回应用</span>
         </button>
         <nav className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           {nav.map(({ id, label, icon: Icon }) => (

@@ -38,10 +38,10 @@ export default function AdminDashboard({
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">数据总览</h1>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl border border-stone-200 shadow-sm">
           <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">Live</span>
+          <span className="text-xs font-bold text-stone-600 uppercase tracking-wider">LIVE</span>
         </div>
       </div>
 
@@ -73,7 +73,7 @@ export default function AdminDashboard({
               <Users className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
-          <div className="text-xs sm:text-sm text-stone-500 font-medium">Total Users</div>
+          <div className="text-xs sm:text-sm text-stone-500 font-medium">用户总数</div>
           <div className="text-xl sm:text-3xl font-bold text-stone-900">{stats.users}</div>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between">
@@ -82,7 +82,7 @@ export default function AdminDashboard({
               <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
-          <div className="text-xs sm:text-sm text-stone-500 font-medium">Postcards Generated</div>
+          <div className="text-xs sm:text-sm text-stone-500 font-medium">累计生成明信片</div>
           <div className="text-xl sm:text-3xl font-bold text-stone-900">{stats.generated}</div>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between">
@@ -91,7 +91,7 @@ export default function AdminDashboard({
               <CreditCard className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
-          <div className="text-xs sm:text-sm text-stone-500 font-medium">Circulating Credits</div>
+          <div className="text-xs sm:text-sm text-stone-500 font-medium">当前流通积分</div>
           <div className="text-xl sm:text-3xl font-bold text-stone-900">{stats.totalCredits}</div>
           <div className="text-xs text-stone-400 mt-0.5">Promo {stats.totalPromo} · Paid {stats.totalPaid}</div>
         </div>
@@ -101,7 +101,7 @@ export default function AdminDashboard({
               <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
-          <div className="text-xs sm:text-sm text-stone-500 font-medium">VIP Members</div>
+          <div className="text-xs sm:text-sm text-stone-500 font-medium">VIP 用户数</div>
           <div className="text-xl sm:text-3xl font-bold text-stone-900">{stats.vipCount}</div>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function AdminDashboard({
         <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-stone-400" />
-            <h2 className="text-lg font-bold text-stone-900">User Growth (Last 7 Days)</h2>
+            <h2 className="text-lg font-bold text-stone-900">近 7 天新增用户</h2>
           </div>
           <div className="w-full" style={{ height: 280 }}>
             {chartsReady && mounted && (
@@ -132,7 +132,7 @@ export default function AdminDashboard({
           </div>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">User Distribution</h2>
+          <h2 className="text-lg font-bold text-stone-900 mb-4">用户分布</h2>
           <div className="w-full relative" style={{ height: 220 }}>
             {chartsReady && mounted && (
               <ResponsiveContainer width="100%" height={220}>
@@ -148,7 +148,7 @@ export default function AdminDashboard({
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <div className="text-2xl font-bold text-stone-900">{stats.users}</div>
-              <div className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">Total</div>
+              <div className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">TOTAL</div>
             </div>
           </div>
           <div className="space-y-2 mt-3">

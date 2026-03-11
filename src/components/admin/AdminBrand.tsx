@@ -71,14 +71,14 @@ export default function AdminBrand() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Brand Settings</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">品牌设置</h1>
       <p className="text-sm text-stone-500">
-        Logo (PNG/SVG/WebP), service name, domain. Watermark position, opacity, and size apply to postcard back when using promo credits.
+        配置品牌名称、域名和 Logo（水印）。当用户使用赠送积分生成时，水印会自动应用在明信片背面。
       </p>
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Service name (EN)</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">服务名称（英文）</label>
             <input
               type="text"
               value={brandName}
@@ -88,7 +88,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Service name (ZH)</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">服务名称（中文）</label>
             <input
               type="text"
               value={brandNameZh}
@@ -98,7 +98,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="md:col-span-2 space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Website domain</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">站点域名</label>
             <input
               type="text"
               value={brandDomain}
@@ -108,7 +108,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Logo URL</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Logo 图片 URL</label>
             <input
               type="text"
               value={logoUrl}
@@ -118,7 +118,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Logo upload (PNG, SVG, WebP)</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">上传 Logo（PNG / SVG / WebP）</label>
             <input
               type="file"
               accept=".png,.svg,.webp"
@@ -128,7 +128,7 @@ export default function AdminBrand() {
             {logoFile && <span className="text-xs text-stone-500">{logoFile.name}</span>}
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Watermark position</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印位置</label>
             <select
               value={watermarkPosition}
               onChange={(e) => setWatermarkPosition(e.target.value)}
@@ -140,7 +140,7 @@ export default function AdminBrand() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Watermark opacity (0–1)</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印透明度（0–1）</label>
             <input
               type="number"
               min="0"
@@ -152,7 +152,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Watermark size (relative, e.g. 0.35)</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印尺寸（相对值，例如 0.35）</label>
             <input
               type="number"
               min="0.1"
@@ -168,7 +168,7 @@ export default function AdminBrand() {
           onClick={handleSave}
           className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors"
         >
-          <Save className="w-4 h-4" /> Save
+          <Save className="w-4 h-4" /> 保存
         </button>
       </div>
     </div>

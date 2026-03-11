@@ -27,22 +27,22 @@ export default function AdminPostcards({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Postcards</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">明信片记录</h1>
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-stone-100 flex items-center gap-2">
           <ImageIcon className="w-5 h-5 text-stone-400" />
-          <h2 className="text-lg font-bold text-stone-900">Records</h2>
+          <h2 className="text-lg font-bold text-stone-900">生成记录</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50">
-                <th className="px-4 py-3 font-bold">Time</th>
-                <th className="px-4 py-3 font-bold">User</th>
-                <th className="px-4 py-3 font-bold">Preview</th>
-                <th className="px-4 py-3 font-bold">Title</th>
-                <th className="px-4 py-3 font-bold">Status</th>
-                <th className="px-4 py-3 font-bold">Action</th>
+                <th className="px-4 py-3 font-bold">时间</th>
+                <th className="px-4 py-3 font-bold">用户</th>
+                <th className="px-4 py-3 font-bold">预览</th>
+                <th className="px-4 py-3 font-bold">标题</th>
+                <th className="px-4 py-3 font-bold">状态</th>
+                <th className="px-4 py-3 font-bold">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
@@ -70,11 +70,11 @@ export default function AdminPostcards({
                     </td>
                     <td className="px-4 py-3 text-stone-700 max-w-[120px] truncate">{r.payload?.title || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700">success</span>
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700">成功</span>
                     </td>
                     <td className="px-4 py-3">
                       <button type="button" onClick={() => setDetail(r)} className="text-stone-600 hover:text-stone-900 text-xs font-medium underline">
-                        View
+                        查看
                       </button>
                     </td>
                   </tr>
@@ -89,13 +89,13 @@ export default function AdminPostcards({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setDetail(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-stone-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-stone-900">Postcard detail</h3>
+              <h3 className="text-lg font-bold text-stone-900">明信片详情</h3>
               <button type="button" onClick={() => setDetail(null)} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">×</button>
             </div>
             <div className="p-4 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-xs font-bold text-stone-500 uppercase mb-1">Front</div>
+                  <div className="text-xs font-bold text-stone-500 uppercase mb-1">正面</div>
                   {detail.payload?.frontUrl ? (
                     <img src={detail.payload.frontUrl} alt="Front" className="w-full rounded-xl border border-stone-200" />
                   ) : (
@@ -103,7 +103,7 @@ export default function AdminPostcards({
                   )}
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-stone-500 uppercase mb-1">Back</div>
+                  <div className="text-xs font-bold text-stone-500 uppercase mb-1">背面</div>
                   {detail.payload?.backUrl ? (
                     <img src={detail.payload.backUrl} alt="Back" className="w-full rounded-xl border border-stone-200" />
                   ) : (
@@ -112,10 +112,10 @@ export default function AdminPostcards({
                 </div>
               </div>
               <div className="text-sm space-y-1">
-                <p><span className="text-stone-500">Title:</span> {detail.payload?.title || '—'}</p>
-                <p><span className="text-stone-500">Location:</span> {detail.payload?.location || '—'}</p>
-                <p><span className="text-stone-500">Created:</span> {detail.payload?.createdAt || detail.created_at ? new Date((detail.payload?.createdAt as number) || detail.created_at).toLocaleString() : '—'}</p>
-                <p><span className="text-stone-500">User:</span> {userMap[detail.user_id]?.email || detail.user_id}</p>
+                <p><span className="text-stone-500">标题：</span> {detail.payload?.title || '—'}</p>
+                <p><span className="text-stone-500">地点：</span> {detail.payload?.location || '—'}</p>
+                <p><span className="text-stone-500">时间：</span> {detail.payload?.createdAt || detail.created_at ? new Date((detail.payload?.createdAt as number) || detail.created_at).toLocaleString() : '—'}</p>
+                <p><span className="text-stone-500">用户：</span> {userMap[detail.user_id]?.email || detail.user_id}</p>
               </div>
             </div>
           </div>

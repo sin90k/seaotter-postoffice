@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,14 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  app.use(express.json({ limit: "10mb" }));
+
+  // 静态上传目录（用于支付二维码等资源）
+  const uploadsRoot = path.join(__dirname, "uploads");
+  const paymentDir = path.join(uploadsRoot, "payments");
+  fs.mkdirSync(paymentDir, { recursive: true });
+  app.use("/uploads", express.static(uploadsRoot));
 
   // API routes
   app.get("/api/health", (_req, res) => {
@@ -22,6 +31,32 @@ async function startServer() {
     // For this demo, we'll simulate it by redirecting to our own callback with a mock code
     const mockAuthUrl = `/auth/callback?code=mock_code_${provider}&provider=${provider}`;
     res.json({ url: mockAuthUrl });
+  });
+
+  // 支付二维码上传接口（接收前端传来的 base64，并保存在服务器本地 uploads/payments 下）
+  app.post("/api/admin/payment-qr", async (req, res) => {
+    try {
+      const { provider, dataUrl } = (req as any).body || {};
+      if (!provider || typeof dataUrl !== "string") {
+        return res.status(400).json({ error: "provider 和 dataUrl 为必填" });
+      }
+      const match = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(dataUrl);
+      if (!match) {
+        return res.status(400).json({ error: "dataUrl 必须是 data:image/...;base64, 格式" });
+      }
+      const extRaw = match[1];
+      const ext = extRaw === "jpeg" ? "jpg" : extRaw === "jpg" ? "jpg" : extRaw;
+      const buffer = Buffer.from(match[2], "base64");
+      const safeProvider = String(provider).toLowerCase().includes("alipay") ? "alipay" : "wechat";
+      const filename = `${safeProvider}-${Date.now()}.${ext}`;
+      const filepath = path.join(paymentDir, filename);
+      await fs.promises.writeFile(filepath, buffer);
+      const url = `/uploads/payments/${filename}`;
+      res.json({ url });
+    } catch (e: any) {
+      console.error("[server] upload payment qr error", e);
+      res.status(500).json({ error: "上传失败" });
+    }
   });
 
   // OAuth Callback Handler

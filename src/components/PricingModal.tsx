@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Check, Crown, Zap, X, CreditCard, ArrowLeft, ArrowRight, Wallet, Smartphone } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -444,6 +444,18 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
   const [selectedPlan, setSelectedPlan] = useState<UserLevel | number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [wechatQr, setWechatQr] = useState<string | null>(null);
+  const [alipayQr, setAlipayQr] = useState<string | null>(null);
+  const [paymentNote, setPaymentNote] = useState<string | null>(null);
+
+  // 仅前端本地读取 Admin 支付配置，不走任何服务端接口
+  useEffect(() => {
+    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (!ls) return;
+    setWechatQr(ls.getItem('admin_payment_wechat_qr'));
+    setAlipayQr(ls.getItem('admin_payment_alipay_qr'));
+    setPaymentNote(ls.getItem('admin_payment_note'));
+  }, []);
 
   const handleSubscribe = (level: UserLevel) => {
     if (!isLoggedIn) {
@@ -675,7 +687,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                     : (t.purchasingPlan ?? 'Purchasing {plan}').replace('{plan}', selectedPlan === 'vip' ? t.vip : String(selectedPlan))}
                 </p>
 
-                <div className="space-y-3 mb-10">
+                <div className="space-y-3 mb-6">
                   {countryConfig.payment.map((provider) => (
                     <button
                       key={provider}
@@ -697,6 +709,35 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                     </button>
                   ))}
                 </div>
+
+                {(wechatQr || alipayQr) && (
+                  <div className="mt-2 rounded-2xl border border-stone-100 bg-stone-50/80 p-4 space-y-3">
+                    <div className="text-xs font-semibold text-stone-600">
+                      {language === 'zh'
+                        ? '请使用微信或支付宝扫码支付，然后根据页面提示联系人工完成充值。'
+                        : 'Scan the QR code with WeChat or Alipay, then follow the instructions to confirm your payment.'}
+                    </div>
+                    <div className="flex gap-4">
+                      {wechatQr && (
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="text-xs text-stone-500 mb-1">微信收款码</div>
+                          <img src={wechatQr} alt="WeChat QR" className="w-24 h-24 rounded-xl border border-stone-200 object-cover bg-white" />
+                        </div>
+                      )}
+                      {alipayQr && (
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="text-xs text-stone-500 mb-1">支付宝收款码</div>
+                          <img src={alipayQr} alt="Alipay QR" className="w-24 h-24 rounded-xl border border-stone-200 object-cover bg-white" />
+                        </div>
+                      )}
+                    </div>
+                    {paymentNote && (
+                      <div className="text-[11px] text-stone-500 leading-relaxed whitespace-pre-line">
+                        {paymentNote}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {isProcessing && (
                   <div className="flex flex-col items-center justify-center py-4">
