@@ -121,38 +121,99 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     const todayIso = today.toISOString();
 
     Promise.all([
+      // 成功生成（按 postcards 记录）
       supabase.from('postcards').select('id').gte('created_at', todayIso),
+      // 新用户
       supabase.from('profiles').select('id').gte('created_at', todayIso),
+      // 今日积分消耗
       supabase
         .from('credits_ledger')
         .select('credit_type, amount, source, created_at')
         .gte('created_at', todayIso)
         .eq('source', 'postcard'),
-    ]).then(([postcardsRes, profilesRes, ledgerRes]: [{ data: unknown; error?: { message?: string } | null }, { data: unknown; error?: { message?: string } | null }, { data: unknown; error?: { message?: string } | null }]) => {
-      if (postcardsRes.error) console.error('[AdminPanel] fetchTodayStats postcards:', postcardsRes.error);
-      if (profilesRes.error) console.error('[AdminPanel] fetchTodayStats profiles:', profilesRes.error);
-      if (ledgerRes.error) console.error('[AdminPanel] fetchTodayStats ledger:', ledgerRes.error);
-      const postcardsToday = Array.isArray(postcardsRes.data) ? postcardsRes.data.length : 0;
-      const newUsersToday = Array.isArray(profilesRes.data) ? profilesRes.data.length : 0;
-      const ledgerData = ledgerRes.data;
-      const ledger = (ledgerData != null && Array.isArray(ledgerData) ? ledgerData : []) as { credit_type: string; amount: number }[];
-      let promoConsumedToday = 0;
-      let paidConsumedToday = 0;
-      ledger.forEach((r) => {
-        if (r.amount < 0) {
-          if (r.credit_type === 'promo') promoConsumedToday += Math.abs(r.amount);
-          else if (r.credit_type === 'paid') paidConsumedToday += Math.abs(r.amount);
-        }
-      });
-      setTodayStats({
-        postcardsToday,
-        newUsersToday,
-        promoConsumedToday,
-        paidConsumedToday,
-      });
-    }).catch((e: unknown) => {
+      // 生成事件（完成 + 失败），用于耗时和失败次数
+      supabase
+        .from('events')
+        .select('event_type, payload, created_at')
+        .gte('created_at', todayIso)
+        .in('event_type', ['generation_completed', 'generation_failed']),
+    ]).then(
+      ([
+        postcardsRes,
+        profilesRes,
+        ledgerRes,
+        eventsRes,
+      ]: [
+        { data: unknown; error?: { message?: string } | null },
+        { data: unknown; error?: { message?: string } | null },
+        { data: unknown; error?: { message?: string } | null },
+        { data: unknown; error?: { message?: string } | null },
+      ]) => {
+        if (postcardsRes.error) console.error('[AdminPanel] fetchTodayStats postcards:', postcardsRes.error);
+        if (profilesRes.error) console.error('[AdminPanel] fetchTodayStats profiles:', profilesRes.error);
+        if (ledgerRes.error) console.error('[AdminPanel] fetchTodayStats ledger:', ledgerRes.error);
+        if (eventsRes.error) console.error('[AdminPanel] fetchTodayStats events:', eventsRes.error);
+
+        const postcardsToday = Array.isArray(postcardsRes.data) ? postcardsRes.data.length : 0;
+        const newUsersToday = Array.isArray(profilesRes.data) ? profilesRes.data.length : 0;
+
+        const ledgerData = ledgerRes.data;
+        const ledger = (ledgerData != null && Array.isArray(ledgerData) ? ledgerData : []) as {
+          credit_type: string;
+          amount: number;
+        }[];
+        let promoConsumedToday = 0;
+        let paidConsumedToday = 0;
+        ledger.forEach((r) => {
+          if (r.amount < 0) {
+            if (r.credit_type === 'promo') promoConsumedToday += Math.abs(r.amount);
+            else if (r.credit_type === 'paid') paidConsumedToday += Math.abs(r.amount);
+          }
+        });
+
+        // 事件统计：失败次数 + 平均耗时
+        const events = (eventsRes.data != null && Array.isArray(eventsRes.data)
+          ? eventsRes.data
+          : []) as { event_type: string; payload: { duration_ms?: number } }[];
+        let failedToday = 0;
+        let durationSum = 0;
+        let durationCount = 0;
+        events.forEach((e) => {
+          if (e.event_type === 'generation_failed') {
+            failedToday += 1;
+          } else if (e.event_type === 'generation_completed') {
+            const d = e.payload?.duration_ms;
+            if (typeof d === 'number' && d > 0) {
+              durationSum += d;
+              durationCount += 1;
+            }
+          }
+        });
+        const avgDurationMs = durationCount > 0 ? durationSum / durationCount : null;
+        const totalAttempts = postcardsToday + failedToday;
+        const successRate = totalAttempts === 0 ? 1 : postcardsToday / totalAttempts;
+
+        setTodayStats({
+          postcardsToday,
+          failedToday,
+          successRate,
+          avgDurationMs,
+          newUsersToday,
+          promoConsumedToday,
+          paidConsumedToday,
+        });
+      }
+    ).catch((e: unknown) => {
       console.error('[AdminPanel] fetchTodayStats failed:', e);
-      setTodayStats({ postcardsToday: 0, newUsersToday: 0, promoConsumedToday: 0, paidConsumedToday: 0 });
+      setTodayStats({
+        postcardsToday: 0,
+        failedToday: 0,
+        successRate: 1,
+        avgDurationMs: null,
+        newUsersToday: 0,
+        promoConsumedToday: 0,
+        paidConsumedToday: 0,
+      });
     });
   }, [useSupabase]);
 
@@ -186,23 +247,35 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
   const displayUsers = useSupabase ? supabaseUsers : users;
 
   const dashboardStats: DashboardStats = useMemo(() => {
-    const totalPromo = displayUsers.reduce((acc, u) => acc + (u.promo_credits ?? (typeof u.credits === 'number' ? u.credits : 0)), 0);
+    const totalPromo = displayUsers.reduce(
+      (acc, u) => acc + (u.promo_credits ?? (typeof u.credits === 'number' ? u.credits : 0)),
+      0
+    );
     const totalPaid = displayUsers.reduce((acc, u) => acc + (u.paid_credits ?? 0), 0);
     const now = Date.now();
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(now - (6 - i) * 24 * 60 * 60 * 1000);
       const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      const count = displayUsers.filter((u) => u.createdAt && new Date(u.createdAt).toDateString() === date.toDateString()).length;
+      const count = displayUsers.filter(
+        (u) => u.createdAt && new Date(u.createdAt).toDateString() === date.toDateString()
+      ).length;
       return { name: dateStr, users: count };
     });
     const vipCount = displayUsers.filter((u) => u.level === 'vip').length;
+    const generatedTotal = useSupabase
+      ? totalPostcardsCount
+      : displayUsers.reduce((acc, u) => acc + (u.generatedCount || 0), 0);
+    const postcardsPerUser =
+      displayUsers.length > 0 ? generatedTotal / displayUsers.length : 0;
+
     return {
       users: displayUsers.length,
-      generated: useSupabase ? totalPostcardsCount : displayUsers.reduce((acc, u) => acc + (u.generatedCount || 0), 0),
+      generated: generatedTotal,
       totalCredits: totalPromo + totalPaid,
       totalPromo,
       totalPaid,
       vipCount,
+      postcardsPerUser,
       last7Days,
       levelData: [
         { name: 'VIP', value: vipCount, color: '#6366f1' },

@@ -7,6 +7,8 @@ export type EventType =
   | 'sign_in'
   | 'sign_out'
   | 'postcard_generated'
+  | 'generation_completed'
+  | 'generation_failed'
   | 'credits_purchased'
   | 'admin_panel_view';
 

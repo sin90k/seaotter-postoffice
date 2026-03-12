@@ -1,9 +1,12 @@
-import { Users, ImageIcon, CreditCard, TrendingUp, Activity, Calendar } from 'lucide-react';
+import { Users, ImageIcon, CreditCard, TrendingUp, Activity, Calendar, Timer, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { useState, useEffect } from 'react';
 
 export type TodayStats = {
-  postcardsToday: number;
+  postcardsToday: number;      // 今日成功生成次数
+  failedToday: number;         // 今日失败生成次数
+  successRate: number;         // 0–1
+  avgDurationMs: number | null;
   newUsersToday: number;
   promoConsumedToday: number;
   paidConsumedToday: number;
@@ -16,6 +19,7 @@ export type DashboardStats = {
   totalPromo: number;
   totalPaid: number;
   vipCount: number;
+  postcardsPerUser: number;
   last7Days: { name: string; users: number }[];
   levelData: { name: string; value: number; color: string }[];
 };
@@ -45,27 +49,38 @@ export default function AdminDashboard({
         </div>
       </div>
 
-      {/* Today's metrics */}
+      {/* SYSTEM ACTIVITY */}
+      <div className="mt-2 text-xs font-bold text-stone-400 tracking-widest uppercase">System Activity</div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <div className="text-xs text-stone-500 font-medium mb-1">今日生成明信片</div>
-          <div className="text-2xl font-bold text-stone-900">{todayStats?.postcardsToday ?? '-'}</div>
+          <div className="text-xs text-stone-500 font-medium mb-1">今日成功生成</div>
+          <div className="flex items-baseline gap-1">
+            <div className="text-2xl font-bold text-stone-900">{todayStats?.postcardsToday ?? '-'}</div>
+          </div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <div className="text-xs text-stone-500 font-medium mb-1">今日新用户</div>
-          <div className="text-2xl font-bold text-stone-900">{todayStats?.newUsersToday ?? '-'}</div>
+          <div className="text-xs text-stone-500 font-medium mb-1">今日失败次数</div>
+          <div className="text-2xl font-bold text-red-500">{todayStats?.failedToday ?? 0}</div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <div className="text-xs text-stone-500 font-medium mb-1">今日赠送积分消耗</div>
-          <div className="text-2xl font-bold text-amber-600">{todayStats?.promoConsumedToday ?? '-'}</div>
+          <div className="text-xs text-stone-500 font-medium mb-1">生成成功率</div>
+          <div className="text-2xl font-bold text-emerald-600">
+            {todayStats ? `${Math.round((todayStats.successRate || 0) * 100)}%` : '-'}
+          </div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <div className="text-xs text-stone-500 font-medium mb-1">今日付费积分消耗</div>
-          <div className="text-2xl font-bold text-emerald-600">{todayStats?.paidConsumedToday ?? '-'}</div>
+          <div className="flex items-center gap-1 text-xs text-stone-500 font-medium mb-1">
+            <Timer className="w-3 h-3 text-stone-400" />
+            <span>平均生成耗时</span>
+          </div>
+          <div className="text-2xl font-bold text-stone-900">
+            {todayStats?.avgDurationMs != null ? `${Math.round(todayStats.avgDurationMs / 1000)}s` : '—'}
+          </div>
         </div>
       </div>
 
-      {/* Total stats */}
+      {/* USER GROWTH & CREDIT ECONOMY */}
+      <div className="mt-2 text-xs font-bold text-stone-400 tracking-widest uppercase">User Growth & Credit Economy</div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
@@ -103,6 +118,17 @@ export default function AdminDashboard({
           </div>
           <div className="text-xs sm:text-sm text-stone-500 font-medium">VIP 用户数</div>
           <div className="text-xl sm:text-3xl font-bold text-stone-900">{stats.vipCount}</div>
+        </div>
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 sm:p-3 bg-stone-50 text-stone-700 rounded-xl">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+          </div>
+          <div className="text-xs sm:text-sm text-stone-500 font-medium">人均生成明信片</div>
+          <div className="text-xl sm:text-3xl font-bold text-stone-900">
+            {stats.postcardsPerUser.toFixed(1)}
+          </div>
         </div>
       </div>
 

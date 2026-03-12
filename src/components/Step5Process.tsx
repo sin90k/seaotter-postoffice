@@ -12,6 +12,7 @@ import { brandConfig } from '../config/brand';
 import { applyFilterById } from '../lib/filter-engine';
 import { syncCreditsToSupabase, recordPostcardConsumption } from '../lib/profileSync';
 import { isSupabaseConnected } from '../lib/supabaseClient';
+import { logEvent } from '../lib/events';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -255,6 +256,7 @@ export default function Step5Process({
     let isMounted = true;
     
     const processPhotos = async () => {
+      const processStart = Date.now();
       const configuredPhotos = photos.filter(p => p.groupId !== null);
       if (configuredPhotos.length === 0) {
         setIsProcessing(false);
@@ -657,18 +659,15 @@ Output JSON strictly in this format:
           setPhotos([]);
           setIsProcessing(false);
 
-          const creditsPerCard = (() => {
-            const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
-            const n = v != null ? parseInt(v, 10) : NaN;
-            return Number.isFinite(n) && n >= 0 ? n : 1;
-          })();
-          const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
-            const group = configGroups.find(g => g.id === photo.groupId);
-            const settings = { ...defaultSettings, ...(group?.settings || {}) };
-            const usesAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
-            return count + (usesAi ? 1 : 0);
-          }, 0);
-          const totalUse = creditsPerCard * aiPhotosCount;
+          // 记录一次完整成功生成，用于后台 SYSTEM ACTIVITY 统计
+          const durationMs = Date.now() - processStart;
+          logEvent('generation_completed', {
+            total_photos: configuredPhotos.length,
+            ai_photos: aiPhotosCount,
+            duration_ms: durationMs,
+          }).catch(() => {});
+
+          const totalUse = totalNeed;
 
           setUser(prev => {
             // 优先消耗赠送积分，再消耗付费积分
@@ -698,6 +697,10 @@ Output JSON strictly in this format:
         }
       } catch (err: any) {
         console.error(err);
+        // 失败时记录事件，便于后台统计失败次数
+        logEvent('generation_failed', {
+          message: err?.message || 'unknown_error',
+        }).catch(() => {});
         if (isMounted) {
           setError(err.message || "An error occurred during processing. Please check your API key or try a smaller image.");
           setIsProcessing(false);
