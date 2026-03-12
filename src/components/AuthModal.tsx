@@ -803,7 +803,7 @@ export default function AuthModal({ onClose, onLogin, onOAuthLogin: _onOAuthLogi
                         required
                       />
                     </div>
-                    {password.length >= 1 && (
+                    {isSignUp && password.length >= 1 && (
                       <div className="mt-1.5 flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full bg-stone-100 overflow-hidden">
                           <div

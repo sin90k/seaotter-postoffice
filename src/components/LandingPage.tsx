@@ -356,65 +356,90 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-40 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full flex flex-col items-center text-center">
+      <section className="relative pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full flex flex-col items-center text-center md:text-left md:flex-row md:items-center md:justify-between gap-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-sm font-medium mb-8 border border-stone-200"
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-sm font-medium mb-6 border border-stone-200"
         >
           <Sparkles className="w-4 h-4 text-amber-500" />
           <span>{t.badge}</span>
         </motion.div>
         
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-[clamp(2.25rem,8vw,4.5rem)] font-bold text-stone-900 tracking-tight max-w-4xl mb-6 leading-[1.1]"
-        >
-          {t.title1} <br className="hidden sm:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-stone-500 to-stone-900">{t.title2}</span>
-        </motion.h1>
-        
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 max-w-2xl mb-10 leading-relaxed"
-        >
-          {t.subtitle}
-        </motion.p>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full"
-        >
-          <button
-            onClick={onStart}
-            className="w-full sm:w-auto bg-stone-900 text-white px-8 py-4 rounded-2xl font-medium text-lg hover:bg-stone-800 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-xl shadow-stone-900/10"
+        <div className="flex-1 max-w-xl">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-[clamp(2.25rem,8vw,4.5rem)] font-bold text-stone-900 tracking-tight mb-6 leading-[1.05]"
           >
-            {t.startBtn}
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        </motion.div>
+            {t.title1}
+            <br className="hidden sm:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-stone-500 to-stone-900">{t.title2}</span>
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-[clamp(1rem,2.5vw,1.2rem)] text-stone-500 mb-8 leading-relaxed"
+          >
+            {t.subtitle}
+          </motion.p>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex flex-col sm:flex-row items-center md:items-start gap-4"
+          >
+            <button
+              onClick={onStart}
+              className="w-full sm:w-auto bg-stone-900 text-white px-8 py-4 rounded-2xl font-medium text-lg hover:bg-stone-800 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-xl shadow-stone-900/10"
+            >
+              {t.startBtn}
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-stone-200 text-stone-700 bg-white/70 hover:bg-white transition-all text-sm flex items-center justify-center gap-2"
+            >
+              <ImageIcon className="w-4 h-4" />
+              精选示例
+            </button>
+          </motion.div>
+        </div>
 
         {/* Hero Image/Mockup */}
         <motion.div 
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.4 }}
-          className="mt-20 relative w-full max-w-5xl aspect-[16/9] rounded-3xl overflow-hidden shadow-2xl border border-stone-200/50 bg-white"
+          className="flex-1 w-full max-w-lg mx-auto md:mx-0"
         >
-          <img 
-            src="https://images.unsplash.com/photo-1516738901171-8eb4fc13bd20?auto=format&fit=crop&q=80&w=2000" 
-            alt="Postcards scattered on a table" 
-            className="w-full h-full object-cover opacity-90"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent" />
+          <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-stone-200/60 bg-gradient-to-br from-stone-900 via-stone-800 to-stone-600">
+            <img 
+              src="https://images.unsplash.com/photo-1516738901171-8eb4fc13bd20?auto=format&fit=crop&q=80&w=1600" 
+              alt="Postcards scattered on a table" 
+              className="w-full h-full object-cover opacity-85"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
+              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg">
+                <div className="text-[11px] font-medium text-stone-500 mb-1">AI 设计正面</div>
+                <div className="text-sm font-semibold text-stone-900 truncate">东京黄昏街角</div>
+                <div className="text-[11px] text-stone-500 mt-1 truncate">根据照片自动生成标题与地点</div>
+              </div>
+              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg hidden sm:block">
+                <div className="text-[11px] font-medium text-stone-500 mb-1">AI 设计背面</div>
+                <div className="text-[11px] text-stone-600 line-clamp-3">
+                  在异国的街灯下，时间像被放慢了一拍。写下一句话，把这一刻寄给未来的自己。
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       </section>
 

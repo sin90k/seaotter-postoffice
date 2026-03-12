@@ -263,7 +263,16 @@ export default function Step5Process({
 
       // Strict check: Must be logged in to process
       if (!user.isLoggedIn) {
-        setError(language === 'zh' ? '请先登录以获取 5 个免费积分。' : 'Please log in first to get 5 free credits.');
+        const defaultPromo = (() => {
+          const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_default_promo') : null;
+          const n = v != null ? parseInt(v, 10) : NaN;
+          return Number.isFinite(n) && n >= 0 ? n : 3;
+        })();
+        setError(
+          language === 'zh'
+            ? `请先登录以获取 ${defaultPromo} 个免费积分。`
+            : `Please log in first to get ${defaultPromo} free credits.`
+        );
         setIsProcessing(false);
         setShowPricing(true);
         return;
@@ -447,71 +456,112 @@ Output JSON strictly in this format:
                   );
 
                   const analysisData = JSON.parse(analysisResponse.choices[0]?.message?.content || "{}");
-                  
-                  // Update text fields
-                  if (analysisData.title) title = analysisData.title;
-                  if (analysisData.location_name) location = analysisData.location_name;
-                  if (analysisData.message) {
-                    let msg = Array.isArray(analysisData.message) ? analysisData.message.join('\n\n') : analysisData.message;
-                    message = msg.trim();
-                  }
-                  if (analysisData.theme) theme = analysisData.theme;
-                  if (analysisData.postmark) postmark = analysisData.postmark;
-                  if (analysisData.artistic_icons) artisticIcons = analysisData.artistic_icons;
-                  if (analysisData.text_position && ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].includes(analysisData.text_position)) {
-                    textPosition = analysisData.text_position;
+
+                  // 3. 根据开关和 EXIF 更新文字与位置
+                  if (settings.aiTitle !== false && analysisData.title) {
+                    title = analysisData.title;
                   }
 
-                  // 2. Generate Back Image
-                  let backImagePrompt = analysisData.back_image_prompt || "";
-                  
-                  if (!backImagePrompt) {
-                    const subject = analysisData.subject;
-                    const context = analysisData.context;
-                    const general = analysisData.general_elements;
+                  let analysisLocation = "";
+                  if (analysisData.location_name) {
+                    analysisLocation = analysisData.location_name;
+                  }
 
-                    const styleDesc = "finely detailed pencil sketch with soft pastel colors, delicate lines, white background, high quality, artistic, elegant, subtle shading, watermark style";
+                  // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
+                  let exifLocationName = "";
+                  if (exifData) {
+                    const city = (exifData.city || exifData.City || exifData.SubLocation) as string | undefined;
+                    const region = (exifData.state || exifData.State || exifData.Province || exifData.Region) as string | undefined;
+                    const country = (exifData.country || exifData.Country || exifData.CountryCode) as string | undefined;
+                    const parts = [city, region, country].filter(Boolean) as string[];
+                    if (parts.length > 0) {
+                      exifLocationName = parts.join(', ');
+                    }
+                  }
+                  if (!exifLocationName && gpsData) {
+                    exifLocationName = `GPS (${gpsData.latitude.toFixed(4)}, ${gpsData.longitude.toFixed(4)})`;
+                  }
+
+                  if (settings.aiTitle !== false) {
+                    if (exifLocationName) {
+                      location = exifLocationName;
+                    } else if (analysisLocation) {
+                      location = analysisLocation;
+                    }
+                  } else if (exifLocationName) {
+                    // 即使没开 AI 标题，如果有真实 EXIF 地点也可以用
+                    location = exifLocationName;
+                  }
+
+                  // 背面文案与背面图：仅在开启 AI 背面模板时生成，避免浪费 token
+                  if (settings.aiBackTemplate !== false) {
+                    if (analysisData.message) {
+                      let msg = Array.isArray(analysisData.message) ? analysisData.message.join('\n\n') : analysisData.message;
+                      message = String(msg || '').trim();
+                    }
+                    if (analysisData.theme) theme = analysisData.theme;
+                    if (analysisData.postmark) postmark = analysisData.postmark;
+                    if (analysisData.artistic_icons) artisticIcons = analysisData.artistic_icons;
+                    if (
+                      analysisData.text_position &&
+                      ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].includes(analysisData.text_position)
+                    ) {
+                      textPosition = analysisData.text_position;
+                    }
+
+                    // 2. Generate Back Image（仅在启用 AI 背面时调用 DALL·E）
+                    let backImagePrompt = analysisData.back_image_prompt || "";
                     
-                    if (subject && context) {
-                      backImagePrompt = `A ${styleDesc} of ${subject} in ${context}.`;
-                    } else if (subject) {
-                      backImagePrompt = `A ${styleDesc} of ${subject}.`;
-                    } else if (context) {
-                      backImagePrompt = `A ${styleDesc} of ${context}.`;
-                    } else {
-                      backImagePrompt = `A ${styleDesc} of ${general || "scenery"}.`;
-                    }
-                  }
+                    if (!backImagePrompt) {
+                      const subject = analysisData.subject;
+                      const context = analysisData.context;
+                      const general = analysisData.general_elements;
 
-                  try {
-                    const response = await openai.images.generate({
-                      model: "dall-e-3",
-                      prompt: backImagePrompt,
-                      n: 1,
-                      size: "1024x1024",
-                      response_format: "b64_json",
-                      style: "natural"
-                    });
-
-                    if (response.data && response.data[0] && response.data[0].b64_json) {
-                      generatedBackImageBase64 = `data:image/png;base64,${response.data[0].b64_json}`;
+                      const styleDesc =
+                        "finely detailed pencil sketch with soft pastel colors, delicate lines, white background, high quality, artistic, elegant, subtle shading, watermark style";
+                      
+                      if (subject && context) {
+                        backImagePrompt = `A ${styleDesc} of ${subject} in ${context}.`;
+                      } else if (subject) {
+                        backImagePrompt = `A ${styleDesc} of ${subject}.`;
+                      } else if (context) {
+                        backImagePrompt = `A ${styleDesc} of ${context}.`;
+                      } else {
+                        backImagePrompt = `A ${styleDesc} of ${general || "scenery"}.`;
+                      }
                     }
-                  } catch (openAiErr) {
-                    console.warn("OpenAI image generation failed, trying fallback prompt", openAiErr);
+
                     try {
-                      const fallbackResponse = await openai.images.generate({
+                      const response = await openai.images.generate({
                         model: "dall-e-3",
-                        prompt: "A finely detailed pencil sketch of a beautiful landscape, soft pastel colors, delicate lines, pure white background, elegant, watermark style.",
+                        prompt: backImagePrompt,
                         n: 1,
                         size: "1024x1024",
                         response_format: "b64_json",
                         style: "natural"
                       });
-                      if (fallbackResponse.data && fallbackResponse.data[0] && fallbackResponse.data[0].b64_json) {
-                        generatedBackImageBase64 = `data:image/png;base64,${fallbackResponse.data[0].b64_json}`;
+
+                      if (response.data && response.data[0] && response.data[0].b64_json) {
+                        generatedBackImageBase64 = `data:image/png;base64,${response.data[0].b64_json}`;
                       }
-                    } catch (fallbackErr) {
-                      console.warn("Fallback image generation also failed", fallbackErr);
+                    } catch (openAiErr) {
+                      console.warn("OpenAI image generation failed, trying fallback prompt", openAiErr);
+                      try {
+                        const fallbackResponse = await openai.images.generate({
+                          model: "dall-e-3",
+                          prompt:
+                            "A finely detailed pencil sketch of a beautiful landscape, soft pastel colors, delicate lines, pure white background, elegant, watermark style.",
+                          n: 1,
+                          size: "1024x1024",
+                          response_format: "b64_json",
+                          style: "natural"
+                        });
+                        if (fallbackResponse.data && fallbackResponse.data[0] && fallbackResponse.data[0].b64_json) {
+                          generatedBackImageBase64 = `data:image/png;base64,${fallbackResponse.data[0].b64_json}`;
+                        }
+                      } catch (fallbackErr) {
+                        console.warn("Fallback image generation also failed", fallbackErr);
+                      }
                     }
                   }
                 } catch (aiErr) {
