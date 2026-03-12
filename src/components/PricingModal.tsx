@@ -456,6 +456,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
   const [selectedPlan, setSelectedPlan] = useState<UserLevel | number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [hasChosenProvider, setHasChosenProvider] = useState(false);
   const [wechatQr, setWechatQr] = useState<string | null>(null);
   const [alipayQr, setAlipayQr] = useState<string | null>(null);
   const [paymentNote, setPaymentNote] = useState<string | null>(null);
@@ -495,6 +496,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
       return;
     }
     setSelectedPlan(level);
+    setHasChosenProvider(false);
     setShowPayment(true);
   };
 
@@ -513,6 +515,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
       return;
     }
     setSelectedPlan(amount);
+    setHasChosenProvider(false);
     setShowPayment(true);
   };
 
@@ -733,7 +736,10 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                   {countryConfig.payment.map((provider) => (
                     <button
                       key={provider}
-                      onClick={() => confirmPurchase(provider)}
+                      onClick={() => {
+                        setHasChosenProvider(true);
+                        confirmPurchase(provider);
+                      }}
                       disabled={isProcessing}
                       className="w-full p-4 rounded-2xl border border-stone-100 hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-between group"
                     >
@@ -758,7 +764,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                   ))}
                 </div>
 
-                {(wechatQr || alipayQr) && (
+                {hasChosenProvider && (wechatQr || alipayQr) && (
                   <div className="mt-2 rounded-2xl border border-stone-100 bg-stone-50/80 p-4 space-y-3">
                     <div className="text-xs font-semibold text-stone-600">
                       {language === 'zh'
