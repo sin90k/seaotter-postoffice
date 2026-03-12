@@ -130,6 +130,10 @@ CREATE POLICY "Admins can read all events"
 -- ========== 双积分列 + 管理员可改他人积分 ==========
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS promo_credits integer DEFAULT 3;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS paid_credits integer DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at timestamptz;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_paid_credits integer DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_source text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url text;
 -- 兼容旧数据：无 promo/paid 时用 credits 当作 promo
 UPDATE public.profiles SET promo_credits = COALESCE(promo_credits, credits, 0), paid_credits = COALESCE(paid_credits, 0) WHERE promo_credits IS NULL OR paid_credits IS NULL;
 

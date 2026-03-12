@@ -13,7 +13,8 @@ import AdminBrand from './admin/AdminBrand';
 import AdminFilters from './admin/AdminFilters';
 import AdminPayments from './admin/AdminPayments';
 
-const PROFILES_SELECT = 'id, email, nickname, role, credits, promo_credits, paid_credits, generated_count, created_at';
+const PROFILES_SELECT =
+  'id, email, nickname, role, credits, promo_credits, paid_credits, generated_count, created_at, last_active_at, total_paid_credits, signup_source, avatar_url';
 
 export default function AdminPanel({ onBack, users, currentUser }: { onBack: () => void; users: User[]; currentUser?: User }) {
   const [page, setPage] = useState<AdminPage>('dashboard');
@@ -43,9 +44,31 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
           return;
         }
         setSupabaseUsers(
-          (Array.isArray(data) ? data : []).map((r: { id?: string; email?: string; nickname?: string; role?: string; credits?: number; promo_credits?: number; paid_credits?: number; generated_count?: number; created_at?: string }) => {
+          (Array.isArray(data) ? data : []).map((r: {
+            id?: string;
+            email?: string;
+            nickname?: string;
+            role?: string;
+            credits?: number;
+            promo_credits?: number;
+            paid_credits?: number;
+            generated_count?: number;
+            created_at?: string;
+            last_active_at?: string;
+            total_paid_credits?: number;
+            signup_source?: string;
+            avatar_url?: string;
+          }) => {
             const promo = typeof r.promo_credits === 'number' ? r.promo_credits : (r.credits ?? 0);
             const paid = typeof r.paid_credits === 'number' ? r.paid_credits : 0;
+            const totalPaidCredits =
+              typeof r.total_paid_credits === 'number' ? r.total_paid_credits : paid;
+            const signupSource = r.signup_source || 'email';
+            const loginProvider: User['loginProvider'] =
+              signupSource === 'google' || signupSource === 'apple'
+                ? (signupSource as User['loginProvider'])
+                : 'email';
+
             return {
               isLoggedIn: true as const,
               id: r.id,
@@ -58,6 +81,11 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
               paid_credits: paid,
               generatedCount: r.generated_count ?? 0,
               createdAt: r.created_at ? new Date(r.created_at).getTime() : undefined,
+              lastActiveAt: r.last_active_at ? new Date(r.last_active_at).getTime() : undefined,
+              totalPaidCredits,
+              signupSource,
+              loginProvider,
+              avatar: r.avatar_url || undefined,
               level: 'free' as const,
               addresses: [] as const,
             };
@@ -360,6 +388,21 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     [useSupabase, isAdmin, fetchProfiles]
   );
 
+  const handleUnban = useCallback(
+    async (u: User) => {
+      if (!u.id || !useSupabase || !isAdmin) return;
+      if (!confirm(`Unban user ${u.email || u.id}? They will be able to use the app again.`)) return;
+      const { error } = await supabase.from('profiles').update({ role: 'user' }).eq('id', u.id);
+      if (error) {
+        console.error('[AdminPanel] unban:', error);
+        alert('Unban failed: ' + error.message);
+        return;
+      }
+      fetchProfiles();
+    },
+    [useSupabase, isAdmin, fetchProfiles]
+  );
+
   const handleReset = useCallback(
     async (u: User) => {
       if (!u.id || !useSupabase || !isAdmin) return;
@@ -436,7 +479,8 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
           displayUsers={displayUsers}
           isAdmin={!!isAdmin}
           onSaveCredits={handleSaveCredits}
-          onBan={isAdmin ? handleBan : undefined}
+        onBan={isAdmin ? handleBan : undefined}
+        onUnban={isAdmin ? handleUnban : undefined}
           onReset={isAdmin ? handleReset : undefined}
           userLedger={userDetailLedger}
           userPostcards={userDetailPostcards}

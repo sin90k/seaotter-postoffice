@@ -38,6 +38,8 @@ export type User = {
   name?: string; // Real name for shipping
   nickname?: string; // Display name
   avatar?: string;
+  /** Login provider / signup source, for admin analytics */
+  loginProvider?: 'email' | 'google' | 'apple' | 'other';
   level: UserLevel;
   /** Total display credits = promo_credits + paid_credits */
   credits: number;
@@ -45,11 +47,17 @@ export type User = {
   promo_credits: number;
   /** Purchased credits; consumption does not add watermark */
   paid_credits: number;
+  /** Cumulative paid credits the user has ever purchased */
+  totalPaidCredits?: number;
   password?: string;
   createdAt?: number;
+  /** Last active timestamp (login or postcard generation), ms */
+  lastActiveAt?: number;
   addresses: Address[];
   role?: 'admin' | 'user' | 'support' | 'banned';
   generatedCount?: number;
+  /** Raw signup_source string from profile, e.g. email/google/apple */
+  signupSource?: string;
 };
 
 export type SettingsType = {
