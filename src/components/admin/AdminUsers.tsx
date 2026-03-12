@@ -35,9 +35,9 @@ export default function AdminUsers({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'banned'>('all');
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'vip' | 'free'>('all');
-  const [registerFilter, setRegisterFilter] = useState<'all' | 'today' | 'last7' | 'last30'>('all');
+  const [registerFilter, setRegisterFilter] = useState<'all' | 'last7' | 'last30'>('all');
   const [creditsFilter, setCreditsFilter] = useState<'all' | 'with' | 'zero'>('all');
-  const [providerFilter, setProviderFilter] = useState<'all' | 'email' | 'google' | 'apple'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | 'google' | 'apple'>('all');
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -63,7 +63,6 @@ export default function AdminUsers({
       if (registerFilter !== 'all' && u.createdAt) {
         const diff = now - u.createdAt;
         const oneDay = 24 * 60 * 60 * 1000;
-        if (registerFilter === 'today' && diff > oneDay) return false;
         if (registerFilter === 'last7' && diff > 7 * oneDay) return false;
         if (registerFilter === 'last30' && diff > 30 * oneDay) return false;
       }
@@ -177,7 +176,7 @@ export default function AdminUsers({
                 </button>
               ))}
               {/* Register time */}
-              {(['all', 'today', 'last7', 'last30'] as const).map((v) => (
+              {(['all', 'last7', 'last30'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -194,8 +193,6 @@ export default function AdminUsers({
                 >
                   {v === 'all'
                     ? '全部注册时间'
-                    : v === 'today'
-                    ? '今日注册'
                     : v === 'last7'
                     ? '近 7 天'
                     : '近 30 天'}
@@ -221,7 +218,7 @@ export default function AdminUsers({
                 </button>
               ))}
               {/* Provider */}
-              {(['all', 'email', 'google', 'apple'] as const).map((v) => (
+              {(['all', 'google', 'apple'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -238,8 +235,6 @@ export default function AdminUsers({
                 >
                   {v === 'all'
                     ? '全部渠道'
-                    : v === 'email'
-                    ? '邮箱'
                     : v === 'google'
                     ? 'Google'
                     : 'Apple'}
@@ -248,10 +243,10 @@ export default function AdminUsers({
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
+          <table className="w-full text-left min-w-[1100px]">
             <thead>
-              <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50">
+              <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50 whitespace-nowrap">
                 <th className="px-4 py-3 font-bold">用户</th>
                 <th className="px-4 py-3 font-bold">邮箱</th>
                 <th className="px-4 py-3 font-bold">登录方式</th>
