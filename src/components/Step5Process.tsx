@@ -349,8 +349,14 @@ export default function Step5Process({
                 try {
                   const envKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
                   const adminKey = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_key') : null;
-                  const openAiKey = (typeof envKey === 'string' && envKey.trim()) ? envKey.trim() : (adminKey && adminKey.trim()) || null;
+                  // 优先使用 Vercel/Supabase 构建时注入的环境变量，其次才是 Admin 面板里填的本地 key
+                  const openAiKey = (typeof envKey === 'string' && envKey.trim())
+                    ? envKey.trim()
+                    : (adminKey && adminKey.trim()) || null;
                   const baseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_base_url') : null;
+                  if (typeof window !== 'undefined') {
+                    console.log('[SeaOtter][AI] envKey:', !!envKey, 'adminKey:', !!adminKey);
+                  }
                   if (!openAiKey) {
                     throw new Error(language === 'zh' 
                       ? "OpenAI API Key 未配置。请在 Admin 后台填写，或设置 VITE_OPENAI_API_KEY 环境变量。" 
