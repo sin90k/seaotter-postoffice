@@ -37,7 +37,6 @@ export default function AdminUsers({
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'vip' | 'free'>('all');
   const [registerFilter, setRegisterFilter] = useState<'all' | 'last7' | 'last30'>('all');
   const [creditsFilter, setCreditsFilter] = useState<'all' | 'with' | 'zero'>('all');
-  const [providerFilter, setProviderFilter] = useState<'all' | 'google' | 'apple'>('all');
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -70,12 +69,9 @@ export default function AdminUsers({
       const credits = typeof u.credits === 'number' ? u.credits : 0;
       if (creditsFilter === 'with' && credits <= 0) return false;
       if (creditsFilter === 'zero' && credits > 0) return false;
-      // provider
-      const p = u.loginProvider || 'email';
-      if (providerFilter !== 'all' && p !== providerFilter) return false;
       return true;
     });
-  }, [displayUsers, search, statusFilter, userTypeFilter, registerFilter, creditsFilter, providerFilter, now]);
+  }, [displayUsers, search, statusFilter, userTypeFilter, registerFilter, creditsFilter, now]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -215,29 +211,6 @@ export default function AdminUsers({
                   )}
                 >
                   {v === 'all' ? '全部积分' : v === 'with' ? '有积分' : '无积分'}
-                </button>
-              ))}
-              {/* Provider */}
-              {(['all', 'google', 'apple'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => {
-                    setProviderFilter(v);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    'px-3 py-1 rounded-full border text-xs',
-                    providerFilter === v
-                      ? 'bg-sky-600 text-white border-sky-600'
-                      : 'bg-white text-stone-600 border-stone-200'
-                  )}
-                >
-                  {v === 'all'
-                    ? '全部渠道'
-                    : v === 'google'
-                    ? 'Google'
-                    : 'Apple'}
                 </button>
               ))}
             </div>

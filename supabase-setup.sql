@@ -199,7 +199,7 @@ CREATE POLICY "Users can insert own postcard consumption"
 DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
 CREATE POLICY "Admins can read all profiles"
   ON public.profiles FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+  USING (auth.uid() IS NOT NULL);
 
 -- 仅 admin 可更新他人 profile（support 不可）
 DROP POLICY IF EXISTS "Admins can update any profile credits" ON public.profiles;
