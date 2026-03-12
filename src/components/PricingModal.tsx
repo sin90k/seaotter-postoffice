@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { SeaOtterLogo } from './SeaOtterLogo';
 import { UserLevel } from '../App';
 import { CountryConfig } from '../config/countries';
+import { supabase, isSupabaseConnected } from '../lib/supabaseClient';
 
 interface Props {
   onClose: () => void;
@@ -459,13 +460,24 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
   const [alipayQr, setAlipayQr] = useState<string | null>(null);
   const [paymentNote, setPaymentNote] = useState<string | null>(null);
 
-  // 仅前端本地读取 Admin 支付配置，不走任何服务端接口
+  // 从 Supabase 读取支付配置（云端唯一数据源，换设备/清缓存仍生效）
   useEffect(() => {
-    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
-    if (!ls) return;
-    setWechatQr(ls.getItem('admin_payment_wechat_qr'));
-    setAlipayQr(ls.getItem('admin_payment_alipay_qr'));
-    setPaymentNote(ls.getItem('admin_payment_note'));
+    if (!isSupabaseConnected) return;
+    supabase
+      .from('payment_config')
+      .select('wechat_qr_url, alipay_qr_url, payment_note')
+      .eq('id', 1)
+      .single()
+      .then((res: { data: unknown; error: { code?: string } | null }) => {
+        const { data, error } = res;
+        if (error && error.code !== 'PGRST116') return;
+        const row = data as { wechat_qr_url?: string; alipay_qr_url?: string; payment_note?: string } | null;
+        if (row) {
+          setWechatQr(row.wechat_qr_url || null);
+          setAlipayQr(row.alipay_qr_url || null);
+          setPaymentNote(row.payment_note || null);
+        }
+      });
   }, []);
 
   const handleSubscribe = (level: UserLevel) => {

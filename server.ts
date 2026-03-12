@@ -13,11 +13,13 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  // 静态上传目录（用于支付二维码等资源）
+  // 静态上传目录（仅本地有效；Vercel 无持久磁盘，收款码改由接口返回 dataUrl）
   const uploadsRoot = path.join(__dirname, "uploads");
   const paymentDir = path.join(uploadsRoot, "payments");
-  fs.mkdirSync(paymentDir, { recursive: true });
-  app.use("/uploads", express.static(uploadsRoot));
+  if (process.env.VERCEL !== "1") {
+    fs.mkdirSync(paymentDir, { recursive: true });
+    app.use("/uploads", express.static(uploadsRoot));
+  }
 
   // API routes
   app.get("/api/health", (_req, res) => {
@@ -33,7 +35,7 @@ async function startServer() {
     res.json({ url: mockAuthUrl });
   });
 
-  // 支付二维码上传接口（接收前端传来的 base64，并保存在服务器本地 uploads/payments 下）
+  // 支付二维码上传接口（接收前端 base64）。Vercel 无持久磁盘，直接返回 dataUrl 由前端存 localStorage；本地则写入 uploads/payments。
   app.post("/api/admin/payment-qr", async (req, res) => {
     try {
       const { provider, dataUrl } = (req as any).body || {};
@@ -44,6 +46,11 @@ async function startServer() {
       if (!match) {
         return res.status(400).json({ error: "dataUrl 必须是 data:image/...;base64, 格式" });
       }
+      const isVercel = process.env.VERCEL === "1";
+      if (isVercel) {
+        // Vercel serverless 无法持久写文件，直接返回 dataUrl，由前端存入 localStorage
+        return res.json({ url: dataUrl });
+      }
       const extRaw = match[1];
       const ext = extRaw === "jpeg" ? "jpg" : extRaw === "jpg" ? "jpg" : extRaw;
       const buffer = Buffer.from(match[2], "base64");
@@ -51,8 +58,7 @@ async function startServer() {
       const filename = `${safeProvider}-${Date.now()}.${ext}`;
       const filepath = path.join(paymentDir, filename);
       await fs.promises.writeFile(filepath, buffer);
-      const url = `/uploads/payments/${filename}`;
-      res.json({ url });
+      res.json({ url: `/uploads/payments/${filename}` });
     } catch (e: any) {
       console.error("[server] upload payment qr error", e);
       res.status(500).json({ error: "上传失败" });

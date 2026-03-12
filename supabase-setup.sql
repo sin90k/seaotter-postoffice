@@ -253,3 +253,38 @@ CREATE POLICY "Admins can update any payments"
   ON public.payments FOR UPDATE
   USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
   WITH CHECK (true);
+
+-- ========== payment_config 表（收款码与说明，唯一单行，前台可读） ==========
+CREATE TABLE IF NOT EXISTS public.payment_config (
+  id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  wechat_qr_url text,
+  alipay_qr_url text,
+  payment_note text,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.payment_config ENABLE ROW LEVEL SECURITY;
+
+-- 所有人（含未登录）可读，用于前台购买弹窗展示收款码
+DROP POLICY IF EXISTS "Anyone can read payment_config" ON public.payment_config;
+CREATE POLICY "Anyone can read payment_config"
+  ON public.payment_config FOR SELECT
+  USING (true);
+
+-- 仅 admin 可插入/更新
+DROP POLICY IF EXISTS "Admins can insert payment_config" ON public.payment_config;
+CREATE POLICY "Admins can insert payment_config"
+  ON public.payment_config FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+DROP POLICY IF EXISTS "Admins can update payment_config" ON public.payment_config;
+CREATE POLICY "Admins can update payment_config"
+  ON public.payment_config FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
+  WITH CHECK (true);
+
+INSERT INTO public.payment_config (id, wechat_qr_url, alipay_qr_url, payment_note)
+VALUES (1, NULL, NULL, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- 收款码图片存储：请在 Supabase Dashboard → Storage 中新建桶 payment-qr，设为 Public。
+-- 再在 Storage → Policies 为该桶添加：INSERT/UPDATE 仅当 profiles.role = 'admin'（或直接用 Dashboard 的 “Allow public read” + “Authenticated upload”）。
