@@ -2,16 +2,15 @@ import { get, set } from 'idb-keyval';
 import { ProcessedPostcard } from '../App';
 import { supabase, isSupabaseConnected } from './supabaseClient';
 
-const POSTCARDS_SKIP_KEY = 'seaotter_postcards_table_skip';
-
 const isTableMissing = (err: { code?: string; message?: string }) =>
-  err?.code === 'PGRST205' || (err?.message ?? '').includes("Could not find the table");
+  err?.code === 'PGRST205' || (err?.message ?? '').includes('Could not find the table');
 
-const shouldSkipPostcards = () => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(POSTCARDS_SKIP_KEY) === '1';
-
-/** 登录用户用 Supabase，游客用 IndexedDB。若 postcards 表不存在则返回空数组且后续不再请求。 */
+/**
+ * 登录用户：优先从 Supabase postcards 表读取历史；
+ * 游客或 Supabase 未连接：使用浏览器本地 IndexedDB。
+ */
 export const loadHistory = async (userId?: string | null): Promise<ProcessedPostcard[]> => {
-  if (userId && isSupabaseConnected && !shouldSkipPostcards()) {
+  if (userId && isSupabaseConnected) {
     const { data, error } = await supabase
       .from('postcards')
       .select('payload')
@@ -19,7 +18,7 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
       .order('created_at', { ascending: false });
     if (error) {
       if (isTableMissing(error)) {
-        try { sessionStorage.setItem(POSTCARDS_SKIP_KEY, '1'); } catch { }
+        // 表不存在时返回空数组，但不再永久跳过；建表后下次会自动生效
         return [];
       }
       console.error('[storage] loadHistory Supabase error:', error);
@@ -27,33 +26,25 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
     }
     return (data || []).map((r: { payload: ProcessedPostcard }) => r.payload);
   }
-  if (userId && isSupabaseConnected && shouldSkipPostcards()) {
-    return (await get('postcard_history')) || [];
-  }
-  return (await get('postcard_history')) || [];
+  return ((await get('postcard_history')) as ProcessedPostcard[] | undefined) || [];
 };
 
-/** 若 postcards 表不存在则跳过同步且后续不再请求。 */
+/**
+ * 同步历史到 Supabase：
+ * - 登录用户：postcards 表作为权威数据源，本地 IndexedDB 仅作缓存；
+ * - 游客：只写 IndexedDB。
+ */
 export const saveHistory = async (history: ProcessedPostcard[], userId?: string | null): Promise<void> => {
-  if (userId && isSupabaseConnected && shouldSkipPostcards()) {
-    await set('postcard_history', history);
-    return;
-  }
   if (userId && isSupabaseConnected) {
     const { error: delErr } = await supabase.from('postcards').delete().eq('user_id', userId);
-    if (delErr) {
-      if (isTableMissing(delErr)) {
-        try { sessionStorage.setItem(POSTCARDS_SKIP_KEY, '1'); } catch { }
-      } else {
-        console.error('[storage] saveHistory delete error:', delErr);
-      }
+    if (delErr && !isTableMissing(delErr)) {
+      console.error('[storage] saveHistory delete error:', delErr);
     }
-    if (history.length > 0 && !shouldSkipPostcards()) {
+    if (history.length > 0) {
       const rows = history.map((p) => ({ user_id: userId, payload: p }));
       const { error: insErr } = await supabase.from('postcards').insert(rows);
-      if (insErr) {
-        if (isTableMissing(insErr)) try { sessionStorage.setItem(POSTCARDS_SKIP_KEY, '1'); } catch { }
-        else console.error('[storage] saveHistory insert error:', insErr);
+      if (insErr && !isTableMissing(insErr)) {
+        console.error('[storage] saveHistory insert error:', insErr);
       }
     }
     await set('postcard_history', history);
