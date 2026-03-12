@@ -498,12 +498,12 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {[
               { 
-                img: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&q=80&w=800', 
-                title: 'Cyberpunk Tokyo', 
-                loc: 'Shibuya, Japan', 
-                theme: 'Neon Night',
-                style: 'cyberpunk',
-                msg: 'The neon lights are blinding, and the energy is electric. Tokyo never sleeps, and neither do I! \n\nCatch you in the matrix,\nOtter' 
+                img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=800', 
+                title: 'Neon Shanghai', 
+                loc: 'The Bund, Shanghai', 
+                theme: 'City Night',
+                style: 'neon',
+                msg: '霓虹在江面上晃动，城市像一封尚未寄出的信。今晚的上海，比记忆里的更亮一点。' 
               },
               { 
                 img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=800', 

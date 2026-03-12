@@ -457,6 +457,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [hasChosenProvider, setHasChosenProvider] = useState(false);
+  const [qrProvider, setQrProvider] = useState<'wechat' | 'alipay' | null>(null);
   const [wechatQr, setWechatQr] = useState<string | null>(null);
   const [alipayQr, setAlipayQr] = useState<string | null>(null);
   const [paymentNote, setPaymentNote] = useState<string | null>(null);
@@ -497,6 +498,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
     }
     setSelectedPlan(level);
     setHasChosenProvider(false);
+    setQrProvider(null);
     setShowPayment(true);
   };
 
@@ -516,6 +518,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
     }
     setSelectedPlan(amount);
     setHasChosenProvider(false);
+    setQrProvider(null);
     setShowPayment(true);
   };
 
@@ -738,6 +741,9 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                       key={provider}
                       onClick={() => {
                         setHasChosenProvider(true);
+                        if (provider === 'Alipay') setQrProvider('alipay');
+                        else if (provider === 'WeChat Pay') setQrProvider('wechat');
+                        else setQrProvider(null);
                         confirmPurchase(provider);
                       }}
                       disabled={isProcessing}
@@ -764,32 +770,37 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                   ))}
                 </div>
 
-                {hasChosenProvider && (wechatQr || alipayQr) && (
-                  <div className="mt-2 rounded-2xl border border-stone-100 bg-stone-50/80 p-4 space-y-3">
-                    <div className="text-xs font-semibold text-stone-600">
-                      {language === 'zh'
-                        ? '请使用微信或支付宝扫码支付，然后根据页面提示联系人工完成充值。'
-                        : 'Scan the QR code with WeChat or Alipay, then follow the instructions to confirm your payment.'}
-                    </div>
-                    <div className="flex gap-4">
-                      {wechatQr && (
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="text-xs text-stone-500 mb-1">微信收款码</div>
-                          <img src={wechatQr} alt="WeChat QR" className="w-24 h-24 rounded-xl border border-stone-200 object-cover bg-white" />
-                        </div>
-                      )}
-                      {alipayQr && (
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="text-xs text-stone-500 mb-1">支付宝收款码</div>
-                          <img src={alipayQr} alt="Alipay QR" className="w-24 h-24 rounded-xl border border-stone-200 object-cover bg-white" />
-                        </div>
-                      )}
-                    </div>
-                    {paymentNote && (
-                      <div className="text-[11px] text-stone-500 leading-relaxed whitespace-pre-line">
-                        {paymentNote}
+                {/* 二维码弹窗：仅在选择支付方式后弹出，且只展示对应收款码 */}
+                {hasChosenProvider && qrProvider && (wechatQr || alipayQr) && (
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40" onClick={() => setQrProvider(null)}>
+                    <div
+                      className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h3 className="text-lg font-bold text-stone-900 mb-2">
+                        {qrProvider === 'wechat' ? '微信收款码' : '支付宝收款码'}
+                      </h3>
+                      <div className="flex items-center justify-center">
+                        {qrProvider === 'wechat' && wechatQr && (
+                          <img src={wechatQr} alt="WeChat QR" className="w-56 h-56 rounded-2xl border border-stone-200 object-cover bg-white" />
+                        )}
+                        {qrProvider === 'alipay' && alipayQr && (
+                          <img src={alipayQr} alt="Alipay QR" className="w-56 h-56 rounded-2xl border border-stone-200 object-cover bg-white" />
+                        )}
                       </div>
-                    )}
+                      {paymentNote && (
+                        <div className="text-xs text-stone-500 leading-relaxed whitespace-pre-line">
+                          {paymentNote}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setQrProvider(null)}
+                        className="w-full mt-2 py-2.5 rounded-xl text-sm font-medium bg-stone-900 text-white hover:bg-stone-800 transition-colors"
+                      >
+                        {language === 'zh' ? '我已完成付款' : 'I have completed the payment'}
+                      </button>
+                    </div>
                   </div>
                 )}
 

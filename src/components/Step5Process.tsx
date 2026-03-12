@@ -478,10 +478,6 @@ Output JSON strictly in this format:
                       exifLocationName = parts.join(', ');
                     }
                   }
-                  if (!exifLocationName && gpsData) {
-                    exifLocationName = `GPS (${gpsData.latitude.toFixed(4)}, ${gpsData.longitude.toFixed(4)})`;
-                  }
-
                   if (settings.aiTitle !== false) {
                     if (exifLocationName) {
                       location = exifLocationName;
