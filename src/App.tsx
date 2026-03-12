@@ -17,6 +17,7 @@ import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
 import { supabase } from './lib/supabaseClient';
 import { logEvent } from './lib/events';
+import { APP_VERSION } from './version';
 
 
 export type UserLevel = 'free' | 'vip';
@@ -517,7 +518,14 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'question'>('suggestion');
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      return localStorage.getItem('seaotter_has_seen_landing') !== '1';
+    } catch {
+      return true;
+    }
+  });
   
   const [language, setLanguage] = useState('zh');
   const [countryConfig, setCountryConfig] = useState<CountryConfig>(countriesConfig[0]);
@@ -688,6 +696,17 @@ export default function App() {
       setLanguage('zh');
     }
   }, []);
+
+  // 只要用户点过一次开始，就永久关闭落地页（刷新不再回首页）
+  useEffect(() => {
+    if (!showLanding) {
+      try {
+        localStorage.setItem('seaotter_has_seen_landing', '1');
+      } catch {
+        // ignore
+      }
+    }
+  }, [showLanding]);
 
   const handleLogin = async (identifier: string, password?: string, isSignUp?: boolean, name?: string, type: 'email' | 'phone' = 'email'): Promise<string | void> => {
     const t = translations[language] || translations.en;
@@ -1219,6 +1238,11 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 版本号角标（右下角，小且不打扰） */}
+      <div className="fixed bottom-2 right-2 z-[5] text-[10px] text-stone-400 bg-white/60 backdrop-blur-sm px-2 py-1 rounded-full border border-stone-200 shadow-sm">
+        v{APP_VERSION}
+      </div>
     </div>
   );
 }
