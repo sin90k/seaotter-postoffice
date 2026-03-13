@@ -10,8 +10,9 @@ import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
 import { brandConfig } from '../config/brand';
 import { applyFilterById } from '../lib/filter-engine';
-import { syncCreditsToSupabase, recordPostcardConsumption } from '../lib/profileSync';
 import { isSupabaseConnected } from '../lib/supabaseClient';
+import { updateUserCredits, getCreditsPerPostcard } from '../lib/credits';
+import { syncGeneratedCount } from '../lib/profileSync';
 import { logEvent } from '../lib/events';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
@@ -280,11 +281,7 @@ export default function Step5Process({
         return;
       }
 
-      const creditsPerCard = (() => {
-        const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
-        const n = v != null ? parseInt(v, 10) : NaN;
-        return Number.isFinite(n) && n >= 0 ? n : 1;
-      })();
+      const creditsPerCard = await getCreditsPerPostcard();
       const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
         const group = configGroups.find(g => g.id === photo.groupId);
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
@@ -669,31 +666,41 @@ Output JSON strictly in this format:
 
           const totalUse = totalNeed;
 
-          setUser(prev => {
-            // 优先消耗赠送积分，再消耗付费积分
-            const currentPromo = prev.promo_credits ?? 0;
-            const currentPaid = prev.paid_credits ?? 0;
-            const promoUsed = Math.min(currentPromo, totalUse);
-            const paidUsed = Math.max(0, totalUse - promoUsed);
-            const newPromo = currentPromo - promoUsed;
-            const newPaid = currentPaid - paidUsed;
-            const newGenerated = (prev.generatedCount || 0) + configuredPhotos.length;
-            const newCredits = Math.max(0, newPromo + newPaid);
-
-            if (prev.id && isSupabaseConnected) {
-              // 同步最新积分到 Supabase，并记录本次消耗
-              syncCreditsToSupabase(prev.id, newPromo, newPaid, newGenerated).catch(console.error);
-              recordPostcardConsumption(prev.id, promoUsed, paidUsed).catch(console.error);
-            }
-
-            return {
-              ...prev,
-              credits: newCredits,
-              promo_credits: newPromo,
-              paid_credits: newPaid,
-              generatedCount: newGenerated,
-            };
-          });
+          // 调用统一积分函数，扣减本次生成消耗
+          const uid = user.id;
+          if (uid && isSupabaseConnected && totalUse > 0) {
+            updateUserCredits(uid, -totalUse, 'generation_cost', {
+              referenceId: newResults[0]?.id,
+              notes: `Generate ${configuredPhotos.length} postcards`,
+              operator: 'system',
+              bucket: null,
+            })
+              .then((res) => {
+                if (!res.ok || !res.data) return;
+                const newCount = (user.generatedCount ?? 0) + configuredPhotos.length;
+                syncGeneratedCount(uid, newCount, { lastActiveAt: new Date() }).catch(() => {});
+                setUser((prev) => ({
+                  ...prev,
+                  credits: res.data!.total_credits,
+                  promo_credits: res.data!.promo_credits,
+                  paid_credits: res.data!.paid_credits,
+                  generatedCount: newCount,
+                }));
+              })
+              .catch((e) => {
+                console.error('[credits] generation_cost update failed:', e);
+              });
+          } else {
+            // 本地降级：至少更新前端显示的积分
+            setUser((prev) => {
+              const newCredits = Math.max(0, (prev.credits ?? 0) - totalUse);
+              return {
+                ...prev,
+                credits: newCredits,
+                generatedCount: (prev.generatedCount || 0) + configuredPhotos.length,
+              };
+            });
+          }
         }
       } catch (err: any) {
         console.error(err);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
+import { supabase, isSupabaseConnected } from '../../lib/supabaseClient';
 
 export default function AdminSettings() {
   const [apiKey, setApiKey] = useState('');
@@ -13,20 +14,53 @@ export default function AdminSettings() {
     setApiKey(ls?.getItem('admin_openai_key') || '');
     setBaseUrl(ls?.getItem('admin_openai_base_url') || 'https://api.chatanywhere.tech/v1');
     setGeminiKey(ls?.getItem('admin_gemini_key') || '');
-    setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
-    setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+    if (isSupabaseConnected) {
+      supabase.from('payment_config').select('signup_bonus_credits, credits_per_postcard').eq('id', 1).single().then((res: { data: unknown; error: { code?: string } | null }) => {
+        const { data, error } = res;
+        if (!error && data) {
+          const d = data as { signup_bonus_credits?: number; credits_per_postcard?: number };
+          if (typeof d.signup_bonus_credits === 'number') setCreditsDefaultPromo(String(d.signup_bonus_credits));
+          else setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+          if (typeof d.credits_per_postcard === 'number' && d.credits_per_postcard >= 0) setCreditsPerPostcard(String(d.credits_per_postcard));
+          else setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+        } else {
+          setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+          setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+        }
+      });
+    } else {
+      setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+      setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+    }
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
     if (ls) {
       ls.setItem('admin_openai_key', apiKey.trim());
       ls.setItem('admin_openai_base_url', baseUrl.trim());
       ls.setItem('admin_gemini_key', geminiKey.trim());
-      const n = parseInt(creditsDefaultPromo, 10);
-      ls.setItem('admin_credits_default_promo', String(Number.isFinite(n) && n >= 0 ? n : 3));
       const perCard = parseInt(creditsPerPostcard, 10);
       ls.setItem('admin_credits_per_postcard', String(Number.isFinite(perCard) && perCard >= 0 ? perCard : 1));
+    }
+    const n = parseInt(creditsDefaultPromo, 10);
+    const promoNum = Number.isFinite(n) && n >= 0 ? n : 0;
+    const perCard = parseInt(creditsPerPostcard, 10);
+    const perPostcardNum = Number.isFinite(perCard) && perCard >= 0 ? perCard : 1;
+    if (ls) {
+      ls.setItem('admin_credits_default_promo', String(promoNum));
+      ls.setItem('admin_credits_per_postcard', String(perPostcardNum));
+    }
+    if (isSupabaseConnected) {
+      const { error } = await supabase.from('payment_config').update({
+        signup_bonus_credits: promoNum,
+        credits_per_postcard: perPostcardNum,
+        updated_at: new Date().toISOString(),
+      }).eq('id', 1);
+      if (error) {
+        alert('保存失败：' + (error.message || '请检查权限'));
+        return;
+      }
     }
     alert('System configuration saved.');
   };
@@ -78,7 +112,7 @@ export default function AdminSettings() {
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
-              新用户赠送积分 (默认)
+              新用户赠送积分
             </label>
             <input
               type="number"
@@ -86,10 +120,10 @@ export default function AdminSettings() {
               max="999"
               value={creditsDefaultPromo}
               onChange={(e) => setCreditsDefaultPromo(e.target.value)}
-              placeholder="3"
+              placeholder="0"
               className="w-32 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
             />
-            <p className="text-xs text-stone-500">用于手机号登录新用户、以及 profile 无 promo_credits 时的回退。Supabase 邮箱注册由数据库触发器控制。</p>
+            <p className="text-xs text-stone-500">保存到后台配置，新注册用户将按此数量获得赠送积分；设为 0 即不送。邮箱注册由数据库触发器读取本配置。</p>
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">

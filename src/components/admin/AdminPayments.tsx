@@ -1,9 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Save, Smartphone, Wallet, Upload } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Save, Smartphone, Wallet, Upload, CheckCircle } from 'lucide-react';
 import { supabase, isSupabaseConnected } from '../../lib/supabaseClient';
+import { updateUserCredits } from '../../lib/credits';
 
 const PAYMENT_CONFIG_ID = 1;
 const STORAGE_BUCKET = 'payment-qr';
+
+type PaymentRow = {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  provider: string | null;
+  note: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
 
 export default function AdminPayments() {
   const [wechatUrl, setWechatUrl] = useState('');
@@ -12,6 +24,69 @@ export default function AdminPayments() {
   const [uploading, setUploading] = useState<'wechat' | 'alipay' | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle');
+  const [orders, setOrders] = useState<PaymentRow[]>([]);
+  const [userEmails, setUserEmails] = useState<Record<string, string>>({});
+  const [markingId, setMarkingId] = useState<string | null>(null);
+
+  const fetchOrders = useCallback(() => {
+    if (!isSupabaseConnected) return;
+    supabase
+      .from('payments')
+      .select('id, user_id, amount, status, provider, note, created_at, paid_at')
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then((res: { data: unknown; error: { message?: string } | null }) => {
+        const { data, error } = res;
+        if (error) {
+          console.error('[AdminPayments] fetch orders:', error);
+          return;
+        }
+        setOrders((data as PaymentRow[]) || []);
+        const userIds = [...new Set((data as PaymentRow[] || []).map((o) => o.user_id))];
+        if (userIds.length === 0) return;
+        supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds)
+          .then((r: { data: unknown }) => {
+            const list = (r.data as { id: string; email?: string }[]) || [];
+            const map: Record<string, string> = {};
+            list.forEach((p) => { map[p.id] = p.email || p.id.slice(0, 8); });
+            setUserEmails(map);
+          });
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const handleMarkPaid = async (row: PaymentRow) => {
+    if (row.status !== 'pending' || row.amount <= 0) return;
+    setMarkingId(row.id);
+    const res = await updateUserCredits(row.user_id, row.amount, 'purchase', {
+      referenceId: row.id,
+      notes: 'Payment confirmed by admin',
+      operator: 'admin',
+      bucket: 'paid',
+    });
+    if (!res.ok) {
+      alert('充值失败：' + (res.error || 'unknown'));
+      setMarkingId(null);
+      return;
+    }
+    const { error } = await supabase
+      .from('payments')
+      .update({ status: 'paid', paid_at: new Date().toISOString() })
+      .eq('id', row.id);
+    if (error) {
+      alert('更新订单状态失败：' + error.message);
+      setMarkingId(null);
+      return;
+    }
+    setMarkingId(null);
+    fetchOrders();
+  };
 
   useEffect(() => {
     if (!isSupabaseConnected) {
@@ -209,6 +284,60 @@ export default function AdminPayments() {
           <Save className="w-4 h-4" />
           {saveStatus === 'saving' ? '保存中…' : saveStatus === 'ok' ? '已保存' : '保存到云端'}
         </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <h2 className="text-lg font-bold text-stone-900 p-4 border-b border-stone-100">支付订单</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50">
+                <th className="px-4 py-3 font-bold">时间</th>
+                <th className="px-4 py-3 font-bold">用户</th>
+                <th className="px-4 py-3 font-bold">积分</th>
+                <th className="px-4 py-3 font-bold">状态</th>
+                <th className="px-4 py-3 font-bold">渠道</th>
+                <th className="px-4 py-3 font-bold">备注</th>
+                <th className="px-4 py-3 font-bold">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-50">
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-stone-400">暂无订单</td>
+                </tr>
+              ) : (
+                orders.map((o) => (
+                  <tr key={o.id} className="hover:bg-stone-50/50">
+                    <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{new Date(o.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-stone-600">{userEmails[o.user_id] || o.user_id?.slice(0, 8) || '-'}</td>
+                    <td className="px-4 py-3 font-medium">{o.amount}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${o.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : o.status === 'cancelled' ? 'bg-stone-100 text-stone-600' : 'bg-amber-50 text-amber-700'}`}>
+                        {o.status === 'pending' ? '待确认' : o.status === 'paid' ? '已付款' : '已取消'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">{o.provider || '—'}</td>
+                    <td className="px-4 py-3 text-stone-600 max-w-[180px] truncate" title={o.note || undefined}>{o.note || '—'}</td>
+                    <td className="px-4 py-3">
+                      {o.status === 'pending' && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPaid(o)}
+                          disabled={markingId === o.id}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          {markingId === o.id ? '处理中…' : '标记已付'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

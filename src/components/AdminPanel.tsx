@@ -12,6 +12,7 @@ import AdminPrompts from './admin/AdminPrompts';
 import AdminBrand from './admin/AdminBrand';
 import AdminFilters from './admin/AdminFilters';
 import AdminPayments from './admin/AdminPayments';
+import { updateUserCredits } from '../lib/credits';
 
 const PROFILES_SELECT =
   'id, email, nickname, role, credits, promo_credits, paid_credits, generated_count, created_at, last_active_at, total_paid_credits, signup_source, avatar_url';
@@ -99,7 +100,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     setLedgerLoading(true);
     supabase
       .from('credits_ledger')
-      .select('id, user_id, credit_type, source, amount, created_at')
+      .select('id, user_id, credit_type, source, amount, created_at, type, balance_after, reference_id, notes, operator')
       .order('created_at', { ascending: false })
       .limit(500)
       .then((res: { data: unknown; error: { message?: string; code?: string } | null }) => {
@@ -325,7 +326,7 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       if (!useSupabase) return;
       supabase
         .from('credits_ledger')
-        .select('id, user_id, credit_type, source, amount, created_at')
+        .select('id, user_id, credit_type, source, amount, created_at, balance_after, reference_id, notes, operator, type')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -346,26 +347,34 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       if (!u.id || !useSupabase || !isAdmin) return;
       const oldPromo = u.promo_credits ?? (typeof u.credits === 'number' ? u.credits : 0);
       const oldPaid = u.paid_credits ?? 0;
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({
-          credits: promo + paid,
-          promo_credits: promo,
-          paid_credits: paid,
-          generated_count: u.generatedCount ?? 0,
-        })
-        .eq('id', u.id);
-      if (updateErr) {
-        console.error('[AdminPanel] update credits:', updateErr);
-        alert('Update failed: ' + (updateErr.message || 'Check RLS'));
-        return;
+      const deltaPromo = promo - oldPromo;
+      const deltaPaid = paid - oldPaid;
+
+      // 通过统一函数做两次调整，分别针对 promo 和 paid，保证都有流水
+      if (deltaPromo !== 0) {
+        const res = await updateUserCredits(u.id, deltaPromo, 'admin_adjustment', {
+          operator: 'admin',
+          notes: 'Admin edit promo credits in Users tab',
+          bucket: 'promo',
+        });
+        if (!res.ok) {
+          alert('Update promo credits failed: ' + (res.error || 'unknown error'));
+          return;
+        }
       }
-      const rows: { user_id: string; credit_type: string; source: string; amount: number }[] = [];
-      if (promo - oldPromo !== 0) rows.push({ user_id: u.id, credit_type: 'promo', source: 'admin_adjust', amount: promo - oldPromo });
-      if (paid - oldPaid !== 0) rows.push({ user_id: u.id, credit_type: 'paid', source: 'admin_adjust', amount: paid - oldPaid });
-      if (rows.length > 0) {
-        await supabase.from('credits_ledger').insert(rows);
+
+      if (deltaPaid !== 0) {
+        const res = await updateUserCredits(u.id, deltaPaid, 'admin_adjustment', {
+          operator: 'admin',
+          notes: 'Admin edit paid credits in Users tab',
+          bucket: 'paid',
+        });
+        if (!res.ok) {
+          alert('Update paid credits failed: ' + (res.error || 'unknown error'));
+          return;
+        }
       }
+
       fetchProfiles();
       fetchCreditsLedger();
       fetchTodayStats();
@@ -407,19 +416,18 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
     async (u: User) => {
       if (!u.id || !useSupabase || !isAdmin) return;
       if (!confirm(`Reset all credits for ${u.email || u.id} to 0?`)) return;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ credits: 0, promo_credits: 0, paid_credits: 0 })
-        .eq('id', u.id);
-      if (error) {
-        console.error('[AdminPanel] reset:', error);
-        alert('Reset failed: ' + error.message);
-        return;
+      const total = (u.promo_credits ?? 0) + (u.paid_credits ?? 0);
+      if (total !== 0) {
+        const res = await updateUserCredits(u.id, -total, 'admin_adjustment', {
+          operator: 'admin',
+          notes: 'Admin reset all credits to zero',
+          bucket: null,
+        });
+        if (!res.ok) {
+          alert('Reset failed: ' + (res.error || 'unknown error'));
+          return;
+        }
       }
-      await supabase.from('credits_ledger').insert([
-        { user_id: u.id, credit_type: 'promo', source: 'admin_adjust', amount: -(u.promo_credits ?? 0) },
-        { user_id: u.id, credit_type: 'paid', source: 'admin_adjust', amount: -(u.paid_credits ?? 0) },
-      ]);
       fetchProfiles();
       fetchCreditsLedger();
       fetchTodayStats();
@@ -428,31 +436,17 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
   );
 
   const handleManualCompensate = useCallback(
-    async (userId: string, creditType: 'promo' | 'paid', amount: number) => {
-      if (!useSupabase || !isAdmin || amount <= 0) return;
-      const { data: profile } = await supabase.from('profiles').select('promo_credits, paid_credits').eq('id', userId).single();
-      if (!profile) {
-        alert('User not found');
-        return;
-      }
-      const currentPromo = (profile as { promo_credits?: number }).promo_credits ?? 0;
-      const currentPaid = (profile as { paid_credits?: number }).paid_credits ?? 0;
-      const newPromo = creditType === 'promo' ? currentPromo + amount : currentPromo;
-      const newPaid = creditType === 'paid' ? currentPaid + amount : currentPaid;
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ credits: newPromo + newPaid, promo_credits: newPromo, paid_credits: newPaid })
-        .eq('id', userId);
-      if (updateErr) {
-        alert('Update failed: ' + updateErr.message);
-        return;
-      }
-      await supabase.from('credits_ledger').insert({
-        user_id: userId,
-        credit_type: creditType,
-        source: 'admin_adjust',
-        amount,
+    async (userId: string, creditType: 'promo' | 'paid', amount: number, notes?: string) => {
+      if (!useSupabase || !isAdmin || amount === 0) return;
+      const res = await updateUserCredits(userId, amount, 'admin_adjustment', {
+        operator: 'admin',
+        notes: notes || (amount > 0 ? `Manual add ${creditType}` : 'Manual deduct'),
+        bucket: amount > 0 ? creditType : null,
       });
+      if (!res.ok) {
+        alert('Update failed: ' + (res.error || 'unknown error'));
+        return;
+      }
       fetchProfiles();
       fetchCreditsLedger();
       fetchTodayStats();
