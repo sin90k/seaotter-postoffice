@@ -5,7 +5,6 @@ import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Cl
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from 'openai';
 import JSZip from 'jszip';
-import exifr from 'exifr';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
 import { brandConfig } from '../config/brand';
@@ -320,26 +319,7 @@ export default function Step5Process({
               const img = await loadImage(photo.url);
               const imgBase64 = getCompressedBase64(img, 1200, 0.85);
               
-              // 2. EXIF Data
-              let exifData: any = null;
-              let gpsData: { latitude: number, longitude: number } | null = null;
-              
-              if (photo.exif?.location) {
-                gpsData = { latitude: photo.exif.location.lat, longitude: photo.exif.location.lng };
-              }
-
-              if (photo.file) {
-                try {
-                  exifData = await exifr.parse(photo.file);
-                  if (!gpsData) {
-                    gpsData = await exifr.gps(photo.file);
-                  }
-                } catch (e) {
-                  console.warn("EXIF parsing failed", e);
-                }
-              }
-
-              // 3. AI Analysis
+              // 2. AI Analysis
               let title = "";
               let location = "";
               let message = "";
@@ -397,8 +377,8 @@ export default function Step5Process({
 
 MANDATORY STYLE: ${currentStyle}`;
 
-                  if (gpsData) {
-                    analysisPrompt += `\nGPS Coordinates: Latitude ${gpsData.latitude}, Longitude ${gpsData.longitude}. Use these to identify the real location.`;
+                  if (photo.exif?.location) {
+                    analysisPrompt += `\nGPS Coordinates: Latitude ${photo.exif.location.lat}, Longitude ${photo.exif.location.lng}. Use these to identify the real location.`;
                   }
 
                   analysisPrompt += `
@@ -468,14 +448,9 @@ Output JSON strictly in this format:
 
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
                   let exifLocationName = "";
-                  if (exifData) {
-                    const city = (exifData.city || exifData.City || exifData.SubLocation) as string | undefined;
-                    const region = (exifData.state || exifData.State || exifData.Province || exifData.Region) as string | undefined;
-                    const country = (exifData.country || exifData.Country || exifData.CountryCode) as string | undefined;
-                    const parts = [city, region, country].filter(Boolean) as string[];
-                    if (parts.length > 0) {
-                      exifLocationName = parts.join(', ');
-                    }
+                  if (photo.exif) {
+                    const parts = [photo.exif.city, photo.exif.region, photo.exif.country].filter(Boolean) as string[];
+                    if (parts.length > 0) exifLocationName = parts.join(', ');
                   }
                   if (settings.aiTitle !== false) {
                     if (exifLocationName) {
@@ -568,31 +543,23 @@ Output JSON strictly in this format:
               const defaultBackStyle: ProcessedPostcard['backStyle'] = { fontSize: 3.2, color: '#44403c' };
               
               let dateStr = "";
-              let captureDate: Date | null = null;
-
               if (photo.exif?.date) {
                 dateStr = photo.exif.date.replace(/-/g, '.');
-              } else {
-                if (exifData?.DateTimeOriginal) {
-                  captureDate = new Date(exifData.DateTimeOriginal);
-                } else if (exifData?.CreateDate) {
-                  captureDate = new Date(exifData.CreateDate);
-                } else if (photo.file?.lastModified) {
-                   captureDate = new Date(photo.file.lastModified);
+              } else if (photo.file?.lastModified) {
+                const captureDate = new Date(photo.file.lastModified);
+                if (!isNaN(captureDate.getTime())) {
+                  const y = captureDate.getFullYear();
+                  const m = String(captureDate.getMonth() + 1).padStart(2, '0');
+                  const d = String(captureDate.getDate()).padStart(2, '0');
+                  dateStr = `${y}.${m}.${d}`;
                 }
-
-                if (captureDate && !isNaN(captureDate.getTime())) {
-                   const y = captureDate.getFullYear();
-                   const m = String(captureDate.getMonth() + 1).padStart(2, '0');
-                   const d = String(captureDate.getDate()).padStart(2, '0');
-                   dateStr = `${y}.${m}.${d}`;
-                } else {
-                   const now = new Date();
-                   const y = now.getFullYear();
-                   const m = String(now.getMonth() + 1).padStart(2, '0');
-                   const d = String(now.getDate()).padStart(2, '0');
-                   dateStr = `${y}.${m}.${d}`;
-                }
+              }
+              if (!dateStr) {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                dateStr = `${y}.${m}.${d}`;
               }
               const authorStr = settings.authorName || '';
               

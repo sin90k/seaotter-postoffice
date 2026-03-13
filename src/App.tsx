@@ -128,6 +128,9 @@ export type Photo = {
       lat: number;
       lng: number;
     };
+    city?: string;
+    region?: string;
+    country?: string;
   };
 };
 

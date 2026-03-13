@@ -670,16 +670,16 @@ export default function AuthModal({ onClose, onLogin, onOAuthLogin: _onOAuthLogi
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl relative border border-white/20"
+        className="bg-white rounded-[32px] w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl relative border border-white/20 flex flex-col"
       >
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors z-10"
+          className="absolute top-6 right-6 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors z-20"
         >
           <X className="w-5 h-5" />
         </button>
         
-        <div className="p-8 sm:p-10">
+        <div className="p-8 sm:p-10 overflow-y-auto">
           <div className="mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 mb-2 tracking-tight">
               {isSignUp ? t.createAccount : t.welcomeBack}

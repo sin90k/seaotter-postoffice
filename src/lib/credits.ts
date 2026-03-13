@@ -18,6 +18,8 @@ export type UpdateUserCreditsResult = {
   total_credits: number;
 };
 
+let creditsPerPostcardCache: number | null = null;
+
 /**
  * 统一的积分变更入口。所有加/减积分都应通过此函数，内部调用 Supabase RPC（Postgres 函数 update_user_credits）。
  */
@@ -70,15 +72,22 @@ export async function updateUserCredits(
 
 /** 从后台配置读取「每张明信片消耗积分」，用于扣费计算。优先 Supabase payment_config，否则 localStorage，默认 1。 */
 export async function getCreditsPerPostcard(): Promise<number> {
+  if (creditsPerPostcardCache != null) return creditsPerPostcardCache;
+
   if (isSupabaseConnected) {
     const { data, error } = await supabase.from('payment_config').select('credits_per_postcard').eq('id', 1).single();
     if (!error && data && typeof (data as { credits_per_postcard?: number }).credits_per_postcard === 'number') {
       const v = (data as { credits_per_postcard: number }).credits_per_postcard;
-      if (v >= 0) return v;
+      if (v >= 0) {
+        creditsPerPostcardCache = v;
+        return v;
+      }
     }
   }
   const ls = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
   const n = ls != null ? parseInt(ls, 10) : NaN;
-  return Number.isFinite(n) && n >= 0 ? n : 1;
+  const fallback = Number.isFinite(n) && n >= 0 ? n : 1;
+  creditsPerPostcardCache = fallback;
+  return fallback;
 }
 

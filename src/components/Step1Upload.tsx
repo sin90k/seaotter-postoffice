@@ -136,6 +136,9 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
 
         let dateStr: string | undefined;
         let locationData: { lat: number; lng: number } | undefined;
+        let city: string | undefined;
+        let region: string | undefined;
+        let country: string | undefined;
 
         if (exifData) {
           if (exifData.DateTimeOriginal || exifData.CreateDate) {
@@ -154,6 +157,12 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           if (exifData.latitude && exifData.longitude) {
             locationData = { lat: exifData.latitude, lng: exifData.longitude };
           }
+          const cityRaw = exifData.city || exifData.City || exifData.SubLocation;
+          const regionRaw = exifData.state || exifData.State || exifData.Province || exifData.Region;
+          const countryRaw = exifData.country || exifData.Country || exifData.CountryCode;
+          if (typeof cityRaw === 'string') city = cityRaw;
+          if (typeof regionRaw === 'string') region = regionRaw;
+          if (typeof countryRaw === 'string') country = countryRaw;
         }
 
         let finalFile: File;
@@ -175,7 +184,10 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           groupId: 'default',
           exif: {
             date: dateStr,
-            location: locationData
+            location: locationData,
+            city,
+            region,
+            country,
           }
         };
       } catch (e) {
