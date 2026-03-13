@@ -969,6 +969,16 @@ export default function App() {
             
             {user.isLoggedIn ? (
               <div className="flex items-center gap-2 sm:gap-3 border-l border-stone-200 pl-2 sm:pl-4">
+                {user.role === 'admin' && (
+                  <button
+                    onClick={() => setIsAdmin(true)}
+                    className="hidden sm:inline-flex items-center gap-1 text-[10px] sm:text-xs xl:text-sm font-medium text-emerald-700 bg-emerald-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                    title="Admin Panel"
+                    aria-label="Admin Panel"
+                  >
+                    管理
+                  </button>
+                )}
                 <button
                   onClick={() => setShowHistory(true)}
                   title={tHeader.headerHistoryHint ?? tHeader.history}
