@@ -2,10 +2,10 @@ import { useState, Dispatch, SetStateAction } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, ImagePlus, X, Loader2, HelpCircle, FolderUp } from 'lucide-react';
 import JSZip from 'jszip';
-import exifr from 'exifr';
 import heic2any from 'heic2any';
 import { Photo } from '../App';
 import { cn } from '../lib/utils';
+import { extractExifFromBlob } from '../services/exifService';
 
 interface Props {
   photos: Photo[];
@@ -127,42 +127,23 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           });
         }
         
-        let exifData: any = {};
-        try {
-          exifData = await exifr.parse(finalBlob, { tiff: true, exif: true, gps: true });
-        } catch (e) {
-          console.warn("Failed to parse EXIF", e);
-        }
-
         let dateStr: string | undefined;
         let locationData: { lat: number; lng: number } | undefined;
         let city: string | undefined;
         let region: string | undefined;
         let country: string | undefined;
 
-        if (exifData) {
-          if (exifData.DateTimeOriginal || exifData.CreateDate) {
-            const dateObj = new Date(exifData.DateTimeOriginal || exifData.CreateDate);
-            try {
-              if (!isNaN(dateObj.getTime())) {
-                const y = dateObj.getFullYear();
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const d = String(dateObj.getDate()).padStart(2, '0');
-                dateStr = `${y}.${m}.${d}`;
-              }
-            } catch (e) {
-              console.warn("Invalid EXIF date", dateObj);
-            }
+        const exifParsed = await extractExifFromBlob(finalBlob);
+        if (exifParsed) {
+          if (exifParsed.date) {
+            dateStr = exifParsed.date;
           }
-          if (exifData.latitude && exifData.longitude) {
-            locationData = { lat: exifData.latitude, lng: exifData.longitude };
+          if (exifParsed.latitude != null && exifParsed.longitude != null) {
+            locationData = { lat: exifParsed.latitude, lng: exifParsed.longitude };
           }
-          const cityRaw = exifData.city || exifData.City || exifData.SubLocation;
-          const regionRaw = exifData.state || exifData.State || exifData.Province || exifData.Region;
-          const countryRaw = exifData.country || exifData.Country || exifData.CountryCode;
-          if (typeof cityRaw === 'string') city = cityRaw;
-          if (typeof regionRaw === 'string') region = regionRaw;
-          if (typeof countryRaw === 'string') country = countryRaw;
+          if (typeof exifParsed.city === 'string') city = exifParsed.city;
+          if (typeof exifParsed.region === 'string') region = exifParsed.region;
+          if (typeof exifParsed.country === 'string') country = exifParsed.country;
         }
 
         let finalFile: File;

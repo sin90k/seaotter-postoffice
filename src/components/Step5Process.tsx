@@ -377,8 +377,20 @@ export default function Step5Process({
 
 MANDATORY STYLE: ${currentStyle}`;
 
-                  if (photo.exif?.location) {
-                    analysisPrompt += `\nGPS Coordinates: Latitude ${photo.exif.location.lat}, Longitude ${photo.exif.location.lng}. Use these to identify the real location.`;
+                  // EXIF 地点与日期：要求模型在标题与背面文案中优先参考 EXIF，而不是随意猜城市
+                  let exifLocationLabel = "";
+                  if (photo.exif) {
+                    const parts = [photo.exif.city, photo.exif.region, photo.exif.country].filter(Boolean) as string[];
+                    if (parts.length > 0) {
+                      exifLocationLabel = parts.join(", ");
+                      analysisPrompt += `\nPhoto EXIF location (most reliable real-world place): ${exifLocationLabel}.`;
+                    }
+                    if (photo.exif.location) {
+                      analysisPrompt += `\nGPS Coordinates: Latitude ${photo.exif.location.lat}, Longitude ${photo.exif.location.lng}. Use these only to refine the same real-world place, do NOT guess a different city or country.`;
+                    }
+                    if (photo.exif.date) {
+                      analysisPrompt += `\nPhoto EXIF date: ${photo.exif.date}. You may subtly reflect the season or time of year, but do not explicitly print the full date unless it feels natural.`;
+                    }
                   }
 
                   analysisPrompt += `
@@ -388,8 +400,8 @@ If the target language is Chinese:
 - The 'title' (front) MUST be a short phrase (max 12 chars) in ${settings.copywritingStyle} style.
 - The 'message' (back) MUST be a natural observation (max 25 words) in ${settings.copywritingStyle} style, tightly connected to the title.
 - AVOID clichés like "愿你...", "在这个喧嚣的世界里". 
-- ONLY describe what is ACTUALLY visible in the photo.
-- For 'location_name': Use real-world location if possible, otherwise a poetic generic one (e.g., "街角", "海边").
+- ONLY describe what is ACTUALLY visible in the photo, and keep it consistent with the EXIF location if provided.
+- For 'location_name': If EXIF location exists, base it on that real-world place (city / region / country). Only when EXIF has no location, you may use a poetic generic one (e.g., "街角", "海边").
 - THE OVERALL TONE MUST BE FORCEFULLY ${settings.copywritingStyle.toUpperCase()}.
 
 Output JSON strictly in this format:
