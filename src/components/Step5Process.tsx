@@ -856,40 +856,79 @@ Output JSON strictly in this format:
     const fillMode = safeSettings.fill || 'fill';
     const filterId = safeSettings.filter || 'original';
     const filterIntensity = safeSettings.filterIntensity ?? 0.8;
+    const bottomBorderRatio = isSquare ? 0.16 : 0.13;
 
     let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
+    const drawImageSmartFit = (
+      boxX: number,
+      boxY: number,
+      boxW: number,
+      boxH: number,
+      maxCropRatio: number
+    ) => {
+      const containScale = Math.min(boxW / img.width, boxH / img.height);
+      const containW = img.width * containScale;
+      const containH = img.height * containScale;
+      const containX = boxX + (boxW - containW) / 2;
+      const containY = boxY + (boxH - containH) / 2;
+
+      const coverScale = Math.max(boxW / img.width, boxH / img.height);
+      const coverW = img.width * coverScale;
+      const coverH = img.height * coverScale;
+      const coverX = boxX + (boxW - coverW) / 2;
+      const coverY = boxY + (boxH - coverH) / 2;
+
+      // 裁切率越高，代表为了铺满被裁掉越多画面
+      const cropRatio = 1 - (boxW * boxH) / (coverW * coverH);
+      const useCover = cropRatio <= maxCropRatio;
+
+      if (useCover) {
+        // 限制在目标框内，避免覆盖留白区域
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(boxX, boxY, boxW, boxH);
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, img.width, img.height, coverX, coverY, coverW, coverH);
+        ctx.restore();
+        return { x: boxX, y: boxY, w: boxW, h: boxH };
+      }
+
+      ctx.drawImage(img, 0, 0, img.width, img.height, containX, containY, containW, containH);
+      return { x: containX, y: containY, w: containW, h: containH };
+    };
+
     if (fillMode === 'fill') {
-      // 拉伸/压缩至填满画布，图片完整不裁剪
-      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, cw, ch);
+      // 满版模式：等比铺满（cover），不做拉伸变形
+      const coverScale = Math.max(cw / img.width, ch / img.height);
+      const drawW = img.width * coverScale;
+      const drawH = img.height * coverScale;
+      const drawX = (cw - drawW) / 2;
+      const drawY = (ch - drawH) / 2;
+      ctx.drawImage(img, 0, 0, img.width, img.height, drawX, drawY, drawW, drawH);
       imgX = 0; imgY = 0; imgW = cw; imgH = ch;
     } else if (fillMode === 'border') {
       const paddingX = cw * 0.05;
       const paddingTop = cw * 0.05;
-      const paddingBottom = ch * 0.15;
+      const paddingBottom = ch * bottomBorderRatio;
       const availW = cw - paddingX * 2;
       const availH = ch - paddingTop - paddingBottom;
       const dx = paddingX;
       const dy = paddingTop;
-      imgX = dx; imgY = dy; imgW = availW; imgH = availH;
 
       ctx.shadowColor = 'rgba(0,0,0,0.1)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 10;
-      ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, availW, availH);
+      const drawn = drawImageSmartFit(dx, dy, availW, availH, 0.42);
+      imgX = drawn.x; imgY = drawn.y; imgW = drawn.w; imgH = drawn.h;
       ctx.shadowColor = 'transparent';
     } else if (fillMode === 'bottom-border') {
-      const paddingBottom = isSquare ? ch * 0.18 : ch * 0.15; // 拍立得底部留白稍大
+      const paddingBottom = ch * bottomBorderRatio;
       const availW = cw;
       const availH = ch - paddingBottom;
-      const scale = Math.min(availW / img.width, availH / img.height);
-      const drawW = img.width * scale;
-      const drawH = img.height * scale;
-      const drawX = (availW - drawW) / 2;
-      const drawY = 0;
-      imgX = drawX; imgY = drawY; imgW = drawW; imgH = drawH;
-      // 底部留白模式：等比缩放，不拉伸变形
-      ctx.drawImage(img, 0, 0, img.width, img.height, drawX, drawY, drawW, drawH);
+      // 底部留白模式：智能适配，优先减少白边，同时避免过度裁切
+      const drawn = drawImageSmartFit(0, 0, availW, availH, 0.45);
+      imgX = drawn.x; imgY = drawn.y; imgW = drawn.w; imgH = drawn.h;
 
       // Add subtle shadow line at the bottom of the image
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
@@ -1015,8 +1054,8 @@ Output JSON strictly in this format:
       const totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
 
       if (hasTextInBorder) {
-        // 拍立得/方形：底部留白稍大(18%)以容纳标题；其他规格 15%
-        const bottomBorderHeight = isSquare ? ch * 0.18 : ch * 0.15;
+        // 与绘图一致的底部留白比例，避免文字与留白错位
+        const bottomBorderHeight = ch * bottomBorderRatio;
         // 在留白区内再预留上下安全距离，避免贴边
         const innerPaddingY = bottomBorderHeight * 0.15;
         
