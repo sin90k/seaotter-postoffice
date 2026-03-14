@@ -1101,6 +1101,7 @@ export default function App() {
                       setEditId(null);
                     }
                   }}
+                  onOpenHistory={() => setShowHistory(true)}
                   language={language}
                   onFeedback={() => {
                     setFeedbackType('question');

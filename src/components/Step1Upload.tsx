@@ -79,9 +79,44 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
   const t = { ...translations.en, ...(translations[language] || {}) };
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const geocodeCache = new Map<string, { city?: string; region?: string; country?: string }>();
 
   const processFile = async (file: File): Promise<Photo[]> => {
     const results: Photo[] = [];
+
+    const reverseGeocodeCity = async (lat: number, lng: number): Promise<{ city?: string; region?: string; country?: string } | null> => {
+      const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+      try {
+        // 无 key 反查：用于补全 EXIF 缺失的城市信息；失败时静默回退
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}&zoom=10&addressdetails=1&accept-language=zh-CN`;
+        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!resp.ok) return null;
+        const data = (await resp.json()) as {
+          address?: {
+            city?: string;
+            town?: string;
+            village?: string;
+            municipality?: string;
+            county?: string;
+            state?: string;
+            province?: string;
+            region?: string;
+            country?: string;
+          };
+        };
+        const addr = data.address || {};
+        const parsed = {
+          city: addr.city || addr.town || addr.village || addr.municipality || addr.county || undefined,
+          region: addr.state || addr.province || addr.region || undefined,
+          country: addr.country || undefined,
+        };
+        geocodeCache.set(key, parsed);
+        return parsed;
+      } catch {
+        return null;
+      }
+    };
     
     const isImage = (name: string) => {
       const ext = name.toLowerCase().split('.').pop();
@@ -144,6 +179,16 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           if (typeof exifParsed.city === 'string') city = exifParsed.city;
           if (typeof exifParsed.region === 'string') region = exifParsed.region;
           if (typeof exifParsed.country === 'string') country = exifParsed.country;
+        }
+
+        // 如果 EXIF 只有 GPS 没有城市，尝试反查得到更具体的城市信息
+        if (locationData && !city) {
+          const geo = await reverseGeocodeCity(locationData.lat, locationData.lng);
+          if (geo) {
+            city = city || geo.city;
+            region = region || geo.region;
+            country = country || geo.country;
+          }
         }
 
         let finalFile: File;

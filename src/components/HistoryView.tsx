@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProcessedPostcard, User } from '../App';
 import { Download, Clock, X, Image as ImageIcon, Trash2, CheckSquare, Square, Edit3, Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { supabase, isSupabaseConnected } from '../lib/supabaseClient';
 
 
 interface Props {
@@ -19,7 +20,7 @@ interface Props {
 const translations: Record<string, any> = {
   en: {
     title: 'Your Postcards',
-    freeDesc: 'Free users: 14 days retention. Upgrade to keep them forever.',
+    freeDesc: 'Free users: 7 days retention. Upgrade to keep them forever.',
     vipDesc: 'VIP users: Permanent retention.',
     groupBy: 'Group by:',
     date: 'Date',
@@ -43,7 +44,7 @@ const translations: Record<string, any> = {
   },
   zh: {
     title: '您的明信片',
-    freeDesc: '免费用户：14天保存期限。升级以永久保存。',
+    freeDesc: '免费用户：7天保存期限。升级以永久保存。',
     vipDesc: 'VIP用户：永久保存。',
     groupBy: '分组方式：',
     date: '日期',
@@ -124,10 +125,42 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
   const [groupBy, setGroupBy] = useState<'date' | 'location' | 'theme'>('date');
   const [isDownloading, setIsDownloading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'single', id: string } | { type: 'batch' } | null>(null);
+  const [freeRetentionDays, setFreeRetentionDays] = useState(7);
+  const [vipRetentionDays, setVipRetentionDays] = useState(0); // 0 表示永久
+
+  useEffect(() => {
+    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+    const free = parseInt(ls?.getItem('admin_history_retention_free_days') || '7', 10);
+    const vip = parseInt(ls?.getItem('admin_history_retention_vip_days') || '0', 10);
+    if (Number.isFinite(free) && free > 0) setFreeRetentionDays(free);
+    if (Number.isFinite(vip) && vip >= 0) setVipRetentionDays(vip);
+
+    if (isSupabaseConnected) {
+      supabase
+        .from('payment_config')
+        .select('*')
+        .eq('id', 1)
+        .single()
+        .then((res: { data: unknown; error: { message?: string } | null }) => {
+          if (res.error || !res.data) return;
+          const d = res.data as { free_retention_days?: number; vip_retention_days?: number };
+          if (typeof d.free_retention_days === 'number' && d.free_retention_days > 0) {
+            setFreeRetentionDays(d.free_retention_days);
+          }
+          if (typeof d.vip_retention_days === 'number' && d.vip_retention_days >= 0) {
+            setVipRetentionDays(d.vip_retention_days);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
   
   const getExpirationDate = (createdAt: number | undefined, timestamp: number) => {
-    if (user.level === 'vip') return null;
-    const days = 14;
+    if (user.level === 'vip') {
+      if (vipRetentionDays === 0) return null;
+      return (createdAt || timestamp) + vipRetentionDays * 24 * 60 * 60 * 1000;
+    }
+    const days = freeRetentionDays;
     return (createdAt || timestamp) + days * 24 * 60 * 60 * 1000;
   };
 
@@ -283,8 +316,10 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
           <div>
             <h2 className="text-[clamp(1.25rem,4vw,1.5rem)] font-bold text-stone-900">{t.title}</h2>
             <p className="text-[clamp(0.75rem,2vw,0.875rem)] text-stone-500 mt-1">
-              {user.level === 'free' && t.freeDesc}
-              {user.level === 'vip' && t.vipDesc}
+              {user.level === 'free' && (language === 'zh' ? `免费用户：${freeRetentionDays}天保存期限。升级以永久保存。` : `Free users: ${freeRetentionDays} days retention. Upgrade to keep them forever.`)}
+              {user.level === 'vip' && (vipRetentionDays === 0
+                ? (language === 'zh' ? 'VIP用户：永久保存。' : 'VIP users: Permanent retention.')
+                : (language === 'zh' ? `VIP用户：${vipRetentionDays}天保存期限。` : `VIP users: ${vipRetentionDays} days retention.`))}
             </p>
           </div>
           <div className="flex items-center gap-4">

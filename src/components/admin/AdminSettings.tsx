@@ -8,6 +8,8 @@ export default function AdminSettings() {
   const [geminiKey, setGeminiKey] = useState('');
   const [creditsDefaultPromo, setCreditsDefaultPromo] = useState('3');
   const [creditsPerPostcard, setCreditsPerPostcard] = useState('1');
+  const [freeRetentionDays, setFreeRetentionDays] = useState('7');
+  const [vipRetentionDays, setVipRetentionDays] = useState('0'); // 0 = 永久
 
   useEffect(() => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
@@ -15,22 +17,30 @@ export default function AdminSettings() {
     setBaseUrl(ls?.getItem('admin_openai_base_url') || 'https://api.chatanywhere.tech/v1');
     setGeminiKey(ls?.getItem('admin_gemini_key') || '');
     if (isSupabaseConnected) {
-      supabase.from('payment_config').select('signup_bonus_credits, credits_per_postcard').eq('id', 1).single().then((res: { data: unknown; error: { code?: string } | null }) => {
+      supabase.from('payment_config').select('signup_bonus_credits, credits_per_postcard, free_retention_days, vip_retention_days').eq('id', 1).single().then((res: { data: unknown; error: { code?: string } | null }) => {
         const { data, error } = res;
         if (!error && data) {
-          const d = data as { signup_bonus_credits?: number; credits_per_postcard?: number };
+          const d = data as { signup_bonus_credits?: number; credits_per_postcard?: number; free_retention_days?: number; vip_retention_days?: number };
           if (typeof d.signup_bonus_credits === 'number') setCreditsDefaultPromo(String(d.signup_bonus_credits));
           else setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
           if (typeof d.credits_per_postcard === 'number' && d.credits_per_postcard >= 0) setCreditsPerPostcard(String(d.credits_per_postcard));
           else setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+          if (typeof d.free_retention_days === 'number' && d.free_retention_days > 0) setFreeRetentionDays(String(d.free_retention_days));
+          else setFreeRetentionDays(ls?.getItem('admin_history_retention_free_days') ?? '7');
+          if (typeof d.vip_retention_days === 'number' && d.vip_retention_days >= 0) setVipRetentionDays(String(d.vip_retention_days));
+          else setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
         } else {
           setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
           setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+          setFreeRetentionDays(ls?.getItem('admin_history_retention_free_days') ?? '7');
+          setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
         }
       });
     } else {
       setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
       setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
+      setFreeRetentionDays(ls?.getItem('admin_history_retention_free_days') ?? '7');
+      setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
     }
   }, []);
 
@@ -47,18 +57,26 @@ export default function AdminSettings() {
     const promoNum = Number.isFinite(n) && n >= 0 ? n : 0;
     const perCard = parseInt(creditsPerPostcard, 10);
     const perPostcardNum = Number.isFinite(perCard) && perCard >= 0 ? perCard : 1;
+    const freeDaysRaw = parseInt(freeRetentionDays, 10);
+    const freeDays = Number.isFinite(freeDaysRaw) && freeDaysRaw > 0 ? freeDaysRaw : 7;
+    const vipDaysRaw = parseInt(vipRetentionDays, 10);
+    const vipDays = Number.isFinite(vipDaysRaw) && vipDaysRaw >= 0 ? vipDaysRaw : 0;
     if (ls) {
       ls.setItem('admin_credits_default_promo', String(promoNum));
       ls.setItem('admin_credits_per_postcard', String(perPostcardNum));
+      ls.setItem('admin_history_retention_free_days', String(freeDays));
+      ls.setItem('admin_history_retention_vip_days', String(vipDays));
     }
     if (isSupabaseConnected) {
       const { error } = await supabase.from('payment_config').update({
         signup_bonus_credits: promoNum,
         credits_per_postcard: perPostcardNum,
+        free_retention_days: freeDays,
+        vip_retention_days: vipDays,
         updated_at: new Date().toISOString(),
       }).eq('id', 1);
       if (error) {
-        alert('保存失败：' + (error.message || '请检查权限'));
+        alert('保存失败：' + (error.message || '请检查权限。若提示列不存在，请先执行 retention 字段升级 SQL。'));
         return;
       }
     }
@@ -139,6 +157,35 @@ export default function AdminSettings() {
               className="w-32 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
             />
             <p className="text-xs text-stone-500">营销活动时可设为 0 实现免费生成。</p>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
+              免费会员历史保存天数
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="3650"
+              value={freeRetentionDays}
+              onChange={(e) => setFreeRetentionDays(e.target.value)}
+              placeholder="7"
+              className="w-32 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
+              VIP历史保存天数（0=永久）
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="3650"
+              value={vipRetentionDays}
+              onChange={(e) => setVipRetentionDays(e.target.value)}
+              placeholder="0"
+              className="w-32 border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
+            />
+            <p className="text-xs text-stone-500">按你的要求：默认免费 7 天，VIP 设为 0 表示永久保存。</p>
           </div>
         </div>
         <button

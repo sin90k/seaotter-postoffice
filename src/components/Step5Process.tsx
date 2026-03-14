@@ -33,6 +33,7 @@ interface Props {
   setShowPricing: (show: boolean) => void;
   editId?: string | null;
   onClearEdit?: () => void;
+  onOpenHistory?: () => void;
   language: string;
   onFeedback: () => void;
 }
@@ -231,6 +232,7 @@ export default function Step5Process({
   setShowPricing, 
   editId, 
   onClearEdit, 
+  onOpenHistory,
   language,
   onFeedback
 }: Props) {
@@ -238,13 +240,23 @@ export default function Step5Process({
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [vipLevel, setVipLevel] = useState('free');
+  const [freeRetentionDays, setFreeRetentionDays] = useState(7);
+  const [vipRetentionDays, setVipRetentionDays] = useState(0); // 0 表示永久
   const [editingResultId, setEditingResultId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<ProcessedPostcard | null>(null);
   const [editTab, setEditTab] = useState<'content' | 'style'>('content');
   const [currentBatchIds, setCurrentBatchIds] = useState<string[]>([]);
   const [livePreview, setLivePreview] = useState<{ front: string, back: string } | null>(null);
   const [rewritingState, setRewritingState] = useState<{ id: string, field: string } | null>(null);
+
+  useEffect(() => {
+    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (!ls) return;
+    const freeRaw = parseInt(ls.getItem('admin_history_retention_free_days') || '7', 10);
+    const vipRaw = parseInt(ls.getItem('admin_history_retention_vip_days') || '0', 10);
+    if (Number.isFinite(freeRaw) && freeRaw > 0) setFreeRetentionDays(freeRaw);
+    if (Number.isFinite(vipRaw) && vipRaw >= 0) setVipRetentionDays(vipRaw);
+  }, []);
 
   useEffect(() => {
     if (editId) {
@@ -281,6 +293,15 @@ export default function Step5Process({
       }
 
       const creditsPerCard = await getCreditsPerPostcard();
+      if (creditsPerCard > 10) {
+        setError(
+          language === 'zh'
+            ? `后台「每张明信片消耗积分」配置异常（${creditsPerCard}）。请在 Admin 设置中改为 0-10 后再试。`
+            : `Abnormal credits-per-postcard setting (${creditsPerCard}). Please set it to 0-10 in Admin Settings and retry.`
+        );
+        setIsProcessing(false);
+        return;
+      }
       const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
         const group = configGroups.find(g => g.id === photo.groupId);
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
@@ -461,8 +482,13 @@ Output JSON strictly in this format:
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
                   let exifLocationName = "";
                   if (photo.exif) {
-                    const parts = [photo.exif.city, photo.exif.region, photo.exif.country].filter(Boolean) as string[];
-                    if (parts.length > 0) exifLocationName = parts.join(', ');
+                    // 优先展示具体城市，让用户一眼知道“在哪个城市”
+                    if (photo.exif.city) {
+                      exifLocationName = [photo.exif.city, photo.exif.country].filter(Boolean).join(', ');
+                    } else {
+                      const parts = [photo.exif.region, photo.exif.country].filter(Boolean) as string[];
+                      if (parts.length > 0) exifLocationName = parts.join(', ');
+                    }
                   }
                   if (settings.aiTitle !== false) {
                     if (exifLocationName) {
@@ -721,7 +747,7 @@ Output JSON strictly in this format:
 
   const generateFront = (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string) => {
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
     const { w, h } = getDimensions(safeSettings);
     
@@ -963,7 +989,9 @@ Output JSON strictly in this format:
       ctx.textAlign = align;
       
       ctx.font = `500 ${locationSize}px "Inter", sans-serif`;
-      ctx.letterSpacing = "4px";
+      // 对中文等非拉丁文字，4px 的字距会导致宽度严重低估，容易出边缘，这里统一收紧
+      const isCJK = !!(location && /[\u4e00-\u9fff]/.test(location));
+      ctx.letterSpacing = isCJK ? "1px" : "3px";
       if (location) {
         ctx.fillText(location.toUpperCase(), x, locY);
       }
@@ -1260,7 +1288,7 @@ Output JSON strictly in this format:
 
   const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, useWatermark?: boolean) => {
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
     const { w, h } = getDimensions(safeSettings);
     const isChinese = (safeSettings.aiLanguage || 'English').includes('Chinese');
@@ -1807,12 +1835,8 @@ Output JSON strictly in this format:
   };
 
   const getRetentionText = () => {
-    switch(vipLevel) {
-      case 'free': return '1 Day';
-      case 'pro': return '3 Months';
-      case 'supreme': return 'Permanent';
-      default: return '1 Day';
-    }
+    if (user.level === 'vip') return vipRetentionDays === 0 ? 'Permanent' : `${vipRetentionDays} Days`;
+    return `${freeRetentionDays} Days`;
   };
 
   const handleUpdatePreview = async (draftToUse?: ProcessedPostcard) => {
@@ -1996,15 +2020,9 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
           </button>
           <div className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg">
             <ShieldCheck className="w-4 h-4 text-stone-500" />
-            <select 
-              value={vipLevel} 
-              onChange={(e) => setVipLevel(e.target.value)}
-              className="bg-transparent text-sm font-medium text-stone-700 focus:outline-none cursor-pointer"
-            >
-              <option value="free">{t.free}</option>
-              <option value="pro">{t.pro}</option>
-              <option value="supreme">{t.supreme}</option>
-            </select>
+            <span className="bg-transparent text-sm font-medium text-stone-700">
+              {user.level === 'vip' ? t.vip : t.free}
+            </span>
           </div>
           <button
             onClick={handleDownloadAll}
@@ -2072,9 +2090,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
         </button>
         <button
           onClick={() => {
-            if (onClearEdit) {
-              onClearEdit(); // This will trigger setShowHistory(true) in App.tsx
-            }
+            if (onOpenHistory) onOpenHistory();
+            else if (onClearEdit) onClearEdit();
           }}
           className="bg-stone-900 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center gap-2 shadow-sm"
         >

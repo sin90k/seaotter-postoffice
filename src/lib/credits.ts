@@ -59,34 +59,52 @@ export async function updateUserCredits(
     return { ok: false, error: 'empty_result' };
   }
 
-  const row = data[0] as { promo_credits: number; paid_credits: number; total_credits: number };
+  const row = data[0] as {
+    promo_credits?: number;
+    paid_credits?: number;
+    total_credits?: number;
+    out_promo_credits?: number;
+    out_paid_credits?: number;
+    out_total_credits?: number;
+  };
+  const promo = row.promo_credits ?? row.out_promo_credits ?? 0;
+  const paid = row.paid_credits ?? row.out_paid_credits ?? 0;
+  const total = row.total_credits ?? row.out_total_credits ?? 0;
   return {
     ok: true,
     data: {
-      promo_credits: row.promo_credits ?? 0,
-      paid_credits: row.paid_credits ?? 0,
-      total_credits: row.total_credits ?? 0,
+      promo_credits: promo,
+      paid_credits: paid,
+      total_credits: total,
     },
   };
 }
 
 /** 从后台配置读取「每张明信片消耗积分」，用于扣费计算。优先 Supabase payment_config，否则 localStorage，默认 1。 */
 export async function getCreditsPerPostcard(): Promise<number> {
+  const normalize = (value: number): number => {
+    // 防止后台配置异常（例如误填 53）导致一次生成把余额全部扣光
+    if (!Number.isFinite(value) || value < 0) return 1;
+    if (value > 10) {
+      console.warn('[credits] credits_per_postcard is unusually high, fallback to 1:', value);
+      return 1;
+    }
+    return Math.floor(value);
+  };
+
   if (creditsPerPostcardCache != null) return creditsPerPostcardCache;
 
   if (isSupabaseConnected) {
     const { data, error } = await supabase.from('payment_config').select('credits_per_postcard').eq('id', 1).single();
     if (!error && data && typeof (data as { credits_per_postcard?: number }).credits_per_postcard === 'number') {
-      const v = (data as { credits_per_postcard: number }).credits_per_postcard;
-      if (v >= 0) {
-        creditsPerPostcardCache = v;
-        return v;
-      }
+      const v = normalize((data as { credits_per_postcard: number }).credits_per_postcard);
+      creditsPerPostcardCache = v;
+      return v;
     }
   }
   const ls = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
   const n = ls != null ? parseInt(ls, 10) : NaN;
-  const fallback = Number.isFinite(n) && n >= 0 ? n : 1;
+  const fallback = normalize(n);
   creditsPerPostcardCache = fallback;
   return fallback;
 }
