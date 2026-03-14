@@ -181,6 +181,11 @@ export type ProcessedPostcard = {
   postcard_size?: string;
   back_layout_type?: 'postcard_back' | 'blank_back';
   prompt_version?: string;
+  /** Storage-backed asset paths (Supabase Storage) */
+  front_path?: string;
+  back_path?: string;
+  expires_at?: string | null;
+  deleted_at?: string | null;
 };
 
 export const defaultSettings: SettingsType = { // Exported
@@ -675,9 +680,9 @@ export default function App() {
 
   useEffect(() => {
     if (isLoaded) {
-      saveHistory(history, supabaseUserId);
+      saveHistory(history, { userId: supabaseUserId, userLevel: user.level });
     }
-  }, [history, isLoaded, supabaseUserId]);
+  }, [history, isLoaded, supabaseUserId, user.level]);
 
   useEffect(() => {
     localStorage.setItem('postcard_user', JSON.stringify(user));
