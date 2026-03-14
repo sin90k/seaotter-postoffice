@@ -1034,10 +1034,28 @@ Output JSON strictly in this format:
         if (!titleText && !line2) return;
 
         ctx.textAlign = 'center';
+        const fitFontSize = (
+          text: string,
+          maxWidth: number,
+          preferred: number,
+          min: number,
+          family: string,
+          weight: string
+        ) => {
+          if (!text) return min;
+          let size = preferred;
+          while (size > min) {
+            ctx.font = `${weight} ${size}px ${family}`;
+            if (ctx.measureText(text).width <= maxWidth) break;
+            size -= 1;
+          }
+          return Math.max(min, size);
+        };
 
         if (fillMode === 'fill') {
           // fill 模式无边框，在底部图片上叠加渐变文字，保证地点可见
           const gradientH = ch * 0.24;
+          const maxTextWidth = cw * 0.9;
           const grad = ctx.createLinearGradient(0, ch - gradientH, 0, ch);
           grad.addColorStop(0, 'rgba(0,0,0,0)');
           grad.addColorStop(1, 'rgba(0,0,0,0.62)');
@@ -1046,11 +1064,27 @@ Output JSON strictly in this format:
 
           ctx.fillStyle = '#ffffff';
           if (titleText) {
-            ctx.font = `700 ${Math.max(28, cw * 0.042)}px "Playfair Display", serif`;
+            const size = fitFontSize(
+              titleText,
+              maxTextWidth,
+              Math.max(36, cw * 0.06),
+              Math.max(24, cw * 0.034),
+              '"Playfair Display", serif',
+              '700'
+            );
+            ctx.font = `700 ${size}px "Playfair Display", serif`;
             ctx.fillText(titleText, cw * 0.5, ch - gradientH * 0.34);
           }
           if (line2) {
-            ctx.font = `500 ${Math.max(18, cw * 0.024)}px "Inter", sans-serif`;
+            const size = fitFontSize(
+              line2,
+              maxTextWidth,
+              Math.max(24, cw * 0.038),
+              Math.max(16, cw * 0.024),
+              '"Inter", sans-serif',
+              '600'
+            );
+            ctx.font = `600 ${size}px "Inter", sans-serif`;
             ctx.globalAlpha = 0.94;
             ctx.fillText(line2, cw * 0.5, ch - gradientH * 0.12);
             ctx.globalAlpha = 1;
@@ -1061,13 +1095,34 @@ Output JSON strictly in this format:
         const borderBottom = fillMode === 'border' ? ch * 0.08 : ch * 0.14;
         const zoneTop = ch - borderBottom;
         const centerX = cw * 0.5;
+        const textWidth = cw * (fillMode === 'border' ? 0.9 : 0.92);
         ctx.fillStyle = '#1c1917';
         if (titleText) {
-          ctx.font = `700 ${Math.max(22, cw * 0.034)}px "Playfair Display", serif`;
+          const preferred = fillMode === 'border' ? Math.max(30, borderBottom * 0.38) : Math.max(34, borderBottom * 0.3);
+          const min = fillMode === 'border' ? Math.max(18, borderBottom * 0.2) : Math.max(20, borderBottom * 0.18);
+          const size = fitFontSize(
+            titleText,
+            textWidth,
+            preferred,
+            min,
+            '"Playfair Display", serif',
+            '700'
+          );
+          ctx.font = `700 ${size}px "Playfair Display", serif`;
           ctx.fillText(titleText, centerX, zoneTop + borderBottom * 0.48);
         }
         if (line2) {
-          ctx.font = `500 ${Math.max(14, cw * 0.02)}px "Inter", sans-serif`;
+          const preferred = fillMode === 'border' ? Math.max(24, borderBottom * 0.28) : Math.max(26, borderBottom * 0.2);
+          const min = fillMode === 'border' ? Math.max(14, borderBottom * 0.16) : Math.max(16, borderBottom * 0.14);
+          const size = fitFontSize(
+            line2,
+            textWidth,
+            preferred,
+            min,
+            '"Inter", sans-serif',
+            '600'
+          );
+          ctx.font = `600 ${size}px "Inter", sans-serif`;
           ctx.globalAlpha = 0.86;
           ctx.fillText(line2, centerX, zoneTop + borderBottom * (titleText ? 0.76 : 0.62));
           ctx.globalAlpha = 1;

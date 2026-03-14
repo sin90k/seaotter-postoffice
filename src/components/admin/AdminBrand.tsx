@@ -16,6 +16,7 @@ export default function AdminBrand() {
   const [brandDomain, setBrandDomain] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState('');
   const [watermarkPosition, setWatermarkPosition] = useState('bottom-center');
   const [watermarkOpacity, setWatermarkOpacity] = useState('0.25');
   const [watermarkSize, setWatermarkSize] = useState('0.35');
@@ -23,14 +24,24 @@ export default function AdminBrand() {
   useEffect(() => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
     if (!ls) return;
+    const persistedLogoData = ls.getItem('admin_brand_logo_data') || '';
+    const persistedLogoUrl = ls.getItem('admin_brand_logo_url') || '';
     setBrandName(ls.getItem('admin_brand_name') || '');
     setBrandNameZh(ls.getItem('admin_brand_name_zh') || '');
     setBrandDomain(ls.getItem('admin_brand_domain') || '');
-    setLogoUrl(ls.getItem('admin_brand_logo_url') || '');
+    setLogoUrl(persistedLogoUrl || persistedLogoData);
+    setLogoPreview(persistedLogoData || persistedLogoUrl);
     setWatermarkPosition(ls.getItem('admin_watermark_position') || 'bottom-center');
     setWatermarkOpacity(ls.getItem('admin_watermark_opacity') ?? '0.25');
     setWatermarkSize(ls.getItem('admin_watermark_size') ?? '0.35');
   }, []);
+
+  useEffect(() => {
+    if (!logoFile) return;
+    const objectUrl = URL.createObjectURL(logoFile);
+    setLogoPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [logoFile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -61,9 +72,18 @@ export default function AdminBrand() {
       });
       ls.setItem('admin_brand_logo_data', dataUrl);
       ls.removeItem('admin_brand_logo_url');
+      setLogoUrl(dataUrl);
+      setLogoPreview(dataUrl);
     } else if (logoUrl.trim()) {
-      ls.setItem('admin_brand_logo_url', logoUrl.trim());
-      ls.removeItem('admin_brand_logo_data');
+      const normalized = logoUrl.trim();
+      if (normalized.startsWith('data:image/')) {
+        ls.setItem('admin_brand_logo_data', normalized);
+        ls.removeItem('admin_brand_logo_url');
+      } else {
+        ls.setItem('admin_brand_logo_url', normalized);
+        ls.removeItem('admin_brand_logo_data');
+      }
+      setLogoPreview(normalized);
     }
     setLogoFile(null);
     alert('Brand settings saved.');
@@ -112,7 +132,11 @@ export default function AdminBrand() {
             <input
               type="text"
               value={logoUrl}
-              onChange={(e) => { setLogoUrl(e.target.value); setLogoFile(null); }}
+              onChange={(e) => {
+                setLogoUrl(e.target.value);
+                setLogoFile(null);
+                setLogoPreview(e.target.value.trim());
+              }}
               placeholder="https://..."
               className="w-full border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
             />
@@ -126,6 +150,19 @@ export default function AdminBrand() {
               className="w-full text-sm text-stone-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-stone-100 file:text-stone-700"
             />
             {logoFile && <span className="text-xs text-stone-500">{logoFile.name}</span>}
+            {!logoFile && logoPreview && (
+              <span className="text-xs text-emerald-600">已使用已保存 Logo</span>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <div className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Logo 预览</div>
+            <div className="h-20 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center overflow-hidden">
+              {logoPreview ? (
+                <img src={logoPreview} alt="Brand logo preview" className="max-h-16 object-contain" />
+              ) : (
+                <span className="text-xs text-stone-400">未配置 Logo</span>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印位置</label>
