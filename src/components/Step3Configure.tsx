@@ -59,6 +59,10 @@ const translations: Record<string, any> = {
     aiTitleDesc: 'Automatically generate a location and title based on the image content.',
     aiBack: 'AI Back Template',
     aiBackDesc: 'Generate a personalized message and layout for the back of the postcard.',
+    backDesign: 'Back Design',
+    backNone: 'Front Only (No Back)',
+    backTemplate: 'Fixed Template',
+    backAi: 'AI Redraw Back',
     outputLang: 'Output Language',
     copyStyle: 'Copywriting Style',
     cardStoryLabel: 'Story for this postcard',
@@ -115,6 +119,10 @@ const translations: Record<string, any> = {
     aiTitleDesc: '根据图片内容自动生成地点和标题。',
     aiBack: 'AI 背面模板',
     aiBackDesc: '为明信片背面生成个性化消息和布局。',
+    backDesign: '背面设计',
+    backNone: '仅正面（不生成背面）',
+    backTemplate: '固定模板背面',
+    backAi: 'AI 重绘背面',
     outputLang: '输出语言',
     copyStyle: '文案风格',
     cardStoryLabel: '明信片故事',
@@ -319,10 +327,13 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
 
   const [settings, setSettings] = useState<SettingsType>(() => {
     const base = { ...defaultSettings, ...(existingGroup?.settings || {}) };
+    const normalizedBackMode: SettingsType['backDesignMode'] =
+      base.backDesignMode ?? (base.aiBackTemplate ? 'ai' : 'template');
+    const normalized = { ...base, backDesignMode: normalizedBackMode, aiBackTemplate: normalizedBackMode === 'ai' };
     if (!existingGroup && langMap[language]) {
-      return { ...base, aiLanguage: langMap[language] };
+      return { ...normalized, aiLanguage: langMap[language] };
     }
-    return base;
+    return normalized;
   });
 
   const updateSetting = <K extends keyof SettingsType>(key: K, value: SettingsType[K]) => {
@@ -626,18 +637,34 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                 </div>
               </label>
 
-              <label className="flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={settings.aiBackTemplate}
-                  onChange={(e) => updateSetting('aiBackTemplate', e.target.checked)}
-                  className="mt-1 w-5 h-5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-                />
-                <div>
-                  <div className="font-medium text-stone-900 mb-1">{t.aiBack}</div>
-                  <div className="text-sm text-stone-500">{t.aiBackDesc}</div>
+              <div className="p-4 border border-stone-200 rounded-xl">
+                <div className="font-medium text-stone-900 mb-2">{t.backDesign || 'Back Design'}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'none', label: t.backNone || 'Front Only (No Back)' },
+                    { id: 'template', label: t.backTemplate || 'Fixed Template' },
+                    { id: 'ai', label: t.backAi || 'AI Redraw Back' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        updateSetting('backDesignMode', opt.id as SettingsType['backDesignMode']);
+                        updateSetting('aiBackTemplate', opt.id === 'ai');
+                      }}
+                      className={cn(
+                        'px-3 py-2 rounded-lg border text-sm transition-colors',
+                        (settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template')) === opt.id
+                          ? 'border-stone-900 bg-stone-900 text-white'
+                          : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              </label>
+                <div className="text-sm text-stone-500 mt-2">{t.aiBackDesc}</div>
+              </div>
             </div>
           </section>
 

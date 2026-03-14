@@ -305,7 +305,8 @@ export default function Step5Process({
       const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
         const group = configGroups.find(g => g.id === photo.groupId);
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
-        const usesAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
+        const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+        const usesAi = settings.aiTitle !== false || backMode === 'ai';
         return count + (usesAi ? 1 : 0);
       }, 0);
       const totalNeed = creditsPerCard * aiPhotosCount;
@@ -349,9 +350,10 @@ export default function Step5Process({
               let artisticIcons: string[] = [];
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
+              const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
               
               // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
-              const runAi = settings.aiTitle !== false || settings.aiBackTemplate !== false;
+              const runAi = settings.aiTitle !== false || backMode === 'ai';
               if (runAi) {
                 const base64Data = getCompressedBase64(img);
                 
@@ -501,8 +503,8 @@ Output JSON strictly in this format:
                     location = exifLocationName;
                   }
 
-                  // 背面文案与背面图：仅在开启 AI 背面模板时生成，避免浪费 token
-                  if (settings.aiBackTemplate !== false) {
+                  // 背面文案与背面图：仅在 AI 背面模式下生成，避免浪费 token
+                  if (backMode === 'ai') {
                     if (analysisData.message) {
                       let msg = Array.isArray(analysisData.message) ? analysisData.message.join('\n\n') : analysisData.message;
                       message = String(msg || '').trim();
@@ -603,7 +605,22 @@ Output JSON strictly in this format:
               
               const useWatermark = (user.promo_credits ?? 0) > 0;
               const frontDataUrl = generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, dateStr);
-              const backDataUrl = await generateBack(img, message, location, postmark, theme, settings, defaultBackStyle, authorStr, dateStr, artisticIcons, generatedBackImageBase64 || undefined, useWatermark);
+              const backDataUrl = backMode === 'none'
+                ? ''
+                : await generateBack(
+                    img,
+                    message,
+                    location,
+                    postmark,
+                    theme,
+                    settings,
+                    defaultBackStyle,
+                    authorStr,
+                    dateStr,
+                    artisticIcons,
+                    generatedBackImageBase64 || undefined,
+                    useWatermark
+                  );
 
               newResults.push({
                 id: photo.id,
@@ -1726,10 +1743,13 @@ Output JSON strictly in this format:
         const fileNameBase = `${safeTitle}_${uniqueSuffix}`;
         
         const frontBase64 = (result.frontDataUrl || result.frontUrl).split(',')[1];
-        const backBase64 = (result.backDataUrl || result.backUrl).split(',')[1];
+        const backValue = result.backDataUrl || result.backUrl;
         
         zip.file(`${fileNameBase}_front.jpg`, frontBase64, { base64: true });
-        zip.file(`${fileNameBase}_back.jpg`, backBase64, { base64: true });
+        if (backValue) {
+          const backBase64 = backValue.split(',')[1];
+          zip.file(`${fileNameBase}_back.jpg`, backBase64, { base64: true });
+        }
       } catch (e) {
         console.error("Failed to add to batch download", e);
       }
@@ -1759,12 +1779,14 @@ Output JSON strictly in this format:
       a1.download = `${safeTitle}_front.jpg`;
       a1.click();
 
-      setTimeout(() => {
-        const a2 = document.createElement('a');
-        a2.href = result.backDataUrl || result.backUrl;
-        a2.download = `${safeTitle}_back.jpg`;
-        a2.click();
-      }, 300);
+      if (result.backDataUrl || result.backUrl) {
+        setTimeout(() => {
+          const a2 = document.createElement('a');
+          a2.href = result.backDataUrl || result.backUrl;
+          a2.download = `${safeTitle}_back.jpg`;
+          a2.click();
+        }, 300);
+      }
     } catch (e) {
       console.error("Failed to download postcard", e);
       alert("Failed to download. Please try again.");
@@ -1798,7 +1820,23 @@ Output JSON strictly in this format:
       const img = await loadImage(result.imgUrl || '');
       const useWatermark = (user.promo_credits ?? 0) > 0;
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
-      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage, useWatermark);
+      const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
+      const newBack = backMode === 'none'
+        ? ''
+        : await generateBack(
+            img,
+            result.draftMessage || '',
+            result.draftLocation || '',
+            result.postmark || '',
+            result.theme || 'standard',
+            result.settings,
+            result.draftBackStyle,
+            result.draftAuthor,
+            result.draftDate,
+            result.decorativeIcons,
+            result.generatedBackImage,
+            useWatermark
+          );
 
       const updatedPostcard = { 
         ...result, 
@@ -1848,7 +1886,23 @@ Output JSON strictly in this format:
       const img = await loadImage(result.imgUrl);
       const useWatermark = (user.promo_credits ?? 0) > 0;
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
-      const newBack = await generateBack(img, result.draftMessage || '', result.draftLocation || '', result.postmark || '', result.theme || 'standard', result.settings, result.draftBackStyle, result.draftAuthor, result.draftDate, result.decorativeIcons, result.generatedBackImage, useWatermark);
+      const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
+      const newBack = backMode === 'none'
+        ? ''
+        : await generateBack(
+            img,
+            result.draftMessage || '',
+            result.draftLocation || '',
+            result.postmark || '',
+            result.theme || 'standard',
+            result.settings,
+            result.draftBackStyle,
+            result.draftAuthor,
+            result.draftDate,
+            result.decorativeIcons,
+            result.generatedBackImage,
+            useWatermark
+          );
       setLivePreview({ front: newFront, back: newBack });
     } catch (e) {
       console.error("Failed to generate live preview", e);
@@ -2163,7 +2217,13 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs font-medium px-2.5 py-1 rounded-md z-10">
                               {t.backSide}
                             </div>
-                            <img src={livePreview?.back || result.backDataUrl} alt="Back" className="w-full h-auto" />
+                            {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
+                              <img src={livePreview?.back || result.backDataUrl || result.backUrl} alt="Back" className="w-full h-auto" />
+                            ) : (
+                              <div className="w-full aspect-[3/2] flex items-center justify-center text-stone-500 text-sm">
+                                {language === 'zh' ? '已关闭背面输出（仅正面）' : 'Back output disabled (front only)'}
+                              </div>
+                            )}
                           </div>
                       </div>
 

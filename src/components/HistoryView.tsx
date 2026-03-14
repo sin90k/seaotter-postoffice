@@ -10,7 +10,7 @@ interface Props {
   history: ProcessedPostcard[];
   user: User;
   onClose: () => void;
-  onDownload: (frontUrl: string, backUrl: string, title: string) => void;
+  onDownload: (frontUrl: string, backUrl: string | undefined, title: string) => void;
   onDelete: (id: string) => void;
   onBatchDelete: (ids: string[]) => void;
   onEdit: (id: string) => void;
@@ -232,10 +232,13 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
           const safeTitle = (item.draftTitle || item.title || `postcard_${i+1}`).replace(/[<>:"/\\|?*]/g, '_');
           
           const frontBase64 = (item.frontDataUrl || item.frontUrl).split(',')[1];
-          const backBase64 = (item.backDataUrl || item.backUrl).split(',')[1];
+          const backValue = item.backDataUrl || item.backUrl;
           
           zip.file(`${safeTitle}_front.jpg`, frontBase64, { base64: true });
-          zip.file(`${safeTitle}_back.jpg`, backBase64, { base64: true });
+          if (backValue) {
+            const backBase64 = backValue.split(',')[1];
+            zip.file(`${safeTitle}_back.jpg`, backBase64, { base64: true });
+          }
         } catch (e) {
           console.error("Failed to add to history batch", e);
         }

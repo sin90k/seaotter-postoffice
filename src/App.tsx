@@ -94,6 +94,8 @@ export type SettingsType = {
   aiStyle: 'realistic' | 'artistic' | 'abstract';
   aiTitle: boolean;
   aiBackTemplate: boolean;
+  /** 背面设计模式：none=不生成背面，template=固定模板，ai=AI重绘背面 */
+  backDesignMode?: 'none' | 'template' | 'ai';
   aiLanguage: string;
   copywritingStyle: 'auto' | 'poetic' | 'modern' | 'witty' | 'nostalgic' | 'minimalist';
   cardStory?: string;
@@ -197,6 +199,7 @@ export const defaultSettings: SettingsType = { // Exported
   aiStyle: 'artistic',
   aiTitle: true,
   aiBackTemplate: true,
+  backDesignMode: 'template',
   aiLanguage: 'Chinese',
   copywritingStyle: 'auto',
   cardStory: '',
@@ -1197,12 +1200,14 @@ export default function App() {
                 a1.download = `${safeTitle}_front.jpg`;
                 a1.click();
 
-                setTimeout(() => {
-                  const a2 = document.createElement('a');
-                  a2.href = backUrl;
-                  a2.download = `${safeTitle}_back.jpg`;
-                  a2.click();
-                }, 300);
+                if (backUrl) {
+                  setTimeout(() => {
+                    const a2 = document.createElement('a');
+                    a2.href = backUrl;
+                    a2.download = `${safeTitle}_back.jpg`;
+                    a2.click();
+                  }, 300);
+                }
               } catch (e) {
                 console.error("Failed to download postcard from history", e);
                 alert("Failed to download. Please try again.");
