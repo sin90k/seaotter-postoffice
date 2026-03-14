@@ -880,7 +880,7 @@ Output JSON strictly in this format:
       const faces = await detector.detect(probe);
       if (!Array.isArray(faces) || faces.length === 0) return fallback;
 
-      const bestFace = faces
+      const normalizedFaces = faces
         .map((f: any) => {
           const bb = f?.boundingBox || {};
           const x = Number(bb.x ?? bb.left ?? 0);
@@ -889,12 +889,35 @@ Output JSON strictly in this format:
           const h = Number(bb.height ?? 0);
           return { x, y, w, h, score: w * h };
         })
-        .sort((a: any, b: any) => b.score - a.score)[0];
+        .filter((f: any) => isFinite(f.score) && f.score > 0);
+      if (normalizedFaces.length === 0) return fallback;
 
-      if (!bestFace || !isFinite(bestFace.score) || bestFace.score <= 0) return fallback;
+      let faceFocusX = 0;
+      let faceFocusY = 0;
+      if (normalizedFaces.length === 1) {
+        const bestFace = normalizedFaces[0];
+        faceFocusX = (bestFace.x + bestFace.w / 2) / scale;
+        faceFocusY = (bestFace.y + bestFace.h * 0.38) / scale;
+      } else {
+        const minX = Math.min(...normalizedFaces.map((f: any) => f.x));
+        const minY = Math.min(...normalizedFaces.map((f: any) => f.y));
+        const maxX = Math.max(...normalizedFaces.map((f: any) => f.x + f.w));
+        const maxY = Math.max(...normalizedFaces.map((f: any) => f.y + f.h));
+        faceFocusX = (minX + (maxX - minX) / 2) / scale;
+        faceFocusY = (minY + (maxY - minY) * 0.4) / scale;
+      }
+
+      // 人脸检测只作为引导，不做绝对中心，避免把另一个主体裁掉
+      const centerX = img.width * 0.5;
+      const centerY = img.height * 0.45;
+      const multiFace = normalizedFaces.length > 1;
+      const maxShiftX = img.width * (multiFace ? 0.24 : 0.16);
+      const maxShiftY = img.height * (multiFace ? 0.18 : 0.14);
+      const mixedX = centerX * (multiFace ? 0.2 : 0.35) + faceFocusX * (multiFace ? 0.8 : 0.65);
+      const mixedY = centerY * (multiFace ? 0.25 : 0.4) + faceFocusY * (multiFace ? 0.75 : 0.6);
       return {
-        x: (bestFace.x + bestFace.w / 2) / scale,
-        y: (bestFace.y + bestFace.h * 0.38) / scale,
+        x: clampNumber(mixedX, centerX - maxShiftX, centerX + maxShiftX),
+        y: clampNumber(mixedY, centerY - maxShiftY, centerY + maxShiftY),
       };
     } catch {
       return fallback;
@@ -1005,27 +1028,52 @@ Output JSON strictly in this format:
 
       applyFilterById(filterId, ctx, imgW, imgH, filterIntensity, imgX, imgY);
 
-      // Bottom Border 模式优先在底部留白区展示说明文字（location/date/message）
-      if (fillMode === 'bottom-border' && (title || location || date)) {
-        const borderBottom = ch * 0.14;
-        const zoneTop = ch - borderBottom;
-        const centerX = cw * 0.5;
+      const renderPolaroidText = () => {
         const titleText = title || '';
         const line2 = [location, date].filter(Boolean).join('  •  ');
+        if (!titleText && !line2) return;
 
         ctx.textAlign = 'center';
+
+        if (fillMode === 'fill') {
+          // fill 模式无边框，在底部图片上叠加渐变文字，保证地点可见
+          const gradientH = ch * 0.24;
+          const grad = ctx.createLinearGradient(0, ch - gradientH, 0, ch);
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(1, 'rgba(0,0,0,0.62)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, ch - gradientH, cw, gradientH);
+
+          ctx.fillStyle = '#ffffff';
+          if (titleText) {
+            ctx.font = `700 ${Math.max(28, cw * 0.042)}px "Playfair Display", serif`;
+            ctx.fillText(titleText, cw * 0.5, ch - gradientH * 0.34);
+          }
+          if (line2) {
+            ctx.font = `500 ${Math.max(18, cw * 0.024)}px "Inter", sans-serif`;
+            ctx.globalAlpha = 0.94;
+            ctx.fillText(line2, cw * 0.5, ch - gradientH * 0.12);
+            ctx.globalAlpha = 1;
+          }
+          return;
+        }
+
+        const borderBottom = fillMode === 'border' ? ch * 0.08 : ch * 0.14;
+        const zoneTop = ch - borderBottom;
+        const centerX = cw * 0.5;
         ctx.fillStyle = '#1c1917';
         if (titleText) {
-          ctx.font = `700 ${Math.max(26, cw * 0.04)}px "Playfair Display", serif`;
-          ctx.fillText(titleText, centerX, zoneTop + borderBottom * 0.52);
+          ctx.font = `700 ${Math.max(22, cw * 0.034)}px "Playfair Display", serif`;
+          ctx.fillText(titleText, centerX, zoneTop + borderBottom * 0.48);
         }
         if (line2) {
-          ctx.font = `500 ${Math.max(18, cw * 0.024)}px "Inter", sans-serif`;
+          ctx.font = `500 ${Math.max(14, cw * 0.02)}px "Inter", sans-serif`;
           ctx.globalAlpha = 0.86;
-          ctx.fillText(line2, centerX, zoneTop + borderBottom * 0.78);
+          ctx.fillText(line2, centerX, zoneTop + borderBottom * (titleText ? 0.76 : 0.62));
           ctx.globalAlpha = 1;
         }
-      }
+      };
+      renderPolaroidText();
 
       return canvas.toDataURL('image/jpeg', 0.9);
     }
