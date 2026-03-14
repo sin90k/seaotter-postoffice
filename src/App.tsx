@@ -93,9 +93,13 @@ export type SettingsType = {
   aiPrompt: string;
   aiStyle: 'realistic' | 'artistic' | 'abstract';
   aiTitle: boolean;
+  /** AI 正面生成模式：标题+地点 / 仅标题 / 仅地点 / 关闭 */
+  frontAiMode?: 'title_location' | 'title_only' | 'location_only' | 'none';
   aiBackTemplate: boolean;
   /** 背面设计模式：none=不生成背面，template=固定模板，ai=AI重绘背面 */
   backDesignMode?: 'none' | 'template' | 'ai';
+  /** 背面是否添加本站信息（logo/站名/域名） */
+  backBrandingEnabled?: boolean;
   aiLanguage: string;
   copywritingStyle: 'auto' | 'poetic' | 'modern' | 'witty' | 'nostalgic' | 'minimalist';
   cardStory?: string;
@@ -198,8 +202,10 @@ export const defaultSettings: SettingsType = { // Exported
   aiPrompt: '',
   aiStyle: 'artistic',
   aiTitle: true,
+  frontAiMode: 'title_location',
   aiBackTemplate: true,
   backDesignMode: 'template',
+  backBrandingEnabled: true,
   aiLanguage: 'Chinese',
   copywritingStyle: 'auto',
   cardStory: '',
@@ -1069,6 +1075,7 @@ export default function App() {
                 <Step3Configure 
                   editingGroupId="default"
                   configGroups={configGroups}
+                  user={user}
                   onSave={handleSaveGroup}
                   onCancel={handleBack}
                   language={language}

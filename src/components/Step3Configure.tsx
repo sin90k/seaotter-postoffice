@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type MouseEvent } from 'react';
-import { ConfigGroup, SettingsType, defaultSettings } from '../App';
+import { ConfigGroup, SettingsType, User, defaultSettings } from '../App';
 import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History, Type, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
 import FilterPreviewCanvas from './FilterPreviewCanvas';
@@ -27,6 +27,7 @@ const HOVER_DEBOUNCE_MS = 50;
 interface Props {
   editingGroupId: string | null;
   configGroups: ConfigGroup[];
+  user: User;
   onSave: (group: ConfigGroup) => void;
   onCancel: () => void;
   language: string;
@@ -57,12 +58,22 @@ const translations: Record<string, any> = {
     author: 'Photographer / Author (Optional)',
     aiTitle: 'AI Front Title',
     aiTitleDesc: 'Automatically generate a location and title based on the image content.',
+    frontAiMode: 'AI Front Output',
+    frontModeTitleLocation: 'Title + Location',
+    frontModeTitleOnly: 'Title Only',
+    frontModeLocationOnly: 'Location Only',
+    frontModeNone: 'No AI Front Text',
+    showDate: 'Show Date',
+    showDateDesc: 'Show capture date on the front side.',
     aiBack: 'AI Back Template',
     aiBackDesc: 'Generate a personalized message and layout for the back of the postcard.',
     backDesign: 'Back Design',
     backNone: 'Front Only (No Back)',
     backTemplate: 'Fixed Template',
     backAi: 'AI Redraw Back',
+    backBranding: 'Add Site Branding on Back',
+    backBrandingDesc: 'Show logo, site name, and domain on the back side.',
+    backBrandingForcePromo: 'Promo-only credits: branding is required and cannot be disabled.',
     outputLang: 'Output Language',
     copyStyle: 'Copywriting Style',
     cardStoryLabel: 'Story for this postcard',
@@ -117,12 +128,22 @@ const translations: Record<string, any> = {
     author: '摄影师 / 作者 (可选)',
     aiTitle: 'AI 正面标题',
     aiTitleDesc: '根据图片内容自动生成地点和标题。',
+    frontAiMode: 'AI 正面输出',
+    frontModeTitleLocation: '标题 + 地点',
+    frontModeTitleOnly: '仅标题',
+    frontModeLocationOnly: '仅地点',
+    frontModeNone: '不需要 AI 正面文字',
+    showDate: '显示日期',
+    showDateDesc: '在正面显示拍摄日期。',
     aiBack: 'AI 背面模板',
     aiBackDesc: '为明信片背面生成个性化消息和布局。',
     backDesign: '背面设计',
     backNone: '仅正面（不生成背面）',
     backTemplate: '固定模板背面',
     backAi: 'AI 重绘背面',
+    backBranding: '背面添加本站信息',
+    backBrandingDesc: '在背面显示本站 logo、站名和域名。',
+    backBrandingForcePromo: '仅有赠送积分时，本站信息强制开启且不可关闭。',
     outputLang: '输出语言',
     copyStyle: '文案风格',
     cardStoryLabel: '明信片故事',
@@ -258,7 +279,7 @@ const translations: Record<string, any> = {
   ms: { title: 'Tetapan global', desc: 'Tentukan tetapan untuk semua poskad.', size: 'Saiz', back: 'Kembali', continue: 'Teruskan', feedbackHint: 'Bantuan' },
 };
 
-export default function Step3Configure({ editingGroupId, configGroups, onSave, onCancel, language, onFeedback, previewImageUrl }: Props) {
+export default function Step3Configure({ editingGroupId, configGroups, user, onSave, onCancel, language, onFeedback, previewImageUrl }: Props) {
   const t = { ...translations.en, ...(translations[language] || {}) };
   const existingGroup = editingGroupId ? configGroups.find(g => g.id === editingGroupId) : null;
 
@@ -329,7 +350,16 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
     const base = { ...defaultSettings, ...(existingGroup?.settings || {}) };
     const normalizedBackMode: SettingsType['backDesignMode'] =
       base.backDesignMode ?? (base.aiBackTemplate ? 'ai' : 'template');
-    const normalized = { ...base, backDesignMode: normalizedBackMode, aiBackTemplate: normalizedBackMode === 'ai' };
+    const normalizedFrontMode: SettingsType['frontAiMode'] =
+      base.frontAiMode ?? (base.aiTitle ? 'title_location' : 'none');
+    const normalized = {
+      ...base,
+      backDesignMode: normalizedBackMode,
+      aiBackTemplate: normalizedBackMode === 'ai',
+      frontAiMode: normalizedFrontMode,
+      aiTitle: normalizedFrontMode !== 'none',
+      backBrandingEnabled: base.backBrandingEnabled ?? true,
+    };
     if (!existingGroup && langMap[language]) {
       return { ...normalized, aiLanguage: langMap[language] };
     }
@@ -341,10 +371,14 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
   };
 
   const handleSave = () => {
+    const normalizedSettings: SettingsType = {
+      ...settings,
+      backBrandingEnabled: (user.paid_credits ?? 0) <= 0 ? true : (settings.backBrandingEnabled !== false),
+    };
     onSave({
       id: 'default',
       name: 'Global Settings',
-      settings,
+      settings: normalizedSettings,
       photoIds: []
     });
   };
@@ -624,16 +658,46 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                 />
               </div>
 
+              <div className="p-4 border border-stone-200 rounded-xl">
+                <div className="font-medium text-stone-900 mb-2">{t.frontAiMode || t.aiTitle}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'title_location', label: t.frontModeTitleLocation || 'Title + Location' },
+                    { id: 'title_only', label: t.frontModeTitleOnly || 'Title Only' },
+                    { id: 'location_only', label: t.frontModeLocationOnly || 'Location Only' },
+                    { id: 'none', label: t.frontModeNone || 'No AI Front Text' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        updateSetting('frontAiMode', opt.id as SettingsType['frontAiMode']);
+                        updateSetting('aiTitle', opt.id !== 'none');
+                      }}
+                      className={cn(
+                        'px-3 py-2 rounded-lg border text-sm transition-colors',
+                        (settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none')) === opt.id
+                          ? 'border-stone-900 bg-stone-900 text-white'
+                          : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm text-stone-500 mt-2">{t.aiTitleDesc}</div>
+              </div>
+
               <label className="flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
                 <input
                   type="checkbox"
-                  checked={settings.aiTitle}
-                  onChange={(e) => updateSetting('aiTitle', e.target.checked)}
+                  checked={settings.showDate !== false}
+                  onChange={(e) => updateSetting('showDate', e.target.checked)}
                   className="mt-1 w-5 h-5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
                 />
                 <div>
-                  <div className="font-medium text-stone-900 mb-1">{t.aiTitle}</div>
-                  <div className="text-sm text-stone-500">{t.aiTitleDesc}</div>
+                  <div className="font-medium text-stone-900 mb-1">{t.showDate || 'Show Date'}</div>
+                  <div className="text-sm text-stone-500">{t.showDateDesc || 'Show capture date on the front side.'}</div>
                 </div>
               </label>
 
@@ -665,6 +729,23 @@ export default function Step3Configure({ editingGroupId, configGroups, onSave, o
                 </div>
                 <div className="text-sm text-stone-500 mt-2">{t.aiBackDesc}</div>
               </div>
+
+              <label className="flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={settings.backBrandingEnabled !== false}
+                  disabled={(user.paid_credits ?? 0) <= 0}
+                  onChange={(e) => updateSetting('backBrandingEnabled', e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-stone-300 text-stone-900 focus:ring-stone-900 disabled:opacity-50"
+                />
+                <div>
+                  <div className="font-medium text-stone-900 mb-1">{t.backBranding || 'Add Site Branding on Back'}</div>
+                  <div className="text-sm text-stone-500">{t.backBrandingDesc || 'Show logo, site name, and domain on the back side.'}</div>
+                  {(user.paid_credits ?? 0) <= 0 && (
+                    <div className="text-xs text-amber-700 mt-1">{t.backBrandingForcePromo || 'Promo-only credits: branding is required and cannot be disabled.'}</div>
+                  )}
+                </div>
+              </label>
             </div>
           </section>
 

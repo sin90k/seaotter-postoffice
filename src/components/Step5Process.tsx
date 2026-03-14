@@ -306,7 +306,11 @@ export default function Step5Process({
         const group = configGroups.find(g => g.id === photo.groupId);
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
         const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
-        const usesAi = settings.aiTitle !== false || backMode === 'ai';
+        const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
+        const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
+        const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
+        const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
+        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
         return count + (usesAi ? 1 : 0);
       }, 0);
       const totalNeed = creditsPerCard * aiPhotosCount;
@@ -315,6 +319,47 @@ export default function Step5Process({
         setIsProcessing(false);
         setShowPricing(true);
         return;
+      }
+
+      // 预计算每张图是否必须加本站信息：
+      // - 勾选开启时：全部背面都加
+      // - 勾选关闭且有付费积分时：先消耗付费积分；付费用尽后，消耗到赠送积分的图片强制加
+      const watermarkByPhotoId = new Map<string, boolean>();
+      let remainPaid = Math.max(0, user.paid_credits ?? 0);
+      let remainPromo = Math.max(0, user.promo_credits ?? 0);
+      for (const photo of configuredPhotos) {
+        const group = configGroups.find(g => g.id === photo.groupId);
+        const settings = { ...defaultSettings, ...(group?.settings || {}) };
+        const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+        const brandingEnabled = settings.backBrandingEnabled !== false;
+        if (backMode === 'none') {
+          watermarkByPhotoId.set(photo.id, false);
+          continue;
+        }
+
+        if (brandingEnabled) {
+          watermarkByPhotoId.set(photo.id, true);
+        } else {
+          const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
+          const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
+          const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
+          const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
+          const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
+          const cost = usesAi ? creditsPerCard : 0;
+
+          let promoUsed = false;
+          if (cost > 0) {
+            const paidUsed = Math.min(remainPaid, cost);
+            remainPaid -= paidUsed;
+            const left = cost - paidUsed;
+            if (left > 0) {
+              const usePromo = Math.min(remainPromo, left);
+              remainPromo -= usePromo;
+              promoUsed = usePromo > 0;
+            }
+          }
+          watermarkByPhotoId.set(photo.id, promoUsed);
+        }
       }
 
       try {
@@ -351,9 +396,13 @@ export default function Step5Process({
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
               const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+              const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
+              const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
+              const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
+              const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
               
               // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
-              const runAi = settings.aiTitle !== false || backMode === 'ai';
+              const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
               if (runAi) {
                 const base64Data = getCompressedBase64(img);
                 
@@ -472,7 +521,7 @@ Output JSON strictly in this format:
                   const analysisData = JSON.parse(analysisResponse.choices[0]?.message?.content || "{}");
 
                   // 3. 根据开关和 EXIF 更新文字与位置
-                  if (settings.aiTitle !== false && analysisData.title) {
+                  if (needFrontTitle && analysisData.title) {
                     title = analysisData.title;
                   }
 
@@ -483,23 +532,34 @@ Output JSON strictly in this format:
 
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
                   let exifLocationName = "";
+                  const cleanLocationPart = (raw?: string) => {
+                    if (!raw) return '';
+                    const first = raw
+                      .split(/[;；|/]+/)
+                      .map((s) => s.trim())
+                      .filter(Boolean)[0];
+                    return first || '';
+                  };
                   if (photo.exif) {
                     // 优先展示具体城市，让用户一眼知道“在哪个城市”
-                    if (photo.exif.city) {
-                      exifLocationName = [photo.exif.city, photo.exif.country].filter(Boolean).join(', ');
+                    const city = cleanLocationPart(photo.exif.city);
+                    const country = cleanLocationPart(photo.exif.country);
+                    const region = cleanLocationPart(photo.exif.region);
+                    if (city) {
+                      exifLocationName = [city, country].filter(Boolean).join(', ');
                     } else {
-                      const parts = [photo.exif.region, photo.exif.country].filter(Boolean) as string[];
+                      const parts = [region, country].filter(Boolean) as string[];
                       if (parts.length > 0) exifLocationName = parts.join(', ');
                     }
                   }
-                  if (settings.aiTitle !== false) {
+                  if (needFrontLocation) {
                     if (exifLocationName) {
                       location = exifLocationName;
                     } else if (analysisLocation) {
                       location = analysisLocation;
                     }
-                  } else if (exifLocationName) {
-                    // 即使没开 AI 标题，如果有真实 EXIF 地点也可以用
+                  } else if (!needFrontTitle && exifLocationName) {
+                    // 仅在纯本地前景文本模式下，保留 EXIF 地点兜底
                     location = exifLocationName;
                   }
 
@@ -579,6 +639,18 @@ Output JSON strictly in this format:
                 }
               }
 
+              // 非 AI 路径下，也允许用 EXIF 填充地点（当选择了仅地点/标题+地点时）
+              if (!runAi && needFrontLocation && !location && photo.exif) {
+                const city = photo.exif.city || '';
+                const country = photo.exif.country || '';
+                const region = photo.exif.region || '';
+                if (city) location = [city, country].filter(Boolean).join(', ');
+                else location = [region, country].filter(Boolean).join(', ');
+              }
+
+              if (!needFrontTitle) title = '';
+              if (!needFrontLocation) location = '';
+
               const defaultFrontStyle: ProcessedPostcard['frontStyle'] = { fontSize: 5, color: '#ffffff', position: textPosition };
               const defaultBackStyle: ProcessedPostcard['backStyle'] = { fontSize: 3.2, color: '#44403c' };
               
@@ -602,9 +674,10 @@ Output JSON strictly in this format:
                 dateStr = `${y}.${m}.${d}`;
               }
               const authorStr = settings.authorName || '';
+              const displayDate = settings.showDate === false ? '' : dateStr;
               
-              const useWatermark = (user.promo_credits ?? 0) > 0;
-              const frontDataUrl = generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, dateStr);
+              const useWatermark = watermarkByPhotoId.get(photo.id) === true;
+              const frontDataUrl = generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate);
               const backDataUrl = backMode === 'none'
                 ? ''
                 : await generateBack(
@@ -638,12 +711,12 @@ Output JSON strictly in this format:
                 decorativeIcons: artisticIcons,
                 postmark,
                 author: authorStr,
-                date: dateStr,
+                date: displayDate,
                 draftTitle: title,
                 draftLocation: location,
                 draftMessage: message,
                 draftAuthor: authorStr,
-                draftDate: dateStr,
+                draftDate: displayDate,
                 selected: true,
                 imgUrl: imgBase64,
                 settings: settings,
@@ -652,7 +725,8 @@ Output JSON strictly in this format:
                 backStyle: defaultBackStyle,
                 draftFrontStyle: defaultFrontStyle,
                 draftBackStyle: defaultBackStyle,
-                generatedBackImage: generatedBackImageBase64 || undefined
+                generatedBackImage: generatedBackImageBase64 || undefined,
+                watermark: useWatermark,
               });
             } catch (e: any) {
               console.error("AI Generation failed for image", i, e);
@@ -808,9 +882,14 @@ Output JSON strictly in this format:
       const paddingBottom = isSquare ? ch * 0.18 : ch * 0.15; // 拍立得底部留白稍大
       const availW = cw;
       const availH = ch - paddingBottom;
-      imgX = 0; imgY = 0; imgW = availW; imgH = availH;
-      // 拉伸/压缩至填满可用区域，确保图片完整显示不裁剪（仅缩放变换）
-      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, availW, availH);
+      const scale = Math.min(availW / img.width, availH / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const drawX = (availW - drawW) / 2;
+      const drawY = 0;
+      imgX = drawX; imgY = drawY; imgW = drawW; imgH = drawH;
+      // 底部留白模式：等比缩放，不拉伸变形
+      ctx.drawImage(img, 0, 0, img.width, img.height, drawX, drawY, drawW, drawH);
 
       // Add subtle shadow line at the bottom of the image
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
@@ -1818,7 +1897,7 @@ Output JSON strictly in this format:
 
     try {
       const img = await loadImage(result.imgUrl || '');
-      const useWatermark = (user.promo_credits ?? 0) > 0;
+      const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newBack = backMode === 'none'
@@ -1884,7 +1963,7 @@ Output JSON strictly in this format:
 
     try {
       const img = await loadImage(result.imgUrl);
-      const useWatermark = (user.promo_credits ?? 0) > 0;
+      const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
       const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newBack = backMode === 'none'
