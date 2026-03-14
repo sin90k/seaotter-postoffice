@@ -237,6 +237,34 @@ export default function Step5Process({
   onFeedback
 }: Props) {
   const t = translations[language] || translations.en;
+  const cleanLocationPart = (raw?: string) => {
+    if (!raw) return '';
+    const first = raw
+      .split(/[;；|/]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)[0];
+    return first || '';
+  };
+  const cleanLocationDisplay = (raw?: string) => {
+    if (!raw) return '';
+    const normalizedKey = (val: string) =>
+      val
+        .replace(/國/g, '国')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+    const parts = raw
+      .split(/[，,]+/)
+      .map((s) => cleanLocationPart(s))
+      .filter(Boolean);
+    const seen = new Set<string>();
+    const unique = parts.filter((part) => {
+      const key = normalizedKey(part);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return unique.join(', ');
+  };
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -532,14 +560,6 @@ Output JSON strictly in this format:
 
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
                   let exifLocationName = "";
-                  const cleanLocationPart = (raw?: string) => {
-                    if (!raw) return '';
-                    const first = raw
-                      .split(/[;；|/]+/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)[0];
-                    return first || '';
-                  };
                   if (photo.exif) {
                     // 优先展示具体城市，让用户一眼知道“在哪个城市”
                     const city = cleanLocationPart(photo.exif.city);
@@ -641,15 +661,16 @@ Output JSON strictly in this format:
 
               // 非 AI 路径下，也允许用 EXIF 填充地点（当选择了仅地点/标题+地点时）
               if (!runAi && needFrontLocation && !location && photo.exif) {
-                const city = photo.exif.city || '';
-                const country = photo.exif.country || '';
-                const region = photo.exif.region || '';
+                const city = cleanLocationPart(photo.exif.city);
+                const country = cleanLocationPart(photo.exif.country);
+                const region = cleanLocationPart(photo.exif.region);
                 if (city) location = [city, country].filter(Boolean).join(', ');
                 else location = [region, country].filter(Boolean).join(', ');
               }
 
               if (!needFrontTitle) title = '';
               if (!needFrontLocation) location = '';
+              location = cleanLocationDisplay(location);
 
               const defaultFrontStyle: ProcessedPostcard['frontStyle'] = { fontSize: 5, color: '#ffffff', position: textPosition };
               const defaultBackStyle: ProcessedPostcard['backStyle'] = { fontSize: 3.2, color: '#44403c' };
@@ -856,7 +877,10 @@ Output JSON strictly in this format:
     const fillMode = safeSettings.fill || 'fill';
     const filterId = safeSettings.filter || 'original';
     const filterIntensity = safeSettings.filterIntensity ?? 0.8;
-    const bottomBorderRatio = isSquare ? 0.16 : 0.13;
+    const hasFrontText = !!(title || location || author || date);
+    const bottomBorderRatio = isSquare
+      ? (hasFrontText ? 0.12 : 0.09)
+      : (hasFrontText ? 0.11 : 0.08);
 
     let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
@@ -865,7 +889,8 @@ Output JSON strictly in this format:
       boxY: number,
       boxW: number,
       boxH: number,
-      maxCropRatio: number
+      maxCropRatio: number,
+      verticalBias: number = 0
     ) => {
       const containScale = Math.min(boxW / img.width, boxH / img.height);
       const containW = img.width * containScale;
@@ -877,7 +902,10 @@ Output JSON strictly in this format:
       const coverW = img.width * coverScale;
       const coverH = img.height * coverScale;
       const coverX = boxX + (boxW - coverW) / 2;
-      const coverY = boxY + (boxH - coverH) / 2;
+      const centerCoverY = boxY + (boxH - coverH) / 2;
+      const maxShiftY = Math.max(0, (coverH - boxH) / 2);
+      const clampedBias = Math.max(-1, Math.min(1, verticalBias));
+      const coverY = centerCoverY + clampedBias * maxShiftY;
 
       // 裁切率越高，代表为了铺满被裁掉越多画面
       const cropRatio = 1 - (boxW * boxH) / (coverW * coverH);
@@ -919,7 +947,7 @@ Output JSON strictly in this format:
       ctx.shadowColor = 'rgba(0,0,0,0.1)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 10;
-      const drawn = drawImageSmartFit(dx, dy, availW, availH, 0.42);
+      const drawn = drawImageSmartFit(dx, dy, availW, availH, isSquare ? 0.6 : 0.45, -0.08);
       imgX = drawn.x; imgY = drawn.y; imgW = drawn.w; imgH = drawn.h;
       ctx.shadowColor = 'transparent';
     } else if (fillMode === 'bottom-border') {
@@ -927,7 +955,7 @@ Output JSON strictly in this format:
       const availW = cw;
       const availH = ch - paddingBottom;
       // 底部留白模式：智能适配，优先减少白边，同时避免过度裁切
-      const drawn = drawImageSmartFit(0, 0, availW, availH, 0.45);
+      const drawn = drawImageSmartFit(0, 0, availW, availH, isSquare ? 0.72 : 0.52, -0.12);
       imgX = drawn.x; imgY = drawn.y; imgW = drawn.w; imgH = drawn.h;
 
       // Add subtle shadow line at the bottom of the image

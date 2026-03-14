@@ -10,6 +10,18 @@ export type ExifParsed = {
   country?: string | null;
 };
 
+const normalizeLocationField = (raw: unknown): string | undefined => {
+  if (typeof raw !== 'string') return undefined;
+  const text = raw.trim();
+  if (!text) return undefined;
+  // EXIF 有时会返回类似 "泰国;泰國" 的多值串，这里只取第一个有效值
+  const first = text
+    .split(/[;；|/]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)[0];
+  return first || undefined;
+};
+
 export async function extractExifFromBlob(input: Blob | File): Promise<ExifParsed | null> {
   try {
     const exif: any = await exifr.parse(input, {
@@ -34,19 +46,16 @@ export async function extractExifFromBlob(input: Blob | File): Promise<ExifParse
     const latitude = typeof exif.latitude === 'number' ? exif.latitude : null;
     const longitude = typeof exif.longitude === 'number' ? exif.longitude : null;
 
-    const city =
-      (typeof exif.city === 'string' ? exif.city : null) ??
-      (typeof exif.City === 'string' ? exif.City : null) ??
-      (typeof exif.SubLocation === 'string' ? exif.SubLocation : null);
+    const city = normalizeLocationField(exif.city) ?? normalizeLocationField(exif.City) ?? normalizeLocationField(exif.SubLocation);
     const region =
-      (typeof exif.state === 'string' ? exif.state : null) ??
-      (typeof exif.State === 'string' ? exif.State : null) ??
-      (typeof exif.Province === 'string' ? exif.Province : null) ??
-      (typeof exif.Region === 'string' ? exif.Region : null);
+      normalizeLocationField(exif.state) ??
+      normalizeLocationField(exif.State) ??
+      normalizeLocationField(exif.Province) ??
+      normalizeLocationField(exif.Region);
     const country =
-      (typeof exif.country === 'string' ? exif.country : null) ??
-      (typeof exif.Country === 'string' ? exif.Country : null) ??
-      (typeof exif.CountryCode === 'string' ? exif.CountryCode : null);
+      normalizeLocationField(exif.country) ??
+      normalizeLocationField(exif.Country) ??
+      normalizeLocationField(exif.CountryCode);
 
     return {
       latitude,
