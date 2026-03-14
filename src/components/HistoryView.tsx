@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProcessedPostcard, User } from '../App';
 import { Download, Clock, X, Image as ImageIcon, Trash2, CheckSquare, Square, Edit3, Loader2 } from 'lucide-react';
@@ -164,19 +164,21 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
     return (createdAt || timestamp) + days * 24 * 60 * 60 * 1000;
   };
 
-  const now = Date.now();
+  const now = useMemo(() => Date.now(), [history, user.level, freeRetentionDays, vipRetentionDays]);
   
-  // Filter out expired items
-  const validHistory = history.filter(p => {
-    const exp = getExpirationDate(p.createdAt, p.timestamp);
-    if (exp === null) return true;
-    if (isNaN(exp)) return true; // Keep if date is broken
-    return exp > now;
-  }).sort((a, b) => {
-    const timeA = a.createdAt || a.timestamp || 0;
-    const timeB = b.createdAt || b.timestamp || 0;
-    return timeB - timeA;
-  });
+  // 使用 memo 减少弹窗交互时的大量重复计算
+  const validHistory = useMemo(() => {
+    return history.filter(p => {
+      const exp = getExpirationDate(p.createdAt, p.timestamp);
+      if (exp === null) return true;
+      if (isNaN(exp)) return true; // Keep if date is broken
+      return exp > now;
+    }).sort((a, b) => {
+      const timeA = a.createdAt || a.timestamp || 0;
+      const timeB = b.createdAt || b.timestamp || 0;
+      return timeB - timeA;
+    });
+  }, [history, now, user.level, freeRetentionDays, vipRetentionDays]);
 
   const formatTimeLeft = (exp: number | null) => {
     if (exp === null) return t.permanent;
@@ -274,40 +276,45 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
     setDeleteConfirm(null);
   };
 
-  const groupedHistory = validHistory.reduce((acc, item) => {
-    let key = t.other;
-    if (groupBy === 'date') {
-      key = new Date(item.createdAt || item.timestamp).toLocaleDateString();
-    } else if (groupBy === 'location') {
-      const loc = item.draftLocation || item.location;
-      if (loc) {
-        const parts = loc.split(/[,，]/);
-        key = parts[parts.length - 1].trim();
-      } else {
-        key = t.unknownLocation;
+  const groupedHistory = useMemo(() => {
+    return validHistory.reduce((acc, item) => {
+      let key = t.other;
+      if (groupBy === 'date') {
+        key = new Date(item.createdAt || item.timestamp).toLocaleDateString();
+      } else if (groupBy === 'location') {
+        const loc = item.draftLocation || item.location;
+        if (loc) {
+          const parts = loc.split(/[,，]/);
+          key = parts[parts.length - 1].trim();
+        } else {
+          key = t.unknownLocation;
+        }
+      } else if (groupBy === 'theme') {
+        const theme = item.theme || 'standard';
+        key = theme.charAt(0).toUpperCase() + theme.slice(1);
       }
-    } else if (groupBy === 'theme') {
-      const theme = item.theme || 'standard';
-      key = theme.charAt(0).toUpperCase() + theme.slice(1);
-    }
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, ProcessedPostcard[]>);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {} as Record<string, ProcessedPostcard[]>);
+  }, [validHistory, groupBy, t.other, t.unknownLocation]);
 
-  const groupKeys = Object.keys(groupedHistory);
-  if (groupBy === 'date') {
-    groupKeys.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-  } else {
-    groupKeys.sort();
-  }
+  const groupKeys = useMemo(() => {
+    const keys = Object.keys(groupedHistory);
+    if (groupBy === 'date') {
+      keys.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    } else {
+      keys.sort();
+    }
+    return keys;
+  }, [groupedHistory, groupBy]);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-stone-900/50 z-[100] flex items-center justify-center p-4"
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -454,7 +461,13 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
                             </div>
                           )}
                           <div className="aspect-[4/3] relative bg-stone-100 cursor-pointer" onClick={() => toggleSelection(item.id)}>
-                            <img src={item.frontDataUrl || item.frontUrl} alt={item.draftTitle || item.title || 'Postcard'} className="w-full h-full object-cover" />
+                            <img
+                              src={item.frontDataUrl || item.frontUrl}
+                              alt={item.draftTitle || item.title || 'Postcard'}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover"
+                            />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
@@ -513,7 +526,7 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}

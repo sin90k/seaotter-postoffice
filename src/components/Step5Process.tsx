@@ -1710,7 +1710,8 @@ Output JSON strictly in this format:
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
     const { w, h } = getDimensions(safeSettings);
-    const isChinese = (safeSettings.aiLanguage || 'English').includes('Chinese');
+    const isChinese =
+      language.startsWith('zh') || (safeSettings.aiLanguage || 'English').includes('Chinese');
     
     const isPortrait = img.height > img.width && safeSettings.size !== 'square';
     canvas.width = isPortrait ? h : w;
@@ -2044,7 +2045,7 @@ Output JSON strictly in this format:
     // 9. Watermark (Logo + 服务名 + 网址) - 使用 promo 积分时显示，布局：第一行 Logo 服务名，第二行 网址
     const watermark = useWatermark && (brandConfig.logoUrl() || brandConfig.brandName('zh'));
     if (watermark) {
-      const locale = isChinese ? 'zh' : 'en';
+      const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
       const brandName = brandConfig.brandName(locale);
       const domain = brandConfig.domain();
       const logoUrl = brandConfig.logoUrl();
