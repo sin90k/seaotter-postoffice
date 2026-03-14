@@ -698,7 +698,7 @@ Output JSON strictly in this format:
               const displayDate = settings.showDate === false ? '' : dateStr;
               
               const useWatermark = watermarkByPhotoId.get(photo.id) === true;
-              const frontDataUrl = generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate);
+              const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate);
               const backDataUrl = backMode === 'none'
                 ? ''
                 : await generateBack(
@@ -852,20 +852,88 @@ Output JSON strictly in this format:
       '5x7': { w: 2100, h: 1500 },
       '5.8x8.3': { w: 2490, h: 1740 },
       square: { w: 1500, h: 1500 },
-      polaroid: { w: 1500, h: 1500 },
+      polaroid: { w: 1024, h: 1280 },
     };
     return sizeMap[settings.size] ?? { w: 1800, h: 1200 };
   };
 
-  const generateFront = (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string) => {
+  const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const detectMainSubjectFocus = async (img: HTMLImageElement) => {
+    const fallback = { x: img.width * 0.5, y: img.height * 0.45 };
+    try {
+      const FaceDetectorCtor = (window as any).FaceDetector;
+      if (!FaceDetectorCtor) return fallback;
+
+      const maxProbe = 640;
+      const scale = Math.min(1, maxProbe / Math.max(img.width, img.height));
+      const probeW = Math.max(1, Math.round(img.width * scale));
+      const probeH = Math.max(1, Math.round(img.height * scale));
+      const probe = document.createElement('canvas');
+      probe.width = probeW;
+      probe.height = probeH;
+      const probeCtx = probe.getContext('2d');
+      if (!probeCtx) return fallback;
+      probeCtx.drawImage(img, 0, 0, probeW, probeH);
+
+      const detector = new FaceDetectorCtor({ fastMode: true, maxDetectedFaces: 3 });
+      const faces = await detector.detect(probe);
+      if (!Array.isArray(faces) || faces.length === 0) return fallback;
+
+      const bestFace = faces
+        .map((f: any) => {
+          const bb = f?.boundingBox || {};
+          const x = Number(bb.x ?? bb.left ?? 0);
+          const y = Number(bb.y ?? bb.top ?? 0);
+          const w = Number(bb.width ?? 0);
+          const h = Number(bb.height ?? 0);
+          return { x, y, w, h, score: w * h };
+        })
+        .sort((a: any, b: any) => b.score - a.score)[0];
+
+      if (!bestFace || !isFinite(bestFace.score) || bestFace.score <= 0) return fallback;
+      return {
+        x: (bestFace.x + bestFace.w / 2) / scale,
+        y: (bestFace.y + bestFace.h * 0.38) / scale,
+      };
+    } catch {
+      return fallback;
+    }
+  };
+
+  const computeCropArea4by5 = (
+    imgW: number,
+    imgH: number,
+    focus: { x: number; y: number }
+  ) => {
+    const targetRatio = 4 / 5;
+    const currentRatio = imgW / imgH;
+    let cropW = imgW;
+    let cropH = imgH;
+
+    if (currentRatio > targetRatio) {
+      cropW = imgH * targetRatio;
+      cropH = imgH;
+    } else {
+      cropW = imgW;
+      cropH = imgW / targetRatio;
+    }
+
+    const cropX = clampNumber(focus.x - cropW / 2, 0, imgW - cropW);
+    const cropY = clampNumber(focus.y - cropH * 0.42, 0, imgH - cropH);
+    return { x: cropX, y: cropY, w: cropW, h: cropH };
+  };
+
+  const generateFront = async (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
     const { w, h } = getDimensions(safeSettings);
+    const isPolaroidMode = safeSettings.size === 'polaroid';
     
     const isPortrait = img.height > img.width && safeSettings.size !== 'square';
-    canvas.width = isPortrait ? h : w;
-    canvas.height = isPortrait ? w : h;
+    canvas.width = isPolaroidMode ? w : (isPortrait ? h : w);
+    canvas.height = isPolaroidMode ? h : (isPortrait ? w : h);
     
     const cw = canvas.width;
     const ch = canvas.height;
@@ -877,6 +945,91 @@ Output JSON strictly in this format:
     const fillMode = safeSettings.fill || 'fill';
     const filterId = safeSettings.filter || 'original';
     const filterIntensity = safeSettings.filterIntensity ?? 0.8;
+
+    if (isPolaroidMode) {
+      const focus = await detectMainSubjectFocus(img);
+      const crop = computeCropArea4by5(img.width, img.height, focus);
+
+      const drawCropped = (dx: number, dy: number, dw: number, dh: number) => {
+        ctx.drawImage(
+          img,
+          crop.x,
+          crop.y,
+          crop.w,
+          crop.h,
+          dx,
+          dy,
+          dw,
+          dh
+        );
+      };
+
+      let imgX = 0;
+      let imgY = 0;
+      let imgW = cw;
+      let imgH = ch;
+
+      if (fillMode === 'fill') {
+        drawCropped(0, 0, cw, ch);
+      } else if (fillMode === 'border') {
+        const borderTop = ch * 0.04;
+        const borderSide = cw * 0.04;
+        const borderBottom = ch * 0.08;
+        const frameW = cw - borderSide * 2;
+        const frameH = ch - borderTop - borderBottom;
+
+        const fitScale = Math.min(frameW / crop.w, frameH / crop.h);
+        imgW = crop.w * fitScale;
+        imgH = crop.h * fitScale;
+        imgX = borderSide + (frameW - imgW) / 2;
+        imgY = borderTop + (frameH - imgH) / 2;
+        drawCropped(imgX, imgY, imgW, imgH);
+      } else {
+        // bottom-border
+        const borderSide = cw * 0.02;
+        const borderBottom = ch * 0.14;
+        const frameW = cw - borderSide * 2;
+        const frameH = ch - borderBottom;
+
+        const fitScale = Math.min(frameW / crop.w, frameH / crop.h);
+        imgW = crop.w * fitScale;
+        imgH = crop.h * fitScale;
+        imgX = borderSide + (frameW - imgW) / 2;
+        imgY = 0; // 顶部对齐
+        drawCropped(imgX, imgY, imgW, imgH);
+
+        // caption zone separator
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(borderSide, frameH - 1, frameW, 1);
+      }
+
+      applyFilterById(filterId, ctx, imgW, imgH, filterIntensity, imgX, imgY);
+
+      // Bottom Border 模式优先在底部留白区展示说明文字（location/date/message）
+      if (fillMode === 'bottom-border' && (title || location || date)) {
+        const borderBottom = ch * 0.14;
+        const zoneTop = ch - borderBottom;
+        const centerX = cw * 0.5;
+        const titleText = title || '';
+        const line2 = [location, date].filter(Boolean).join('  •  ');
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#1c1917';
+        if (titleText) {
+          ctx.font = `700 ${Math.max(26, cw * 0.04)}px "Playfair Display", serif`;
+          ctx.fillText(titleText, centerX, zoneTop + borderBottom * 0.52);
+        }
+        if (line2) {
+          ctx.font = `500 ${Math.max(18, cw * 0.024)}px "Inter", sans-serif`;
+          ctx.globalAlpha = 0.86;
+          ctx.fillText(line2, centerX, zoneTop + borderBottom * 0.78);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      return canvas.toDataURL('image/jpeg', 0.9);
+    }
+
     const hasFrontText = !!(title || location || author || date);
     const bottomBorderRatio = isSquare
       ? (hasFrontText ? 0.12 : 0.09)
@@ -1965,7 +2118,7 @@ Output JSON strictly in this format:
     try {
       const img = await loadImage(result.imgUrl || '');
       const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
-      const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
+      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newBack = backMode === 'none'
         ? ''
@@ -2031,7 +2184,7 @@ Output JSON strictly in this format:
     try {
       const img = await loadImage(result.imgUrl);
       const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
-      const newFront = generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
+      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newBack = backMode === 'none'
         ? ''
