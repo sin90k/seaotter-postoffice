@@ -14,6 +14,14 @@ interface Props {
   onRequireLogin: () => void;
   language: string;
   countryConfig: CountryConfig;
+  marketPricing?: {
+    market_code: string;
+    currency: string;
+    price_per_postcard: number;
+    credits_per_pack: number;
+    pack_price: string;
+    packs?: Array<{ amount: number; price: string; label?: string; save?: string; popular?: boolean }>;
+  } | null;
 }
 
 const translations: Record<string, any> = {
@@ -450,7 +458,7 @@ const translations: Record<string, any> = {
   }
 };
 
-export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequireLogin, language, countryConfig }: Props) {
+export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequireLogin, language, countryConfig, marketPricing }: Props) {
   const t = { ...translations.en, ...(translations[language] || {}) };
   const [activeTab, setActiveTab] = useState<'subscription' | 'credits'>('credits');
   const [selectedPlan, setSelectedPlan] = useState<UserLevel | number | null>(null);
@@ -534,7 +542,31 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
     }, 2000);
   };
 
-  const creditPacks = countryConfig.pricing.packs;
+  const creditPacks = marketPricing
+    ? (() => {
+        const hasServerPacks = Array.isArray(marketPricing.packs) && marketPricing.packs.length > 0;
+        if (hasServerPacks) {
+          return (marketPricing.packs || []).map((p, idx) => {
+            const fallback = countryConfig.pricing.packs[idx] || countryConfig.pricing.packs[0];
+            return {
+              ...fallback,
+              amount: Number(p.amount || fallback.amount),
+              price: String(p.price || fallback.price),
+              label: p.label || fallback.label,
+              save: p.save || fallback.save,
+              popular: typeof p.popular === 'boolean' ? p.popular : fallback.popular,
+            };
+          });
+        }
+        return countryConfig.pricing.packs.map((pack) => {
+          const dynamicPrice =
+            pack.amount === Number(marketPricing.credits_per_pack)
+              ? marketPricing.pack_price
+              : (Number(marketPricing.price_per_postcard) * pack.amount).toFixed(2);
+          return { ...pack, price: dynamicPrice };
+        });
+      })()
+    : countryConfig.pricing.packs;
 
   const plans = [
     {

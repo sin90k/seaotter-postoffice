@@ -75,14 +75,32 @@ export default function AdminSettings() {
   const handleRunCleanup = async () => {
     if (!isSupabaseConnected) return;
     setCleanupLoading(true);
-    const { data, error } = await supabase.rpc('admin_cleanup_expired_postcards', { p_limit: 500 });
-    setCleanupLoading(false);
-    if (error) {
-      alert('清理执行失败：' + (error.message || '请先执行 admin cleanup SQL 补丁。'));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      setCleanupLoading(false);
+      alert('请先使用管理员账号登录后再执行清理。');
       return;
     }
-    await refreshStorageStats();
-    alert(`清理完成：${typeof data === 'number' ? data : 0} 条记录`);
+    try {
+      const response = await fetch('/api/admin/storage/cleanup-expired', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ limit: 500 }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert('清理执行失败：' + (result.error || response.statusText));
+        return;
+      }
+      await refreshStorageStats();
+      alert(`清理完成：${result.pathsDeleted ?? 0} 个存储文件已删除（${result.cleaned ?? 0} 条路径）`);
+    } finally {
+      setCleanupLoading(false);
+    }
   };
 
   const handleRunBackfill = async () => {

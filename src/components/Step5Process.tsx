@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useState } from 'react';
 import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
-import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from 'openai';
 import JSZip from 'jszip';
@@ -9,10 +9,12 @@ import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
 import { brandConfig } from '../config/brand';
 import { applyFilterById } from '../lib/filter-engine';
-import { isSupabaseConnected } from '../lib/supabaseClient';
+import { isSupabaseConnected, supabase } from '../lib/supabaseClient';
 import { updateUserCredits, getCreditsPerPostcard } from '../lib/credits';
 import { syncGeneratedCount } from '../lib/profileSync';
 import { logEvent } from '../lib/events';
+import { buildShareCardBlob, type ShareType } from '../lib/shareCard';
+import { getShareBranding } from '../lib/shareBranding';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -276,6 +278,22 @@ export default function Step5Process({
   const [currentBatchIds, setCurrentBatchIds] = useState<string[]>([]);
   const [livePreview, setLivePreview] = useState<{ front: string, back: string } | null>(null);
   const [rewritingState, setRewritingState] = useState<{ id: string, field: string } | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
+
+  const slugifyTheme = (raw?: string) =>
+    String(raw || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+  const blobToDataUrl = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ''));
+      fr.onerror = () => reject(new Error('Failed to read blob'));
+      fr.readAsDataURL(blob);
+    });
 
   useEffect(() => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
@@ -748,6 +766,11 @@ Output JSON strictly in this format:
                 draftBackStyle: defaultBackStyle,
                 generatedBackImage: generatedBackImageBase64 || undefined,
                 watermark: useWatermark,
+                city: photo.exif?.city || undefined,
+                country: photo.exif?.country || undefined,
+                latitude: typeof photo.exif?.location?.lat === 'number' ? photo.exif.location.lat : undefined,
+                longitude: typeof photo.exif?.location?.lng === 'number' ? photo.exif.location.lng : undefined,
+                theme_slug: slugifyTheme(theme),
               });
             } catch (e: any) {
               console.error("AI Generation failed for image", i, e);
@@ -2196,6 +2219,58 @@ Output JSON strictly in this format:
     }
   };
 
+  const handleShareExport = async (result: ProcessedPostcard, shareType: ShareType) => {
+    try {
+      setSharingId(`${result.id}:${shareType}`);
+      const brandingCfg = await getShareBranding();
+      const shouldBrand = shareType === 'front_only' && result.watermark === true && brandingCfg.enabled;
+      const blob = await buildShareCardBlob(
+        result.frontDataUrl || result.frontUrl,
+        result.backDataUrl || result.backUrl,
+        shareType,
+        {
+          enabled: shouldBrand,
+          text: brandingCfg.text,
+          opacity: brandingCfg.opacity,
+          sizeRatio: brandingCfg.sizeRatio,
+        }
+      );
+      const filenameBase = (result.draftTitle || result.title || 'postcard').replace(/[<>:"/\\|?*]/g, '_');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filenameBase}_${shareType}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+      // Best-effort cloud record for share images (does not block user download)
+      if (user.id && isSupabaseConnected) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (token) {
+          const dataUrl = await blobToDataUrl(blob);
+          await fetch('/api/share-card/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              postcardLocalId: result.id,
+              shareType,
+              dataUrl,
+            }),
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error('Failed to export share card', e);
+      alert(language === 'zh' ? '分享图导出失败，请重试。' : 'Failed to export share image.');
+    } finally {
+      setSharingId(null);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setHistory(prev => prev.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
   };
@@ -2519,16 +2594,40 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                       </div>
                       <span className="text-sm font-medium text-stone-700 truncate">{result.draftTitle || `Postcard ${idx + 1}`}</span>
                     </label>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadSingle(result);
-                      }}
-                      className="p-1.5 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors ml-2"
-                      title={t.download}
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareExport(result, 'front_only');
+                        }}
+                        disabled={sharingId === `${result.id}:front_only`}
+                        className="p-1.5 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors disabled:opacity-50"
+                        title={language === 'zh' ? '分享图（仅正面）' : 'Share card (front only)'}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareExport(result, 'front_back');
+                        }}
+                        disabled={sharingId === `${result.id}:front_back`}
+                        className="p-1.5 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors disabled:opacity-50"
+                        title={language === 'zh' ? '分享图（正反面）' : 'Share card (front + back)'}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadSingle(result);
+                        }}
+                        className="p-1.5 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors"
+                        title={t.download}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
               </div>
             );

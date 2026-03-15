@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProcessedPostcard, User } from '../App';
-import { Download, Clock, X, Image as ImageIcon, Trash2, CheckSquare, Square, Edit3, Loader2 } from 'lucide-react';
+import { Download, Clock, X, Image as ImageIcon, Trash2, CheckSquare, Square, Edit3, Loader2, Share2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { supabase, isSupabaseConnected } from '../lib/supabaseClient';
+import { buildShareCardBlob, type ShareType } from '../lib/shareCard';
+import { getShareBranding } from '../lib/shareBranding';
+import { saveAs } from 'file-saver';
 
 
 interface Props {
@@ -41,6 +44,10 @@ const translations: Record<string, any> = {
     other: 'Other',
     unknownLocation: 'Unknown Location',
     edit: 'Edit',
+    shareCard: 'Share Card',
+    frontOnly: 'Front Only',
+    frontBack: 'Front + Back',
+    generating: 'Generating…',
   },
   zh: {
     title: '您的明信片',
@@ -66,6 +73,10 @@ const translations: Record<string, any> = {
     unknownLocation: '未知地点',
     edit: '编辑',
     downloadGroup: '下载该组',
+    shareCard: '分享图',
+    frontOnly: '仅正面',
+    frontBack: '正反面',
+    generating: '生成中…',
   },
   ja: {
     title: 'あなたのポストカード',
@@ -125,6 +136,8 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
   const [groupBy, setGroupBy] = useState<'date' | 'location' | 'theme'>('date');
   const [isDownloading, setIsDownloading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'single', id: string } | { type: 'batch' } | null>(null);
+  const [shareTarget, setShareTarget] = useState<ProcessedPostcard | null>(null);
+  const [shareGenerating, setShareGenerating] = useState(false);
   const [freeRetentionDays, setFreeRetentionDays] = useState(7);
   const [vipRetentionDays, setVipRetentionDays] = useState(0); // 0 表示永久
 
@@ -274,6 +287,30 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
       onDelete(deleteConfirm.id);
     }
     setDeleteConfirm(null);
+  };
+
+  const handleShareCard = async (shareType: ShareType) => {
+    if (!shareTarget) return;
+    setShareGenerating(true);
+    try {
+      const branding = await getShareBranding();
+      const frontUrl = shareTarget.frontDataUrl || shareTarget.frontUrl;
+      const backUrl = shareTarget.backDataUrl || shareTarget.backUrl;
+      const useBranding = shareType === 'front_only' && !!shareTarget.watermark && branding.enabled;
+      const blob = await buildShareCardBlob(
+        frontUrl,
+        shareType === 'front_back' ? backUrl : undefined,
+        shareType,
+        { ...branding, enabled: useBranding }
+      );
+      saveAs(blob, `share_${shareType}_${shareTarget.id}.png`);
+      setShareTarget(null);
+    } catch (e) {
+      console.error('Share card failed', e);
+      alert(language === 'zh' ? '分享图生成失败，请重试。' : 'Failed to generate share card. Please try again.');
+    } finally {
+      setShareGenerating(false);
+    }
   };
 
   const groupedHistory = useMemo(() => {
@@ -470,6 +507,13 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <button
+                                onClick={(e) => { e.stopPropagation(); setShareTarget(item); }}
+                                className="p-2 bg-white text-stone-900 rounded-full hover:scale-105 transition-transform"
+                                title={t.shareCard ?? 'Share Card'}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
                                 className="p-2 bg-white text-stone-900 rounded-full hover:scale-105 transition-transform"
                                 title="Edit"
@@ -518,6 +562,54 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
           )}
         </div>
       </motion.div>
+
+      {/* Share Card Modal */}
+      <AnimatePresence>
+        {shareTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-stone-900 mb-2">{t.shareCard ?? 'Share Card'}</h3>
+              <p className="text-stone-500 text-sm mb-4">
+                {language === 'zh' ? '选择分享图样式并导出 4:5 图片' : 'Choose layout and export 4:5 image'}
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => handleShareCard('front_only')}
+                  disabled={shareGenerating}
+                  className="w-full py-3 px-4 rounded-xl border border-stone-200 text-stone-800 font-medium hover:bg-stone-50 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {shareGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                  {shareGenerating ? (t.generating ?? 'Generating…') : (t.frontOnly ?? 'Front Only')}
+                </button>
+                <button
+                  onClick={() => handleShareCard('front_back')}
+                  disabled={shareGenerating}
+                  className="w-full py-3 px-4 rounded-xl border border-stone-200 text-stone-800 font-medium hover:bg-stone-50 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {shareGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {t.frontBack ?? 'Front + Back'}
+                </button>
+              </div>
+              <button
+                onClick={() => setShareTarget(null)}
+                className="mt-4 w-full py-2 text-sm text-stone-500 hover:text-stone-700"
+              >
+                {t.cancelBtn}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>

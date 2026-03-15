@@ -12,6 +12,10 @@ import AdminPrompts from './admin/AdminPrompts';
 import AdminBrand from './admin/AdminBrand';
 import AdminFilters from './admin/AdminFilters';
 import AdminPayments from './admin/AdminPayments';
+import AdminMarkets from './admin/AdminMarkets';
+import AdminPricing from './admin/AdminPricing';
+import AdminShareSettings from './admin/AdminShareSettings';
+import AdminTravelMap from './admin/AdminTravelMap';
 import { updateUserCredits } from '../lib/credits';
 
 const PROFILES_SELECT =
@@ -495,6 +499,10 @@ export default function AdminPanel({ onBack, users, currentUser }: { onBack: () 
       {page === 'prompts' && <AdminPrompts />}
       {page === 'brand' && <AdminBrand />}
       {page === 'filters' && <AdminFilters />}
+      {page === 'markets' && <AdminMarkets />}
+      {page === 'pricing' && <AdminPricing />}
+      {page === 'shareSettings' && <AdminShareSettings />}
+      {page === 'travelMap' && <AdminTravelMap />}
       {page === 'settings' && <AdminSettings />}
     </AdminLayout>
   );

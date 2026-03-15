@@ -12,6 +12,7 @@ import PricingModal from './components/PricingModal';
 import FeedbackModal from './components/FeedbackModal';
 import HistoryView from './components/HistoryView';
 import UserProfileModal from './components/UserProfileModal';
+import TravelMapModal from './components/TravelMapModal';
 import { CountryConfig, countriesConfig } from './config/countries';
 import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
@@ -186,6 +187,21 @@ export type ProcessedPostcard = {
   back_path?: string;
   expires_at?: string | null;
   deleted_at?: string | null;
+  /** Metadata extension (stored in payload and postcard_metadata table) */
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  theme_slug?: string;
+};
+
+type MarketPricing = {
+  market_code: string;
+  currency: string;
+  price_per_postcard: number;
+  credits_per_pack: number;
+  pack_price: string;
+  packs?: Array<{ amount: number; price: string; label?: string; save?: string; popular?: boolean }>;
 };
 
 export const defaultSettings: SettingsType = { // Exported
@@ -541,6 +557,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showTravelMap, setShowTravelMap] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'question'>('suggestion');
   const [showLanding, setShowLanding] = useState(() => {
@@ -554,6 +571,7 @@ export default function App() {
   
   const [language, setLanguage] = useState('zh');
   const [countryConfig, setCountryConfig] = useState<CountryConfig>(countriesConfig[0]);
+  const [marketPricing, setMarketPricing] = useState<MarketPricing | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -713,13 +731,50 @@ export default function App() {
     }
   }, [user]);
 
-  // Set default country to China
+  // 市场识别：优先使用服务端根据 IP 判断国家并返回默认语言/定价。
   useEffect(() => {
-    const chinaConfig = countriesConfig.find(c => c.country === 'China');
-    if (chinaConfig) {
-      setCountryConfig(chinaConfig);
-      setLanguage('zh');
-    }
+    const fallback = countriesConfig.find(c => c.country === 'China') || countriesConfig[0];
+    setCountryConfig(fallback);
+    setLanguage(fallback.langCode);
+
+    const mapCodeToCountryName: Record<string, string> = {
+      CN: 'China',
+      US: 'USA',
+      UK: 'UK',
+      JP: 'Japan',
+      KR: 'South Korea',
+      DE: 'Germany',
+      FR: 'France',
+      ES: 'Spain',
+      SG: 'Singapore',
+      AU: 'Australia',
+      CA: 'Canada',
+      NZ: 'New Zealand',
+      TH: 'Thailand',
+      ID: 'Indonesia',
+      VN: 'Vietnam',
+      MY: 'Malaysia',
+      PH: 'Philippines',
+      TW: 'China',
+    };
+
+    fetch('/api/market/detect')
+      .then((r) => r.json())
+      .then((body) => {
+        const code = String(body?.market?.country_code || '').toUpperCase();
+        const countryName = mapCodeToCountryName[code];
+        if (!countryName) return;
+        const found = countriesConfig.find((c) => c.country === countryName);
+        if (found) {
+          setCountryConfig(found);
+          const marketLang = String(body?.market?.language_code || '').trim();
+          setLanguage(marketLang || found.langCode);
+        }
+        if (body?.pricing) {
+          setMarketPricing(body.pricing as MarketPricing);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // 只要用户点过一次开始，就永久关闭落地页（刷新不再回首页）
@@ -1003,6 +1058,15 @@ export default function App() {
                   <span className="hidden sm:inline">{tHeader.history}</span>
                 </button>
                 <button
+                  onClick={() => setShowTravelMap(true)}
+                  title={language === 'zh' ? '旅行地图' : 'Travel Map'}
+                  aria-label={language === 'zh' ? '旅行地图' : 'Travel Map'}
+                  className="flex items-center gap-1 text-[10px] sm:text-xs xl:text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors whitespace-nowrap"
+                >
+                  <Globe2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{language === 'zh' ? '地图' : 'Map'}</span>
+                </button>
+                <button
                   onClick={() => setShowProfile(true)}
                   title={tHeader.headerProfileHint ?? tHeader.history}
                   aria-label={tHeader.headerProfileHint ?? 'Profile'}
@@ -1135,6 +1199,7 @@ export default function App() {
             isLoggedIn={user.isLoggedIn}
             language={language}
             countryConfig={countryConfig}
+            marketPricing={marketPricing}
             onRequireLogin={() => {
               setShowPricing(false);
               setShowAuth(true);
@@ -1237,6 +1302,15 @@ export default function App() {
               setCurrentStep(3);
             }}
             language={language}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showTravelMap && (
+          <TravelMapModal
+            language={language}
+            onClose={() => setShowTravelMap(false)}
           />
         )}
       </AnimatePresence>

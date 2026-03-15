@@ -5,7 +5,15 @@ import { supabase, isSupabaseConnected } from './supabaseClient';
 const isTableMissing = (err: { code?: string; message?: string }) =>
   err?.code === 'PGRST205' || (err?.message ?? '').includes('Could not find the table');
 const isColumnMissing = (err: { code?: string; message?: string }) =>
-  err?.code === '42703' || (err?.message ?? '').toLowerCase().includes('column') && (err?.message ?? '').toLowerCase().includes('does not exist');
+  err?.code === '42703' ||
+  err?.code === 'PGRST204' ||
+  (
+    (err?.message ?? '').toLowerCase().includes('column') &&
+    (
+      (err?.message ?? '').toLowerCase().includes('does not exist') ||
+      (err?.message ?? '').toLowerCase().includes('could not find')
+    )
+  );
 const STORAGE_BUCKET = 'postcards';
 
 type SaveOptions = {
@@ -188,7 +196,12 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
           backUrl: backSigned || payload.backUrl || payload.backDataUrl || '',
         } as ProcessedPostcard;
       }));
-      return mapped.filter(Boolean) as ProcessedPostcard[];
+      const cloudRows = mapped.filter(Boolean) as ProcessedPostcard[];
+      if (cloudRows.length > 0) return cloudRows;
+      // 云端空但本地有缓存时，优先返回本地，随后由 saveHistory 自动回填云端（无感恢复）
+      const localFallback = ((await get('postcard_history')) as ProcessedPostcard[] | undefined) || [];
+      if (localFallback.length > 0) return localFallback;
+      return cloudRows;
     }
 
     if (advanced.error) {
@@ -261,7 +274,7 @@ export const saveHistory = async (history: ProcessedPostcard[], options?: SaveOp
         expires_at: p.expires_at ?? null,
         deleted_at: null,
       }));
-      const advancedInsert = await supabase.from('postcards').insert(rows);
+      const advancedInsert = await supabase.from('postcards').insert(rows).select('id, payload');
       if (advancedInsert.error && !isTableMissing(advancedInsert.error)) {
         if (isColumnMissing(advancedInsert.error)) {
           // 旧 schema 兼容：仅写 payload
@@ -272,6 +285,32 @@ export const saveHistory = async (history: ProcessedPostcard[], options?: SaveOp
           }
         } else {
           console.error('[storage] saveHistory insert error:', advancedInsert.error);
+        }
+      } else if (Array.isArray(advancedInsert.data)) {
+        const metadataRows = advancedInsert.data
+          .map((r: { id?: string; payload?: ProcessedPostcard }) => {
+            const payload = (r.payload || {}) as ProcessedPostcard;
+            return {
+              postcard_id: r.id,
+              user_id: userId,
+              postcard_local_id: payload.id || null,
+              city: payload.city || null,
+              country: payload.country || null,
+              latitude: typeof payload.latitude === 'number' ? payload.latitude : null,
+              longitude: typeof payload.longitude === 'number' ? payload.longitude : null,
+              theme_slug: payload.theme_slug || null,
+              source: 'exif_or_ai',
+              updated_at: new Date().toISOString(),
+            };
+          })
+          .filter((row: { postcard_id?: string | null }) => !!row.postcard_id);
+        if (metadataRows.length > 0) {
+          const upMeta = await supabase
+            .from('postcard_metadata')
+            .upsert(metadataRows, { onConflict: 'postcard_id' });
+          if (upMeta.error && !isTableMissing(upMeta.error)) {
+            console.error('[storage] saveHistory postcard_metadata upsert error:', upMeta.error);
+          }
         }
       }
     }

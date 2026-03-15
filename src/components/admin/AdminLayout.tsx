@@ -1,7 +1,20 @@
-import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal, Wallet } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal, Wallet, Globe2, MapPinned, Share2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type AdminPage = 'dashboard' | 'users' | 'credits' | 'postcards' | 'payments' | 'prompts' | 'brand' | 'filters' | 'settings';
+export type AdminPage =
+  | 'dashboard'
+  | 'users'
+  | 'credits'
+  | 'postcards'
+  | 'payments'
+  | 'prompts'
+  | 'brand'
+  | 'filters'
+  | 'settings'
+  | 'markets'
+  | 'pricing'
+  | 'shareSettings'
+  | 'travelMap';
 
 const nav: { id: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: '数据总览', icon: LayoutDashboard },
@@ -12,6 +25,10 @@ const nav: { id: AdminPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'prompts', label: 'AI 提示词', icon: FileText },
   { id: 'brand', label: '品牌设置', icon: Palette },
   { id: 'filters', label: '照片滤镜', icon: SlidersHorizontal },
+  { id: 'markets', label: '市场与语言', icon: Globe2 },
+  { id: 'pricing', label: '地区定价', icon: CreditCard },
+  { id: 'shareSettings', label: '分享图设置', icon: Share2 },
+  { id: 'travelMap', label: '旅行地图', icon: MapPinned },
   { id: 'settings', label: '系统配置', icon: Settings },
 ];
 
