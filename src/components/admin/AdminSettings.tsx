@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Database, RefreshCw, Save } from 'lucide-react';
 import { supabase, isSupabaseConnected } from '../../lib/supabaseClient';
 
 export default function AdminSettings() {
@@ -10,6 +10,32 @@ export default function AdminSettings() {
   const [creditsPerPostcard, setCreditsPerPostcard] = useState('1');
   const [freeRetentionDays, setFreeRetentionDays] = useState('7');
   const [vipRetentionDays, setVipRetentionDays] = useState('0'); // 0 = 永久
+  const [storageStats, setStorageStats] = useState({
+    totalRows: 0,
+    storageRows: 0,
+    expiringRows: 0,
+    cleanupLogs: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+
+  const refreshStorageStats = async () => {
+    if (!isSupabaseConnected) return;
+    setStatsLoading(true);
+    const [allRes, storageRes, expRes, logRes] = await Promise.all([
+      supabase.from('postcards').select('id', { count: 'exact', head: true }),
+      supabase.from('postcards').select('id', { count: 'exact', head: true }).not('front_path', 'is', null),
+      supabase.from('postcards').select('id', { count: 'exact', head: true }).not('expires_at', 'is', null).is('deleted_at', null),
+      supabase.from('postcard_cleanup_logs').select('id', { count: 'exact', head: true }),
+    ]);
+    setStorageStats({
+      totalRows: allRes.count || 0,
+      storageRows: storageRes.count || 0,
+      expiringRows: expRes.count || 0,
+      cleanupLogs: logRes.count || 0,
+    });
+    setStatsLoading(false);
+  };
 
   useEffect(() => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
@@ -36,6 +62,7 @@ export default function AdminSettings() {
           setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
         }
       });
+      refreshStorageStats().catch(() => {});
     } else {
       setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
       setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
@@ -43,6 +70,19 @@ export default function AdminSettings() {
       setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
     }
   }, []);
+
+  const handleRunCleanup = async () => {
+    if (!isSupabaseConnected) return;
+    setCleanupLoading(true);
+    const { data, error } = await supabase.rpc('admin_cleanup_expired_postcards', { p_limit: 500 });
+    setCleanupLoading(false);
+    if (error) {
+      alert('清理执行失败：' + (error.message || '请先执行 admin cleanup SQL 补丁。'));
+      return;
+    }
+    await refreshStorageStats();
+    alert(`清理完成：${typeof data === 'number' ? data : 0} 条记录`);
+  };
 
   const handleSave = async () => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
@@ -194,6 +234,50 @@ export default function AdminSettings() {
         >
           <Save className="w-4 h-4" /> Save
         </button>
+      </div>
+      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+            <Database className="w-5 h-5" /> Storage 生命周期状态
+          </h2>
+          <button
+            onClick={() => refreshStorageStats()}
+            disabled={statsLoading}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-stone-200 hover:bg-stone-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${statsLoading ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-stone-200 p-3">
+            <div className="text-xs text-stone-500">总明信片记录</div>
+            <div className="text-xl font-bold text-stone-900">{storageStats.totalRows}</div>
+          </div>
+          <div className="rounded-xl border border-stone-200 p-3">
+            <div className="text-xs text-stone-500">已迁移到 Storage</div>
+            <div className="text-xl font-bold text-emerald-700">{storageStats.storageRows}</div>
+          </div>
+          <div className="rounded-xl border border-stone-200 p-3">
+            <div className="text-xs text-stone-500">受有效期控制</div>
+            <div className="text-xl font-bold text-amber-700">{storageStats.expiringRows}</div>
+          </div>
+          <div className="rounded-xl border border-stone-200 p-3">
+            <div className="text-xs text-stone-500">清理日志条数</div>
+            <div className="text-xl font-bold text-stone-900">{storageStats.cleanupLogs}</div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-stone-200 p-3">
+          <p className="text-sm text-stone-600">手动执行一次过期清理（用于测试定时任务前验证）</p>
+          <button
+            onClick={handleRunCleanup}
+            disabled={cleanupLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {cleanupLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            立即清理
+          </button>
+        </div>
       </div>
       <p className="text-sm text-stone-500">Logo and brand: use <strong>Brand Settings</strong> in the sidebar.</p>
     </div>

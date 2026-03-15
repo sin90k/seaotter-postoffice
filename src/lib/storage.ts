@@ -123,24 +123,66 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
   if (userId && isSupabaseConnected) {
     const advanced = await supabase
       .from('postcards')
-      .select('payload, front_path, back_path, expires_at, deleted_at')
+      .select('id, created_at, payload, front_path, back_path, expires_at, deleted_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (!advanced.error && advanced.data) {
       const now = Date.now();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      const inferredLevel = profile?.role === 'vip' ? 'vip' : 'free';
       const mapped = await Promise.all((advanced.data || []).map(async (r: any) => {
         const payload = (r.payload || {}) as ProcessedPostcard;
         if (r.deleted_at) return null;
         const exp = r.expires_at ? new Date(r.expires_at).getTime() : null;
         if (exp !== null && Number.isFinite(exp) && exp <= now) return null;
 
-        const frontSigned = await signPath(r.front_path);
-        const backSigned = await signPath(r.back_path);
+        let frontPath: string | null = r.front_path || payload.front_path || null;
+        let backPath: string | null = r.back_path || payload.back_path || null;
+        let expiresAt: string | null = r.expires_at ?? payload.expires_at ?? null;
+        let changed = false;
+
+        // 懒迁移：老数据只有 payload(base64) 时，在读取时自动回填到 Storage
+        if (!frontPath && payload.frontDataUrl && isDataUrl(payload.frontDataUrl)) {
+          const uploaded = await uploadDataUrl(payload.frontDataUrl, userId, payload.id || String(r.id), 'front');
+          if (uploaded) {
+            frontPath = uploaded;
+            changed = true;
+          }
+        }
+        if (!backPath && payload.backDataUrl && isDataUrl(payload.backDataUrl)) {
+          const uploaded = await uploadDataUrl(payload.backDataUrl, userId, payload.id || String(r.id), 'back');
+          if (uploaded) {
+            backPath = uploaded;
+            changed = true;
+          }
+        }
+        if (!expiresAt) {
+          const createdMs = r.created_at ? new Date(r.created_at).getTime() : (payload.createdAt || payload.timestamp || Date.now());
+          expiresAt = await computeExpiresAt(createdMs, inferredLevel);
+          changed = true;
+        }
+        if (changed) {
+          await supabase
+            .from('postcards')
+            .update({
+              front_path: frontPath,
+              back_path: backPath,
+              expires_at: expiresAt,
+            })
+            .eq('id', r.id);
+        }
+
+        const frontSigned = await signPath(frontPath);
+        const backSigned = await signPath(backPath);
         return {
           ...payload,
-          front_path: r.front_path || payload.front_path,
-          back_path: r.back_path || payload.back_path,
-          expires_at: r.expires_at ?? payload.expires_at ?? null,
+          front_path: frontPath || undefined,
+          back_path: backPath || undefined,
+          expires_at: expiresAt,
           deleted_at: r.deleted_at ?? payload.deleted_at ?? null,
           frontUrl: frontSigned || payload.frontUrl || payload.frontDataUrl || '',
           backUrl: backSigned || payload.backUrl || payload.backDataUrl || '',
