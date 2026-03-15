@@ -18,6 +18,7 @@ export default function AdminSettings() {
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
 
   const refreshStorageStats = async () => {
     if (!isSupabaseConnected) return;
@@ -82,6 +83,38 @@ export default function AdminSettings() {
     }
     await refreshStorageStats();
     alert(`清理完成：${typeof data === 'number' ? data : 0} 条记录`);
+  };
+
+  const handleRunBackfill = async () => {
+    if (!isSupabaseConnected) return;
+    setBackfillLoading(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      setBackfillLoading(false);
+      alert('请先使用管理员账号重新登录。');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/storage/backfill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ limit: 200 }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body?.error || 'backfill failed');
+      }
+      await refreshStorageStats();
+      alert(`回填完成：扫描 ${body.scanned ?? 0}，迁移 ${body.migrated ?? 0}，失败 ${body.failed ?? 0}`);
+    } catch (e: any) {
+      alert('回填失败：' + (e?.message || 'unknown error'));
+    } finally {
+      setBackfillLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -257,6 +290,9 @@ export default function AdminSettings() {
           <div className="rounded-xl border border-stone-200 p-3">
             <div className="text-xs text-stone-500">已迁移到 Storage</div>
             <div className="text-xl font-bold text-emerald-700">{storageStats.storageRows}</div>
+            <div className="text-xs text-stone-500 mt-1">
+              {storageStats.totalRows > 0 ? `进度 ${(storageStats.storageRows / storageStats.totalRows * 100).toFixed(1)}%` : '进度 0%'}
+            </div>
           </div>
           <div className="rounded-xl border border-stone-200 p-3">
             <div className="text-xs text-stone-500">受有效期控制</div>
@@ -266,6 +302,17 @@ export default function AdminSettings() {
             <div className="text-xs text-stone-500">清理日志条数</div>
             <div className="text-xl font-bold text-stone-900">{storageStats.cleanupLogs}</div>
           </div>
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-stone-200 p-3">
+          <p className="text-sm text-stone-600">将旧 payload(base64) 图片回填到 Storage（推荐先执行 1-3 次）</p>
+          <button
+            onClick={handleRunBackfill}
+            disabled={backfillLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-emerald-700 text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {backfillLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            立即回填
+          </button>
         </div>
         <div className="flex items-center justify-between rounded-xl border border-stone-200 p-3">
           <p className="text-sm text-stone-600">手动执行一次过期清理（用于测试定时任务前验证）</p>
