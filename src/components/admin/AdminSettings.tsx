@@ -6,7 +6,7 @@ export default function AdminSettings() {
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
-  const [creditsDefaultPromo, setCreditsDefaultPromo] = useState('3');
+  const [creditsDefaultPromo, setCreditsDefaultPromo] = useState('5');
   const [creditsPerPostcard, setCreditsPerPostcard] = useState('1');
   const [freeRetentionDays, setFreeRetentionDays] = useState('7');
   const [vipRetentionDays, setVipRetentionDays] = useState('0'); // 0 = 永久
@@ -49,7 +49,7 @@ export default function AdminSettings() {
         if (!error && data) {
           const d = data as { signup_bonus_credits?: number; credits_per_postcard?: number; free_retention_days?: number; vip_retention_days?: number };
           if (typeof d.signup_bonus_credits === 'number') setCreditsDefaultPromo(String(d.signup_bonus_credits));
-          else setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+          else setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '5');
           if (typeof d.credits_per_postcard === 'number' && d.credits_per_postcard >= 0) setCreditsPerPostcard(String(d.credits_per_postcard));
           else setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
           if (typeof d.free_retention_days === 'number' && d.free_retention_days > 0) setFreeRetentionDays(String(d.free_retention_days));
@@ -57,7 +57,7 @@ export default function AdminSettings() {
           if (typeof d.vip_retention_days === 'number' && d.vip_retention_days >= 0) setVipRetentionDays(String(d.vip_retention_days));
           else setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
         } else {
-          setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+          setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '5');
           setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
           setFreeRetentionDays(ls?.getItem('admin_history_retention_free_days') ?? '7');
           setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');
@@ -65,7 +65,7 @@ export default function AdminSettings() {
       });
       refreshStorageStats().catch(() => {});
     } else {
-      setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '3');
+      setCreditsDefaultPromo(ls?.getItem('admin_credits_default_promo') ?? '5');
       setCreditsPerPostcard(ls?.getItem('admin_credits_per_postcard') ?? '1');
       setFreeRetentionDays(ls?.getItem('admin_history_retention_free_days') ?? '7');
       setVipRetentionDays(ls?.getItem('admin_history_retention_vip_days') ?? '0');

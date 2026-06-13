@@ -1,4 +1,39 @@
 -- ============================================================
+
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM public, anon;
+GRANT USAGE ON SCHEMA private TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION private.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION private.is_admin_or_support()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'support')
+  );
+$$;
+
+REVOKE ALL ON FUNCTION private.is_admin() FROM public, anon;
+REVOKE ALL ON FUNCTION private.is_admin_or_support() FROM public, anon;
+GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.is_admin_or_support() TO authenticated, service_role;
 -- Sea Otter Post Office — 积分系统与流水迁移脚本
 -- 在 Supabase SQL Editor 中整段复制粘贴、一次性执行。
 -- 若你从未跑过 supabase-setup.sql，请先执行 supabase-setup.sql 再执行本文件；
@@ -6,7 +41,7 @@
 -- ============================================================
 
 -- 1) 确保 profiles 有双积分列与扩展列
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS promo_credits integer DEFAULT 3;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS promo_credits integer DEFAULT 5;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS paid_credits integer DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at timestamptz;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_paid_credits integer DEFAULT 0;
@@ -48,9 +83,9 @@ DROP POLICY IF EXISTS "Admins and support can read credits_ledger" ON public.cre
 DROP POLICY IF EXISTS "Admins can insert credits_ledger" ON public.credits_ledger;
 DROP POLICY IF EXISTS "Users can read own credits_ledger" ON public.credits_ledger;
 CREATE POLICY "Admins and support can read credits_ledger" ON public.credits_ledger FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+  USING (private.is_admin_or_support());
 CREATE POLICY "Admins can insert credits_ledger" ON public.credits_ledger FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  WITH CHECK (private.is_admin());
 CREATE POLICY "Users can insert own postcard consumption" ON public.credits_ledger FOR INSERT
   WITH CHECK (auth.uid() = user_id AND source = 'postcard');
 
@@ -68,6 +103,8 @@ RETURNS TABLE (promo_credits integer, paid_credits integer, total_credits intege
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
+  v_caller uuid := auth.uid();
+  v_is_admin boolean := COALESCE(private.is_admin(), false);
   v_promo integer;
   v_paid integer;
   v_total integer;
@@ -75,6 +112,14 @@ DECLARE
   v_type text;
 BEGIN
   IF p_amount = 0 THEN RAISE EXCEPTION 'amount cannot be zero'; END IF;
+
+  IF v_caller IS NOT NULL THEN
+    IF p_source = 'generation_cost' THEN
+      IF p_user_id <> v_caller OR p_amount >= 0 THEN RAISE EXCEPTION 'permission denied'; END IF;
+    ELSIF NOT v_is_admin THEN
+      RAISE EXCEPTION 'permission denied';
+    END IF;
+  END IF;
 
   SELECT promo_credits, paid_credits INTO v_promo, v_paid FROM public.profiles WHERE id = p_user_id FOR UPDATE;
   IF v_promo IS NULL THEN v_promo := 0; END IF;
@@ -118,10 +163,15 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.update_user_credits(uuid, integer, text, text, text, text, text)
+  FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.update_user_credits(uuid, integer, text, text, text, text, text)
+  TO authenticated, service_role;
+
 -- 4) payment_config 增加「新用户赠送积分」「每张明信片消耗积分」配置（后台可改）
-ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS signup_bonus_credits integer DEFAULT 3;
+ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS signup_bonus_credits integer DEFAULT 5;
 ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS credits_per_postcard integer DEFAULT 1;
-UPDATE public.payment_config SET signup_bonus_credits = COALESCE(signup_bonus_credits, 3), credits_per_postcard = COALESCE(credits_per_postcard, 1) WHERE id = 1;
+UPDATE public.payment_config SET signup_bonus_credits = COALESCE(signup_bonus_credits, 5), credits_per_postcard = COALESCE(credits_per_postcard, 1) WHERE id = 1;
 
 -- 5) 新用户注册：先建 profile(0,0,0)，再按后台配置 signup_bonus_credits 发放赠送积分
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -141,8 +191,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 6) 后台可读全部 profiles（按你当前策略：登录即可读，便于用户列表有数据）
+-- 6) 仅管理员和客服可读全部 profiles
 DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
-CREATE POLICY "Admins can read all profiles" ON public.profiles FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Admins can read all profiles" ON public.profiles FOR SELECT
+  USING (private.is_admin_or_support());
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM public, anon, authenticated;
 
 -- 执行完成后，新注册用户会走 handle_new_user → update_user_credits，有流水；生成/购买/管理员调整也请走 updateUserCredits RPC。

@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const canUseServiceSupabase = !!(supabaseUrl && serviceRoleKey);
@@ -606,25 +606,6 @@ async function startServer() {
     } catch (e: any) {
       console.error("[server] admin cleanup-expired error", e);
       res.status(500).json({ error: e?.message || "cleanup failed" });
-    }
-  });
-
-  app.post("/api/cron/travel-stats-refresh", async (req, res) => {
-    try {
-      if (!requireService(res)) return;
-      const hasCronHeader = req.headers["x-vercel-cron"] === "1";
-      const expected = process.env.CRON_SECRET || "";
-      const provided = (req.headers["x-cron-secret"] as string) || String((req as any).query?.secret || "");
-      if (!hasCronHeader && (!expected || provided !== expected)) {
-        return res.status(401).json({ error: "unauthorized cron request" });
-      }
-      const limit = Math.max(1, Math.min(100000, Number((req as any).body?.limit) || 5000));
-      const rpc = await supabaseAdmin!.rpc("refresh_user_travel_stats", { p_limit: limit });
-      if (rpc.error) return res.status(500).json({ error: rpc.error.message || "refresh travel stats rpc failed" });
-      res.json({ ok: true, refreshedUsers: typeof rpc.data === "number" ? rpc.data : 0 });
-    } catch (e: any) {
-      console.error("[server] cron travel-stats-refresh error", e);
-      res.status(500).json({ error: e?.message || "travel stats refresh failed" });
     }
   });
 

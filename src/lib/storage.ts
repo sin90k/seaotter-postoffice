@@ -27,6 +27,7 @@ type RetentionConfig = {
 };
 
 let retentionCache: { value: RetentionConfig; fetchedAt: number } | null = null;
+let saveHistoryQueue: Promise<void> = Promise.resolve();
 
 const dataUrlToBlob = (dataUrl: string): Blob | null => {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -47,6 +48,16 @@ const extFromMime = (mime: string) => {
 };
 
 const isDataUrl = (v?: string) => !!v && /^data:image\//.test(v);
+
+const dedupePostcards = (items: ProcessedPostcard[]): ProcessedPostcard[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const id = item.id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
 const extractStoragePath = (url: string): string | null => {
   try {
@@ -196,10 +207,10 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
           backUrl: backSigned || payload.backUrl || payload.backDataUrl || '',
         } as ProcessedPostcard;
       }));
-      const cloudRows = mapped.filter(Boolean) as ProcessedPostcard[];
+      const cloudRows = dedupePostcards(mapped.filter(Boolean) as ProcessedPostcard[]);
       if (cloudRows.length > 0) return cloudRows;
       // 云端空但本地有缓存时，优先返回本地，随后由 saveHistory 自动回填云端（无感恢复）
-      const localFallback = ((await get('postcard_history')) as ProcessedPostcard[] | undefined) || [];
+      const localFallback = dedupePostcards(((await get('postcard_history')) as ProcessedPostcard[] | undefined) || []);
       if (localFallback.length > 0) return localFallback;
       return cloudRows;
     }
@@ -217,14 +228,14 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
         if (!legacy.error && legacy.data) {
-          return (legacy.data || []).map((r: { payload: ProcessedPostcard }) => r.payload);
+          return dedupePostcards((legacy.data || []).map((r: { payload: ProcessedPostcard }) => r.payload));
         }
       }
       console.error('[storage] loadHistory Supabase error:', advanced.error);
-      return ((await get('postcard_history')) as ProcessedPostcard[] | undefined) || [];
+      return dedupePostcards(((await get('postcard_history')) as ProcessedPostcard[] | undefined) || []);
     }
   }
-  return ((await get('postcard_history')) as ProcessedPostcard[] | undefined) || [];
+  return dedupePostcards(((await get('postcard_history')) as ProcessedPostcard[] | undefined) || []);
 };
 
 /**
@@ -232,7 +243,7 @@ export const loadHistory = async (userId?: string | null): Promise<ProcessedPost
  * - 登录用户：postcards 表作为权威数据源，本地 IndexedDB 仅作缓存；
  * - 游客：只写 IndexedDB。
  */
-export const saveHistory = async (history: ProcessedPostcard[], options?: SaveOptions | string | null): Promise<void> => {
+const saveHistoryNow = async (history: ProcessedPostcard[], options?: SaveOptions | string | null): Promise<void> => {
   const userId = typeof options === 'string' || options == null ? options : options.userId;
   const userLevel = typeof options === 'object' && options ? options.userLevel : undefined;
   if (userId && isSupabaseConnected) {
@@ -318,4 +329,13 @@ export const saveHistory = async (history: ProcessedPostcard[], options?: SaveOp
     return;
   }
   await set('postcard_history', history);
+};
+
+export const saveHistory = (history: ProcessedPostcard[], options?: SaveOptions | string | null): Promise<void> => {
+  const snapshot = dedupePostcards(history);
+  const nextSave = saveHistoryQueue
+    .catch(() => undefined)
+    .then(() => saveHistoryNow(snapshot, options));
+  saveHistoryQueue = nextSave;
+  return nextSave;
 };

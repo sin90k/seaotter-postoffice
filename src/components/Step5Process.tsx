@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
 import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import OpenAI from 'openai';
 import JSZip from 'jszip';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
@@ -279,6 +278,19 @@ export default function Step5Process({
   const [livePreview, setLivePreview] = useState<{ front: string, back: string } | null>(null);
   const [rewritingState, setRewritingState] = useState<{ id: string, field: string } | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const isDraggingFrontText = useRef(false);
+
+  const invokePostcardAi = async (action: 'chat' | 'image', payload: Record<string, unknown>) => {
+    const { data, error: functionError } = await supabase.functions.invoke('postcard-ai', {
+      body: { action, payload },
+    });
+    if (functionError) throw new Error(functionError.message || 'Supabase AI function failed');
+    if (data?.error) {
+      const message = typeof data.error === 'string' ? data.error : data.error.message;
+      throw new Error(message || 'OpenAI request failed');
+    }
+    return data;
+  };
 
   const slugifyTheme = (raw?: string) =>
     String(raw || '')
@@ -315,6 +327,13 @@ export default function Step5Process({
     
     const processPhotos = async () => {
       const processStart = Date.now();
+
+      // Opening an existing postcard for editing must never start a new batch or charge credits.
+      if (editId) {
+        setIsProcessing(false);
+        return;
+      }
+
       const configuredPhotos = photos.filter(p => p.groupId !== null);
       if (configuredPhotos.length === 0) {
         setIsProcessing(false);
@@ -453,27 +472,6 @@ export default function Step5Process({
                 const base64Data = getCompressedBase64(img);
                 
                 try {
-                  const envKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
-                  const adminKey = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_key') : null;
-                  // 优先使用 Vercel/Supabase 构建时注入的环境变量，其次才是 Admin 面板里填的本地 key
-                  const openAiKey = (typeof envKey === 'string' && envKey.trim())
-                    ? envKey.trim()
-                    : (adminKey && adminKey.trim()) || null;
-                  const baseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_openai_base_url') : null;
-                  if (typeof window !== 'undefined') {
-                    console.log('[SeaOtter][AI] envKey:', !!envKey, 'adminKey:', !!adminKey);
-                  }
-                  if (!openAiKey) {
-                    throw new Error(language === 'zh' 
-                      ? "OpenAI API Key 未配置。请在 Admin 后台填写，或设置 VITE_OPENAI_API_KEY 环境变量。" 
-                      : "OpenAI API Key is missing. Please set it in Admin panel or VITE_OPENAI_API_KEY env.");
-                  }
-                  const openai = new OpenAI({
-                    apiKey: openAiKey,
-                    baseURL: (typeof baseUrl === 'string' && baseUrl.trim()) ? baseUrl.trim() : undefined,
-                    dangerouslyAllowBrowser: true
-                  });
-
                   // 1. Define Style Instructions
                   const styleInstructions: Record<string, string> = {
                     auto: "Automatically determine the best style based on the image content. If landscape, be poetic. If street/urban, be modern.",
@@ -541,7 +539,7 @@ Output JSON strictly in this format:
 }`;
 
                   const analysisResponse = await withTimeout(
-                    openai.chat.completions.create({
+                    invokePostcardAi('chat', {
                       model: "gpt-4o",
                       temperature: 0.7,
                       messages: [
@@ -564,7 +562,7 @@ Output JSON strictly in this format:
                     "AI Analysis timed out."
                   );
 
-                  const analysisData = JSON.parse(analysisResponse.choices[0]?.message?.content || "{}");
+                  const analysisData = JSON.parse(analysisResponse.choices?.[0]?.message?.content || "{}");
 
                   // 3. 根据开关和 EXIF 更新文字与位置
                   if (needFrontTitle && analysisData.title) {
@@ -640,7 +638,7 @@ Output JSON strictly in this format:
                     }
 
                     try {
-                      const response = await openai.images.generate({
+                      const response = await invokePostcardAi('image', {
                         model: "dall-e-3",
                         prompt: backImagePrompt,
                         n: 1,
@@ -655,7 +653,7 @@ Output JSON strictly in this format:
                     } catch (openAiErr) {
                       console.warn("OpenAI image generation failed, trying fallback prompt", openAiErr);
                       try {
-                        const fallbackResponse = await openai.images.generate({
+                        const fallbackResponse = await invokePostcardAi('image', {
                           model: "dall-e-3",
                           prompt:
                             "A finely detailed pencil sketch of a beautiful landscape, soft pastel colors, delicate lines, pure white background, elegant, watermark style.",
@@ -860,7 +858,7 @@ Output JSON strictly in this format:
     return () => {
       isMounted = false;
     };
-  }, [photos, configGroups]);
+  }, [photos, configGroups, editId]);
 
   const getDimensions = (settings: SettingsType) => {
     if (settings.size === 'custom') {
@@ -1262,6 +1260,7 @@ Output JSON strictly in this format:
       const isBottomBorder = settings.fill === 'bottom-border';
       const isBorder = settings.fill === 'border';
       const hasTextInBorderArea = isBottomBorder || isBorder;
+      const hasCustomPosition = Number.isFinite(style.xPct) && Number.isFinite(style.yPct);
       const maxTextWidth = cw * (hasTextInBorderArea ? 0.88 : 1); // 留白模式左右各留 6%
       
       if (hasTextInBorderArea && (location || title)) {
@@ -1279,7 +1278,7 @@ Output JSON strictly in this format:
       }
       
       // Draw gradient based on position (only if fill mode is 'fill' or 'border')
-      const hasTextInBorder = hasTextInBorderArea;
+      const hasTextInBorder = hasTextInBorderArea && !hasCustomPosition;
       if (!hasTextInBorder) {
         const gradientHeight = ch * 0.4;
         let gradient;
@@ -1385,7 +1384,20 @@ Output JSON strictly in this format:
         align = 'center';
         x = cw * 0.5;
       } else {
-        if (style.position.includes('top')) {
+        if (hasCustomPosition) {
+          align = 'center';
+          x = cw * clampNumber(style.xPct, 5, 95) / 100;
+          let currentY = ch * clampNumber(style.yPct, 8, 92) / 100 - totalHeight / 2;
+          if (titleCase) {
+            titleY = currentY + actualTitleHeight;
+            currentY = titleY + actualSpacing1;
+          }
+          if (location) {
+            locY = currentY + actualLocHeight;
+            currentY = locY + actualSpacing2;
+          }
+          if (metaText) metaY = currentY + actualMetaHeight;
+        } else if (style.position.includes('top')) {
           let currentY = ch * 0.05;
           if (titleCase) {
             titleY = currentY + actualTitleHeight;
@@ -2290,6 +2302,59 @@ Output JSON strictly in this format:
     });
   };
 
+  const getFrontTextPosition = (style: ProcessedPostcard['frontStyle']) => {
+    if (Number.isFinite(style?.xPct) && Number.isFinite(style?.yPct)) {
+      return { x: style.xPct as number, y: style.yPct as number };
+    }
+    const positions: Record<string, { x: number; y: number }> = {
+      'top-left': { x: 18, y: 18 },
+      'top-right': { x: 82, y: 18 },
+      'bottom-left': { x: 18, y: 80 },
+      'bottom-right': { x: 82, y: 80 },
+      center: { x: 50, y: 50 },
+    };
+    return positions[style?.position] || positions['bottom-left'];
+  };
+
+  const updateFrontTextPosition = (axis: 'xPct' | 'yPct', value: number) => {
+    setEditingDraft((prev) => {
+      if (!prev) return prev;
+      const current = getFrontTextPosition(prev.draftFrontStyle);
+      return {
+        ...prev,
+        draftFrontStyle: {
+          ...prev.draftFrontStyle,
+          position: 'custom',
+          xPct: axis === 'xPct' ? value : current.x,
+          yPct: axis === 'yPct' ? value : current.y,
+        },
+      };
+    });
+  };
+
+  const handleFrontTextDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editingDraft) return;
+    if (event.type === 'pointerdown') {
+      isDraggingFrontText.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    if (event.type === 'pointermove' && !isDraggingFrontText.current) return;
+    const preview = event.currentTarget.parentElement;
+    if (!preview) return;
+    const rect = preview.getBoundingClientRect();
+    const xPct = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 5, 95);
+    const yPct = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 8, 92);
+    setEditingDraft((prev) => prev ? {
+      ...prev,
+      draftFrontStyle: {
+        ...prev.draftFrontStyle,
+        position: 'custom',
+        xPct,
+        yPct,
+      },
+    } : prev);
+  };
+
   const handleRegenerate = async (id: string, saveAsNew: boolean = false) => {
     const result = editingDraft;
     if (!result || result.id !== id) return;
@@ -2572,14 +2637,19 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
           {displayedHistory.map((result, idx) => {
             return (
               <div key={result.id} className={cn("relative group rounded-2xl border-2 transition-all overflow-hidden flex flex-col bg-white", result.selected ? "border-stone-900 shadow-md" : "border-stone-200 hover:border-stone-300")}>
-                <div className="relative aspect-[3/2] w-full bg-stone-100 overflow-hidden cursor-pointer" onClick={() => setEditingResultId(result.id)}>
+                <button
+                  type="button"
+                  aria-label={`${t.edit}: ${result.title || `Postcard ${idx + 1}`}`}
+                  className="relative block aspect-[3/2] w-full bg-stone-100 overflow-hidden cursor-pointer text-left"
+                  onClick={() => setEditingResultId(result.id)}
+                >
                   <img src={result.frontDataUrl} alt="Front" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm text-stone-900 px-3 py-1.5 rounded-lg font-medium text-sm flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-sm">
                       <Edit3 className="w-4 h-4" /> {t.edit}
                     </div>
                   </div>
-                </div>
+                </button>
                 
                   <div className="p-3 flex items-center justify-between bg-white border-t border-stone-100">
                     <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
@@ -2658,8 +2728,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
       {/* Edit Modal */}
       {editingResultId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 lg:p-6">
+          <div className="bg-white w-full h-[100dvh] sm:h-auto sm:max-h-[96dvh] sm:rounded-2xl lg:rounded-3xl shadow-2xl sm:max-w-7xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {(() => {
               const result = editingDraft;
               if (!result) return null;
@@ -2676,22 +2746,22 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
               
               return (
                 <>
-                  <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-                    <div className="flex items-center gap-6">
-                      <h3 className="font-semibold text-lg text-stone-900 flex items-center gap-2">
+                  <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/95 backdrop-blur">
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+                      <h3 className="font-semibold text-base sm:text-lg text-stone-900 flex items-center gap-2 shrink-0">
                         <Edit3 className="w-5 h-5 text-stone-500" />
                         {t.edit}
                       </h3>
-                      <div className="flex bg-stone-200/50 p-1 rounded-lg">
+                      <div className="flex bg-stone-200/50 p-1 rounded-lg min-w-0">
                         <button
                           onClick={() => setEditTab('content')}
-                          className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-colors", editTab === 'content' ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                          className={cn("px-3 sm:px-4 py-1.5 text-sm font-medium rounded-md transition-colors", editTab === 'content' ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700")}
                         >
                           {t.content}
                         </button>
                         <button
                           onClick={() => setEditTab('style')}
-                          className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-colors", editTab === 'style' ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                          className={cn("px-3 sm:px-4 py-1.5 text-sm font-medium rounded-md transition-colors", editTab === 'style' ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700")}
                         >
                           {t.style}
                         </button>
@@ -2699,28 +2769,49 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                     </div>
                     <button 
                       onClick={handleCancelEdit}
+                      aria-label={t.cancel}
                       className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-200 text-stone-500 transition-colors"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8">
                       {/* Previews */}
-                      <div className="space-y-6">
+                      <div className="order-2 lg:order-1 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-6 self-start lg:sticky lg:top-0">
                           <div className="relative rounded-xl overflow-hidden shadow-sm border border-stone-200 bg-stone-100">
                             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs font-medium px-2.5 py-1 rounded-md z-10">
                               {t.front}
                             </div>
-                            <img src={livePreview?.front || result.frontDataUrl} alt="Front" className="w-full h-auto" />
+                            <img src={livePreview?.front || result.frontDataUrl} alt="Front" className="w-full aspect-[3/2] object-contain" />
+                            {(result.draftTitle || result.draftLocation || result.draftAuthor || result.draftDate) && (() => {
+                              const pos = getFrontTextPosition(result.draftFrontStyle);
+                              return (
+                                <button
+                                  type="button"
+                                  title={language === 'zh' ? '拖动文字位置' : 'Drag text position'}
+                                  aria-label={language === 'zh' ? '拖动正面文字位置' : 'Drag front text position'}
+                                  onPointerDown={handleFrontTextDrag}
+                                  onPointerMove={handleFrontTextDrag}
+                                  onPointerUp={() => { isDraggingFrontText.current = false; }}
+                                  onPointerCancel={() => { isDraggingFrontText.current = false; }}
+                                  className="absolute z-20 max-w-[70%] cursor-move touch-none select-none rounded-md border border-white/80 bg-black/55 px-3 py-2 text-center text-white shadow-lg ring-1 ring-black/20"
+                                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                                >
+                                  {result.draftTitle && <span className="block text-sm font-semibold leading-tight">{result.draftTitle}</span>}
+                                  {result.draftLocation && <span className="mt-0.5 block text-xs leading-tight opacity-90">{result.draftLocation}</span>}
+                                  <span className="mt-1 block text-[10px] opacity-70">{language === 'zh' ? '拖动调整位置' : 'Drag to position'}</span>
+                                </button>
+                              );
+                            })()}
                           </div>
                           <div className="relative rounded-xl overflow-hidden shadow-sm border border-stone-200 bg-stone-100">
                             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs font-medium px-2.5 py-1 rounded-md z-10">
                               {t.backSide}
                             </div>
                             {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
-                              <img src={livePreview?.back || result.backDataUrl || result.backUrl} alt="Back" className="w-full h-auto" />
+                              <img src={livePreview?.back || result.backDataUrl || result.backUrl} alt="Back" className="w-full aspect-[3/2] object-contain" />
                             ) : (
                               <div className="w-full aspect-[3/2] flex items-center justify-center text-stone-500 text-sm">
                                 {language === 'zh' ? '已关闭背面输出（仅正面）' : 'Back output disabled (front only)'}
@@ -2730,7 +2821,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                       </div>
 
                       {/* Edit Form */}
-                      <div className="bg-white flex flex-col h-full">
+                      <div className="order-1 lg:order-2 bg-white flex flex-col h-full min-w-0">
                         {editTab === 'content' ? (
                           <div className="space-y-5 flex-1">
                             <div>
@@ -2857,7 +2948,38 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   <option value="top-left">Top Left</option>
                                   <option value="top-right">Top Right</option>
                                   <option value="center">Center</option>
+                                  <option value="custom">Custom</option>
                                 </select>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label className="block text-sm font-medium text-stone-700">
+                                  <span className="mb-1.5 flex items-center justify-between">
+                                    <span>{language === 'zh' ? '水平位置' : 'Horizontal'}</span>
+                                    <span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).x)}%</span>
+                                  </span>
+                                  <input
+                                    type="range"
+                                    min="5"
+                                    max="95"
+                                    value={getFrontTextPosition(result.draftFrontStyle).x}
+                                    onChange={(e) => updateFrontTextPosition('xPct', Number(e.target.value))}
+                                    className="w-full accent-stone-900"
+                                  />
+                                </label>
+                                <label className="block text-sm font-medium text-stone-700">
+                                  <span className="mb-1.5 flex items-center justify-between">
+                                    <span>{language === 'zh' ? '垂直位置' : 'Vertical'}</span>
+                                    <span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).y)}%</span>
+                                  </span>
+                                  <input
+                                    type="range"
+                                    min="8"
+                                    max="92"
+                                    value={getFrontTextPosition(result.draftFrontStyle).y}
+                                    onChange={(e) => updateFrontTextPosition('yPct', Number(e.target.value))}
+                                    className="w-full accent-stone-900"
+                                  />
+                                </label>
                               </div>
                             </div>
 
@@ -2897,17 +3019,17 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                           </div>
                         )}
 
-                        <div className="mt-6 pt-6 border-t border-stone-100 flex justify-end gap-3">
+                        <div className="sticky bottom-0 z-10 -mx-4 sm:mx-0 mt-6 px-4 sm:px-0 pt-4 sm:pt-6 pb-[max(4px,env(safe-area-inset-bottom))] border-t border-stone-100 bg-white/95 backdrop-blur flex flex-wrap justify-end gap-2 sm:gap-3">
                           <button
                             onClick={() => handleUpdatePreview()}
-                            className="px-5 py-2.5 rounded-xl font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors mr-auto flex items-center gap-2"
+                            className="px-3 sm:px-5 py-2.5 rounded-lg sm:rounded-xl font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors sm:mr-auto flex items-center gap-2 text-sm"
                           >
                             <RefreshCw className="w-4 h-4" />
                             Update Preview
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="px-5 py-2.5 rounded-xl font-medium text-stone-600 hover:bg-stone-100 transition-colors"
+                            className="px-3 sm:px-5 py-2.5 rounded-lg sm:rounded-xl font-medium text-stone-600 hover:bg-stone-100 transition-colors text-sm"
                           >
                             {t.cancel}
                           </button>
@@ -2915,7 +3037,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             onClick={() => handleRegenerate(result.id, true)}
                             disabled={!hasChanges}
                             className={cn(
-                              "px-6 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2",
+                              "px-3 sm:px-6 py-2.5 rounded-lg sm:rounded-xl font-medium transition-colors flex items-center gap-2 text-sm",
                               hasChanges 
                                 ? "bg-stone-100 text-stone-900 hover:bg-stone-200" 
                                 : "bg-stone-50 text-stone-400 cursor-not-allowed"
@@ -2927,7 +3049,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             onClick={() => handleRegenerate(result.id, false)}
                             disabled={!hasChanges}
                             className={cn(
-                              "px-6 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2",
+                              "px-3 sm:px-6 py-2.5 rounded-lg sm:rounded-xl font-medium transition-colors flex items-center gap-2 text-sm",
                               hasChanges 
                                 ? "bg-stone-900 text-white hover:bg-stone-800" 
                                 : "bg-stone-100 text-stone-400 cursor-not-allowed"

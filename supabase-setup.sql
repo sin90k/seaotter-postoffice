@@ -6,13 +6,48 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text,
   nickname text,
   role text DEFAULT 'user',
-  credits integer DEFAULT 3,
+  credits integer DEFAULT 5,
   generated_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
 
 -- 2. 启用 RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM public, anon;
+GRANT USAGE ON SCHEMA private TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION private.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION private.is_admin_or_support()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'support')
+  );
+$$;
+
+REVOKE ALL ON FUNCTION private.is_admin() FROM public, anon;
+REVOKE ALL ON FUNCTION private.is_admin_or_support() FROM public, anon;
+GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.is_admin_or_support() TO authenticated, service_role;
 
 -- 3. 删除旧策略（若存在）
 DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
@@ -37,7 +72,7 @@ CREATE POLICY "Users can update own profile"
 -- Admin 可读全部 profiles（用于 AdminPanel）
 CREATE POLICY "Admins can read all profiles"
   ON public.profiles FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (private.is_admin_or_support());
 
 -- 5. 触发器：新用户注册时自动创建 profile
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -48,11 +83,11 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'nickname', split_part(NEW.email, '@', 1)),
-    3
+    5
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
@@ -61,7 +96,7 @@ CREATE TRIGGER on_auth_user_created
 
 -- 6. 为已存在的用户补建 profile
 INSERT INTO public.profiles (id, email, nickname, credits)
-SELECT id, email, COALESCE(raw_user_meta_data->>'nickname', split_part(email, '@', 1)), 3
+SELECT id, email, COALESCE(raw_user_meta_data->>'nickname', split_part(email, '@', 1)), 5
 FROM auth.users
 WHERE id NOT IN (SELECT id FROM public.profiles)
 ON CONFLICT (id) DO NOTHING;
@@ -125,10 +160,10 @@ CREATE POLICY "Users can insert own events"
 
 CREATE POLICY "Admins can read all events"
   ON public.events FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (private.is_admin_or_support());
 
 -- ========== 双积分列 + 管理员可改他人积分 ==========
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS promo_credits integer DEFAULT 3;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS promo_credits integer DEFAULT 5;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS paid_credits integer DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at timestamptz;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_paid_credits integer DEFAULT 0;
@@ -140,8 +175,8 @@ UPDATE public.profiles SET promo_credits = COALESCE(promo_credits, credits, 0), 
 DROP POLICY IF EXISTS "Admins can update any profile credits" ON public.profiles;
 CREATE POLICY "Admins can update any profile credits"
   ON public.profiles FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (true);
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 -- ========== credits_ledger 积分流水（管理后台 MVP） ==========
 CREATE TABLE IF NOT EXISTS public.credits_ledger (
@@ -196,11 +231,11 @@ DROP POLICY IF EXISTS "Users can read own credits_ledger" ON public.credits_ledg
 
 CREATE POLICY "Admins and support can read credits_ledger"
   ON public.credits_ledger FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+  USING (private.is_admin_or_support());
 
 CREATE POLICY "Admins can insert credits_ledger"
   ON public.credits_ledger FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  WITH CHECK (private.is_admin());
 
 -- Users can insert own consumption rows (postcard) for audit trail
 CREATE POLICY "Users can insert own postcard consumption"
@@ -223,6 +258,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_caller uuid := auth.uid();
+  v_is_admin boolean := COALESCE(private.is_admin(), false);
   v_promo integer;
   v_paid integer;
   v_total integer;
@@ -231,6 +268,16 @@ DECLARE
 BEGIN
   IF p_amount = 0 THEN
     RAISE EXCEPTION 'amount cannot be zero';
+  END IF;
+
+  IF v_caller IS NOT NULL THEN
+    IF p_source = 'generation_cost' THEN
+      IF p_user_id <> v_caller OR p_amount >= 0 THEN
+        RAISE EXCEPTION 'permission denied';
+      END IF;
+    ELSIF NOT v_is_admin THEN
+      RAISE EXCEPTION 'permission denied';
+    END IF;
   END IF;
 
   -- 加锁读取当前积分
@@ -329,6 +376,11 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.update_user_credits(uuid, integer, text, text, text, text, text)
+  FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.update_user_credits(uuid, integer, text, text, text, text, text)
+  TO authenticated, service_role;
+
 -- 新用户注册：创建 profile(0,0,0)，再按后台配置的 signup_bonus_credits 发放赠送积分（有流水）
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
@@ -361,20 +413,20 @@ CREATE TRIGGER on_auth_user_created
 DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
 CREATE POLICY "Admins can read all profiles"
   ON public.profiles FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING (private.is_admin_or_support());
 
 -- 仅 admin 可更新他人 profile（support 不可）
 DROP POLICY IF EXISTS "Admins can update any profile credits" ON public.profiles;
 CREATE POLICY "Admins can update any profile credits"
   ON public.profiles FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (true);
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 -- Admin/Support 可读全部 postcards（用于后台列表）
 DROP POLICY IF EXISTS "Admins can read all postcards" ON public.postcards;
 CREATE POLICY "Admins can read all postcards"
   ON public.postcards FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+  USING (private.is_admin_or_support());
 
 -- ========== payments 表（支付订单，人工确认后自动充值） ==========
 CREATE TABLE IF NOT EXISTS public.payments (
@@ -411,14 +463,14 @@ CREATE POLICY "Users can read own payments"
 DROP POLICY IF EXISTS "Admins can read all payments" ON public.payments;
 CREATE POLICY "Admins can read all payments"
   ON public.payments FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'support')));
+  USING (private.is_admin_or_support());
 
 -- 仅 admin 可以更新订单状态（标记已支付 / 取消）
 DROP POLICY IF EXISTS "Admins can update any payments" ON public.payments;
 CREATE POLICY "Admins can update any payments"
   ON public.payments FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (true);
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 -- ========== payment_config 表（收款码与说明，唯一单行，前台可读） ==========
 CREATE TABLE IF NOT EXISTS public.payment_config (
@@ -426,11 +478,11 @@ CREATE TABLE IF NOT EXISTS public.payment_config (
   wechat_qr_url text,
   alipay_qr_url text,
   payment_note text,
-  signup_bonus_credits integer DEFAULT 3,
+  signup_bonus_credits integer DEFAULT 5,
   credits_per_postcard integer DEFAULT 1,
   updated_at timestamptz DEFAULT now()
 );
-ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS signup_bonus_credits integer DEFAULT 3;
+ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS signup_bonus_credits integer DEFAULT 5;
 ALTER TABLE public.payment_config ADD COLUMN IF NOT EXISTS credits_per_postcard integer DEFAULT 1;
 
 ALTER TABLE public.payment_config ENABLE ROW LEVEL SECURITY;
@@ -445,16 +497,18 @@ CREATE POLICY "Anyone can read payment_config"
 DROP POLICY IF EXISTS "Admins can insert payment_config" ON public.payment_config;
 CREATE POLICY "Admins can insert payment_config"
   ON public.payment_config FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  WITH CHECK (private.is_admin());
 DROP POLICY IF EXISTS "Admins can update payment_config" ON public.payment_config;
 CREATE POLICY "Admins can update payment_config"
   ON public.payment_config FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (true);
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 INSERT INTO public.payment_config (id, wechat_qr_url, alipay_qr_url, payment_note, signup_bonus_credits, credits_per_postcard)
-VALUES (1, NULL, NULL, NULL, 3, 1)
+VALUES (1, NULL, NULL, NULL, 5, 1)
 ON CONFLICT (id) DO NOTHING;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM public, anon, authenticated;
 
 -- 收款码图片存储：请在 Supabase Dashboard → Storage 中新建桶 payment-qr，设为 Public。
 -- 再在 Storage → Policies 为该桶添加：INSERT/UPDATE 仅当 profiles.role = 'admin'（或直接用 Dashboard 的 “Allow public read” + “Authenticated upload”）。

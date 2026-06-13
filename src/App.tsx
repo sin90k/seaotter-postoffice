@@ -16,7 +16,7 @@ import TravelMapModal from './components/TravelMapModal';
 import { CountryConfig, countriesConfig } from './config/countries';
 import LandingPage from './components/LandingPage';
 import { loadHistory, saveHistory } from './lib/storage';
-import { supabase } from './lib/supabaseClient';
+import { isSupabaseConnected, supabase } from './lib/supabaseClient';
 import { logEvent } from './lib/events';
 import { APP_VERSION } from './version';
 
@@ -265,7 +265,7 @@ const translations: Record<string, any> = {
     headerLoginHint: 'Log in or sign up',
     headerUpgradeHint: 'Upgrade plan',
     headerProfileHint: 'Account & profile',
-    loginGetCredits: 'Log in to get 3 free credits',
+    loginGetCredits: 'Log in to get 5 free credits',
   },
   zh: {
     badge: '海獭邮局',
@@ -288,7 +288,7 @@ const translations: Record<string, any> = {
     headerLoginHint: '登录 / 注册',
     headerUpgradeHint: '升级方案',
     headerProfileHint: '账户与资料',
-    loginGetCredits: '登录领 3 积分',
+    loginGetCredits: '登录领 5 积分',
   },
   ja: {
     badge: 'ラッコ郵便局',
@@ -595,7 +595,7 @@ export default function App() {
     const defaultPromo = (() => {
       const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_default_promo') : null;
       const n = v != null ? parseInt(v, 10) : NaN;
-      return Number.isFinite(n) && n >= 0 ? n : 3;
+      return Number.isFinite(n) && n >= 0 ? n : 5;
     })();
     // If profile row is missing, create a minimal one instead of blindly resetting credits to defaults.
     if (profileErr && (profileErr as { code?: string }).code === 'PGRST116') {
@@ -794,6 +794,11 @@ export default function App() {
       if (!identifier || !password) {
         return t.pleaseEnterEmailPassword ?? 'Please enter email and password';
       }
+      if (!isSupabaseConnected) {
+        return language === 'zh'
+          ? '邮箱登录尚未连接 Supabase，请先配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。'
+          : 'Email authentication is not connected. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY first.';
+      }
       try {
         if (isSignUp) {
           const { error } = await supabase.auth.signUp({
@@ -834,7 +839,7 @@ export default function App() {
       const defPromo = (() => {
         const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_default_promo') : null;
         const n = v != null ? parseInt(v, 10) : NaN;
-        return Number.isFinite(n) && n >= 0 ? n : 3;
+        return Number.isFinite(n) && n >= 0 ? n : 5;
       })();
       const newUser: User = {
         isLoggedIn: true,
@@ -865,7 +870,7 @@ export default function App() {
           const defPromo = (() => {
             const v = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_default_promo') : null;
             const n = v != null ? parseInt(v, 10) : NaN;
-            return Number.isFinite(n) && n >= 0 ? n : 3;
+            return Number.isFinite(n) && n >= 0 ? n : 5;
           })();
           const newUser: User = {
             isLoggedIn: true,

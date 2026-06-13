@@ -563,7 +563,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                       
                       {/* Front Overlays */}
                       <div className={cn(
-                        "absolute inset-0 flex flex-col justify-end p-6",
+                        "absolute inset-0 flex min-w-0 flex-col justify-end overflow-hidden p-4 sm:p-5",
                         item.style === 'cyberpunk' ? "bg-gradient-to-t from-cyan-950/90 via-transparent to-transparent" :
                         item.style === 'artistic' ? "bg-gradient-to-t from-amber-950/80 via-transparent to-transparent" :
                         item.style === 'vintage' ? "bg-transparent" :
@@ -582,17 +582,17 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                           </div>
                         )}
                         <h4 className={cn(
-                          "text-2xl leading-tight mb-1",
+                          "max-w-full break-words text-xl sm:text-2xl leading-tight mb-1",
                           item.style === 'cyberpunk' ? "font-mono text-cyan-400 [text-shadow:0_0_10px_rgba(34,211,238,0.8)]" :
                           item.style === 'artistic' ? "font-serif italic text-amber-100" :
-                          item.style === 'vintage' ? "font-mono text-stone-800 absolute -bottom-8 left-0 w-full text-center text-sm" :
+                          item.style === 'vintage' ? "font-mono text-stone-800 bg-white/90 px-2 py-1 text-center text-sm" :
                           "font-sans font-bold text-white"
                         )}>
                           {item.title}
                         </h4>
                         {item.style !== 'vintage' && (
                           <p className={cn(
-                            "text-sm flex items-center gap-1.5",
+                            "min-w-0 max-w-full text-sm flex items-center gap-1.5 truncate",
                             item.style === 'cyberpunk' ? "text-cyan-600 font-mono" :
                             item.style === 'artistic' ? "text-amber-400/80 font-serif italic" :
                             "text-stone-300"
