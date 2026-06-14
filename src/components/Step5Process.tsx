@@ -284,7 +284,19 @@ export default function Step5Process({
     const { data, error: functionError } = await supabase.functions.invoke('postcard-ai', {
       body: { action, payload },
     });
-    if (functionError) throw new Error(functionError.message || 'Supabase AI function failed');
+    if (functionError) {
+      let detail = functionError.message || 'Supabase AI function failed';
+      const context = (functionError as { context?: Response }).context;
+      if (context) {
+        try {
+          const body = await context.clone().json();
+          detail = body?.error?.message || body?.error || detail;
+        } catch {
+          // Keep the SDK error when the response body is not JSON.
+        }
+      }
+      throw new Error(detail);
+    }
     if (data?.error) {
       const message = typeof data.error === 'string' ? data.error : data.error.message;
       throw new Error(message || 'OpenAI request failed');

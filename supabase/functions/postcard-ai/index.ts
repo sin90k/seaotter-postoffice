@@ -15,9 +15,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  const baseUrl = (Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1").replace(/\/$/, "");
-  if (!apiKey) return json({ error: "OPENAI_API_KEY is not configured in Supabase Secrets." }, 500);
+  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("VITE_OPENAI_API_KEY");
+  const baseUrl = (
+    Deno.env.get("OPENAI_BASE_URL") ||
+    Deno.env.get("VITE_OPENAI_BASE_URL") ||
+    "https://api.openai.com/v1"
+  ).replace(/\/$/, "");
+  if (!apiKey) {
+    console.error("[postcard-ai] Missing OPENAI_API_KEY and VITE_OPENAI_API_KEY");
+    return json({ error: { code: "missing_api_key", message: "Supabase Secrets 中未找到 OPENAI_API_KEY 或 VITE_OPENAI_API_KEY。" } }, 500);
+  }
 
   try {
     const body = await req.json();
@@ -37,8 +44,18 @@ Deno.serve(async (req) => {
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({ error: { message: "Invalid OpenAI response" } }));
+    if (!response.ok) {
+      console.error("[postcard-ai] OpenAI request rejected", {
+        action,
+        status: response.status,
+        baseHost: new URL(baseUrl).host,
+        message: data?.error?.message || "Unknown upstream error",
+      });
+    }
     return json(data, response.status);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "AI request failed" }, 500);
+    const message = error instanceof Error ? error.message : "AI request failed";
+    console.error("[postcard-ai] Request failed", { message, baseUrl });
+    return json({ error: { code: "request_failed", message } }, 500);
   }
 });
