@@ -536,7 +536,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="group relative aspect-[3/4] rounded-2xl bg-transparent [perspective:1000px]"
+                className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-transparent [perspective:1000px]"
               >
                 <div className="relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] shadow-2xl">
                   {/* Front */}
@@ -606,7 +606,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
                   {/* Back */}
                   <div className={cn(
-                    "absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 flex flex-col [transform:rotateY(180deg)] border-2 shadow-inner",
+                    "absolute inset-0 min-h-0 overflow-hidden [backface-visibility:hidden] rounded-2xl p-5 sm:p-6 flex flex-col [transform:rotateY(180deg)] border-2 shadow-inner",
                     item.style === 'cyberpunk' ? "bg-slate-950 border-cyan-900 text-cyan-400" :
                     item.style === 'artistic' ? "bg-[#f4e4bc] border-amber-900/20 text-amber-950" :
                     item.style === 'vintage' ? "bg-[#f2f0e9] border-stone-300 text-stone-800" :
@@ -620,9 +620,9 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                       item.style === 'vintage' ? "border-stone-300" :
                       "border-stone-100"
                     )}>
-                      <div className="flex flex-col">
+                      <div className="flex min-w-0 flex-col pr-2">
                         <div className={cn(
-                          "text-lg leading-none",
+                          "max-w-full truncate text-base sm:text-lg leading-tight",
                           item.style === 'cyberpunk' ? "font-mono tracking-tighter" :
                           item.style === 'artistic' ? "font-serif italic font-bold" :
                           item.style === 'vintage' ? "font-mono uppercase text-sm" :
@@ -653,11 +653,11 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
                     {/* Back Content */}
                     <div className={cn(
-                      "flex-1 flex gap-6",
+                      "min-h-0 flex-1 flex gap-4 sm:gap-6 overflow-hidden",
                       item.style === 'cyberpunk' && "flex-col"
                     )}>
                       <div className={cn(
-                        "flex-[1.5] text-lg leading-relaxed whitespace-pre-wrap",
+                        "min-h-0 min-w-0 flex-[1.5] overflow-hidden text-base sm:text-lg leading-relaxed whitespace-pre-wrap [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:7]",
                         item.style === 'cyberpunk' ? "font-mono text-sm text-cyan-300 order-2" :
                         item.style === 'artistic' ? "font-serif italic text-amber-900/80" :
                         item.style === 'vintage' ? "font-mono text-sm text-stone-700" :
@@ -692,7 +692,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
                       {/* Address Area / Illustration Background Placeholder */}
                       <div className={cn(
-                        "flex-1 flex flex-col gap-4 mt-2 relative",
+                        "min-h-0 min-w-0 flex-1 flex flex-col gap-4 mt-2 relative overflow-hidden",
                         item.style === 'cyberpunk' ? "order-1 flex-row items-center" : ""
                       )}>
                         {/* Full Background AI Illustration Placeholder */}

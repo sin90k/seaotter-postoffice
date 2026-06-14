@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { RotateCcw, Save } from 'lucide-react';
+import { SeaOtterLogo } from '../SeaOtterLogo';
+
+const DEFAULT_LOGO_URL = '/seaotter-logo.svg';
 
 const POSITIONS = [
   { value: 'bottom-center', label: 'Bottom center' },
@@ -29,8 +32,8 @@ export default function AdminBrand() {
     setBrandName(ls.getItem('admin_brand_name') || '');
     setBrandNameZh(ls.getItem('admin_brand_name_zh') || '');
     setBrandDomain(ls.getItem('admin_brand_domain') || '');
-    setLogoUrl(persistedLogoUrl || persistedLogoData);
-    setLogoPreview(persistedLogoData || persistedLogoUrl);
+    setLogoUrl(persistedLogoUrl || persistedLogoData || DEFAULT_LOGO_URL);
+    setLogoPreview(persistedLogoData || persistedLogoUrl || DEFAULT_LOGO_URL);
     setWatermarkPosition(ls.getItem('admin_watermark_position') || 'bottom-center');
     setWatermarkOpacity(ls.getItem('admin_watermark_opacity') ?? '0.25');
     setWatermarkSize(ls.getItem('admin_watermark_size') ?? '0.35');
@@ -89,9 +92,18 @@ export default function AdminBrand() {
     alert('Brand settings saved.');
   };
 
+  const restoreDefaultLogo = () => {
+    setLogoFile(null);
+    setLogoUrl(DEFAULT_LOGO_URL);
+    setLogoPreview(DEFAULT_LOGO_URL);
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">品牌设置</h1>
+      <div className="flex items-center gap-3">
+        <SeaOtterLogo className="h-11 w-11 shrink-0" />
+        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">品牌设置</h1>
+      </div>
       <p className="text-sm text-stone-500">
         配置品牌名称、域名和 Logo（水印）。当用户使用赠送积分生成时，水印会自动应用在明信片背面。
       </p>
@@ -155,7 +167,17 @@ export default function AdminBrand() {
             )}
           </div>
           <div className="md:col-span-2">
-            <div className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Logo 预览</div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-xs font-bold text-stone-400 uppercase tracking-widest">Logo 预览</div>
+              <button
+                type="button"
+                onClick={restoreDefaultLogo}
+                className="flex items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-900"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                恢复默认海獭 Logo
+              </button>
+            </div>
             <div className="h-20 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center overflow-hidden">
               {logoPreview ? (
                 <img src={logoPreview} alt="Brand logo preview" className="max-h-16 object-contain" />

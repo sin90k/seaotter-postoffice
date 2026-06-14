@@ -32,7 +32,7 @@ export const brandConfig = {
     const dataUrl = getAdmin('admin_brand_logo_data');
     if (typeof dataUrl === 'string' && dataUrl.trim()) return dataUrl.trim();
     const u = getAdmin('admin_brand_logo_url') ?? (env.VITE_BRAND_LOGO_URL as string | undefined);
-    return (typeof u === 'string' && u.trim()) ? u.trim() : undefined;
+    return (typeof u === 'string' && u.trim()) ? u.trim() : '/seaotter-logo.svg';
   },
   /** Watermark position: bottom-left | bottom-right | bottom-center | top-left | top-right | top-center */
   watermarkPosition: (): string => {

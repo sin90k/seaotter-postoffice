@@ -1,5 +1,6 @@
 import { ArrowLeft, LayoutDashboard, Users, CreditCard, ImageIcon, Settings, FileText, Palette, SlidersHorizontal, Wallet, Globe2, MapPinned, Share2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { SeaOtterLogo } from '../SeaOtterLogo';
 
 export type AdminPage =
   | 'dashboard'
@@ -46,6 +47,13 @@ export default function AdminLayout({
   return (
     <div className="max-w-7xl mx-auto flex gap-4 sm:gap-6 lg:gap-8 p-3 sm:p-6 lg:p-8 animate-in fade-in duration-300 bg-stone-50 min-h-screen">
       <aside className="w-48 sm:w-52 shrink-0 flex flex-col gap-2">
+        <div className="flex items-center gap-2 px-2 pb-2 text-stone-900">
+          <SeaOtterLogo className="h-9 w-9 shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold">海獭邮局</div>
+            <div className="text-xs text-stone-500">管理后台</div>
+          </div>
+        </div>
         <button
           onClick={onBack}
           className="flex items-center gap-2 p-2 rounded-xl hover:bg-white text-stone-600 hover:text-stone-900 transition-colors mb-2"

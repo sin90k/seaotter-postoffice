@@ -1260,7 +1260,8 @@ Output JSON strictly in this format:
       const isBottomBorder = settings.fill === 'bottom-border';
       const isBorder = settings.fill === 'border';
       const hasTextInBorderArea = isBottomBorder || isBorder;
-      const hasCustomPosition = Number.isFinite(style.xPct) && Number.isFinite(style.yPct);
+      const hasCustomPosition = style.xPct != null && style.yPct != null
+        && Number.isFinite(Number(style.xPct)) && Number.isFinite(Number(style.yPct));
       const maxTextWidth = cw * (hasTextInBorderArea ? 0.88 : 1); // 留白模式左右各留 6%
       
       if (hasTextInBorderArea && (location || title)) {
@@ -1359,7 +1360,22 @@ Output JSON strictly in this format:
 
       const totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
 
-      if (hasTextInBorder) {
+      if (hasCustomPosition) {
+        align = 'center';
+        const horizontalSafety = 12;
+        const verticalSafety = Math.min(25, Math.max(8, (totalHeight / ch) * 50 + 2));
+        x = cw * clampNumber(Number(style.xPct), horizontalSafety, 100 - horizontalSafety) / 100;
+        let currentY = ch * clampNumber(Number(style.yPct), verticalSafety, 100 - verticalSafety) / 100 - totalHeight / 2;
+        if (titleCase) {
+          titleY = currentY + actualTitleHeight;
+          currentY = titleY + actualSpacing1;
+        }
+        if (location) {
+          locY = currentY + actualLocHeight;
+          currentY = locY + actualSpacing2;
+        }
+        if (metaText) metaY = currentY + actualMetaHeight;
+      } else if (hasTextInBorder) {
         // 与绘图一致的底部留白比例，避免文字与留白错位
         const bottomBorderHeight = ch * bottomBorderRatio;
         // 在留白区内再预留上下安全距离，避免贴边
@@ -1384,20 +1400,7 @@ Output JSON strictly in this format:
         align = 'center';
         x = cw * 0.5;
       } else {
-        if (hasCustomPosition) {
-          align = 'center';
-          x = cw * clampNumber(style.xPct, 5, 95) / 100;
-          let currentY = ch * clampNumber(style.yPct, 8, 92) / 100 - totalHeight / 2;
-          if (titleCase) {
-            titleY = currentY + actualTitleHeight;
-            currentY = titleY + actualSpacing1;
-          }
-          if (location) {
-            locY = currentY + actualLocHeight;
-            currentY = locY + actualSpacing2;
-          }
-          if (metaText) metaY = currentY + actualMetaHeight;
-        } else if (style.position.includes('top')) {
+        if (style.position.includes('top')) {
           let currentY = ch * 0.05;
           if (titleCase) {
             titleY = currentY + actualTitleHeight;
@@ -2302,9 +2305,22 @@ Output JSON strictly in this format:
     });
   };
 
+  const updateFrontPositionPreset = (position: string) => {
+    setEditingDraft((prev) => prev ? {
+      ...prev,
+      draftFrontStyle: {
+        ...prev.draftFrontStyle,
+        position,
+        ...(position === 'custom' ? {} : { xPct: undefined, yPct: undefined }),
+      },
+    } : prev);
+  };
+
   const getFrontTextPosition = (style: ProcessedPostcard['frontStyle']) => {
-    if (Number.isFinite(style?.xPct) && Number.isFinite(style?.yPct)) {
-      return { x: style.xPct as number, y: style.yPct as number };
+    const x = Number(style?.xPct);
+    const y = Number(style?.yPct);
+    if (style?.xPct != null && style?.yPct != null && Number.isFinite(x) && Number.isFinite(y)) {
+      return { x, y };
     }
     const positions: Record<string, { x: number; y: number }> = {
       'top-left': { x: 18, y: 18 },
@@ -2342,8 +2358,8 @@ Output JSON strictly in this format:
     const preview = event.currentTarget.parentElement;
     if (!preview) return;
     const rect = preview.getBoundingClientRect();
-    const xPct = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 5, 95);
-    const yPct = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 8, 92);
+    const xPct = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 10, 90);
+    const yPct = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 10, 90);
     setEditingDraft((prev) => prev ? {
       ...prev,
       draftFrontStyle: {
@@ -2940,7 +2956,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.position}</label>
                                 <select
                                   value={result.draftFrontStyle.position}
-                                  onChange={(e) => updateDraftStyle('front', 'position', e.target.value)}
+                                  onChange={(e) => updateFrontPositionPreset(e.target.value)}
                                   className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-white"
                                 >
                                   <option value="bottom-left">Bottom Left</option>
