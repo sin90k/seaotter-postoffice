@@ -24,7 +24,7 @@
   "crons": [
     {
       "path": "/api/cron/storage-cleanup",
-      "schedule": "15 * * * *"
+      "schedule": "15 3 * * *"
     },
     {
       "path": "/api/cron/travel-stats-refresh",
