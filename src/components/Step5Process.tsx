@@ -671,7 +671,12 @@ Output JSON strictly in this format:
                     }
                   }
                 } catch (aiErr) {
-                  console.warn("AI Analysis failed, using default empty values", aiErr);
+                  console.error("AI Analysis failed", aiErr);
+                  throw new Error(
+                    language === 'zh'
+                      ? `AI 生成失败：${aiErr instanceof Error ? aiErr.message : '服务暂不可用'}`
+                      : `AI generation failed: ${aiErr instanceof Error ? aiErr.message : 'service unavailable'}`
+                  );
                 }
               }
 
@@ -1054,6 +1059,12 @@ Output JSON strictly in this format:
         const line2 = [location, date].filter(Boolean).join('  •  ');
         if (!titleText && !line2) return;
 
+        const style = frontStyle || { fontSize: 5, color: '#ffffff', position: 'bottom-left' };
+        const customX = Number(style.xPct);
+        const customY = Number(style.yPct);
+        const hasCustomPosition = style.xPct != null && style.yPct != null
+          && Number.isFinite(customX) && Number.isFinite(customY);
+
         ctx.textAlign = 'center';
         const fitFontSize = (
           text: string,
@@ -1072,6 +1083,40 @@ Output JSON strictly in this format:
           }
           return Math.max(min, size);
         };
+
+        if (hasCustomPosition) {
+          const maxTextWidth = cw * 0.76;
+          const titleSize = titleText ? fitFontSize(
+            titleText, maxTextWidth,
+            Math.max(30, cw * (Number(style.fontSize) || 5) / 100),
+            18, '"Playfair Display", serif', '700'
+          ) : 0;
+          const line2Size = line2 ? fitFontSize(
+            line2, maxTextWidth, Math.max(18, titleSize * 0.58),
+            13, '"Inter", sans-serif', '600'
+          ) : 0;
+          const gap = titleText && line2 ? Math.max(8, titleSize * 0.3) : 0;
+          const totalHeight = titleSize + gap + line2Size;
+          const x = cw * clampNumber(customX, 12, 88) / 100;
+          let y = ch * clampNumber(customY, 10, 90) / 100 - totalHeight / 2;
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = style.color || (fillMode === 'fill' ? '#ffffff' : '#1c1917');
+          ctx.shadowColor = fillMode === 'fill' ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)';
+          ctx.shadowBlur = Math.max(4, cw * 0.006);
+          if (titleText) {
+            ctx.font = `700 ${titleSize}px "Playfair Display", serif`;
+            ctx.fillText(titleText, x, y + titleSize);
+            y += titleSize + gap;
+          }
+          if (line2) {
+            ctx.font = `600 ${line2Size}px "Inter", sans-serif`;
+            ctx.fillText(line2, x, y + line2Size);
+          }
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          return;
+        }
 
         if (fillMode === 'fill') {
           // fill 模式无边框，在底部图片上叠加渐变文字，保证地点可见

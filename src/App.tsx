@@ -225,7 +225,7 @@ export const defaultSettings: SettingsType = { // Exported
   aiTitle: true,
   frontAiMode: 'title_location',
   aiBackTemplate: true,
-  backDesignMode: 'template',
+  backDesignMode: 'ai',
   backBrandingEnabled: true,
   aiLanguage: 'Chinese',
   copywritingStyle: 'auto',
