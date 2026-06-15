@@ -947,7 +947,12 @@ export default function App() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
               <SeaOtterLogo className="w-full h-full" />
             </div>
-            <h1 className="font-semibold text-base sm:text-lg tracking-tight whitespace-nowrap">{tHeader.badge}</h1>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="font-semibold text-base sm:text-lg tracking-tight whitespace-nowrap">{tHeader.badge}</h1>
+              <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">
+                v{APP_VERSION}
+              </span>
+            </div>
           </div>
           
           {!showLanding && (

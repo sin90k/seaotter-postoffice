@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Image as ImageIcon, Globe2, Sparkles, Heart, MessageSquare, ChevronDown } from 'lucide-react';
 import { SeaOtterLogo } from './SeaOtterLogo';
+import { APP_VERSION } from '../version';
 import { cn } from '../lib/utils';
 import { CountryConfig, countriesConfig } from '../config/countries';
 import { useState } from 'react';
@@ -769,7 +770,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             <a href="#" className="hover:text-stone-600 transition-colors">Instagram</a>
             <a href="#" className="hover:text-stone-600 transition-colors">Contact</a>
           </div>
-          <p>© {new Date().getFullYear()} {t.badge}. {t.rights}</p>
+          <p>© {new Date().getFullYear()} {t.badge}. {t.rights} · v{APP_VERSION}</p>
         </div>
       </footer>
     </div>
