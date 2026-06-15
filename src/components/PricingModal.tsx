@@ -773,9 +773,23 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                       key={provider}
                       onClick={() => {
                         setHasChosenProvider(true);
-                        if (provider === 'Alipay') setQrProvider('alipay');
-                        else if (provider === 'WeChat Pay') setQrProvider('wechat');
-                        else setQrProvider(null);
+                        if (provider === 'Alipay') {
+                          if (!alipayQr) {
+                            alert(language === 'zh' ? '支付宝收款码尚未配置。' : 'Alipay QR code is not configured.');
+                            return;
+                          }
+                          setQrProvider('alipay');
+                          return;
+                        }
+                        if (provider === 'WeChat Pay') {
+                          if (!wechatQr) {
+                            alert(language === 'zh' ? '微信收款码尚未配置。' : 'WeChat QR code is not configured.');
+                            return;
+                          }
+                          setQrProvider('wechat');
+                          return;
+                        }
+                        setQrProvider(null);
                         confirmPurchase(provider);
                       }}
                       disabled={isProcessing}
@@ -804,11 +818,19 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
 
                 {/* 二维码弹窗：仅在选择支付方式后弹出，且只展示对应收款码 */}
                 {hasChosenProvider && qrProvider && (wechatQr || alipayQr) && (
-                  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40" onClick={() => setQrProvider(null)}>
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4">
                     <div
-                      className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4"
+                      className="relative bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <button
+                        type="button"
+                        onClick={() => setQrProvider(null)}
+                        className="absolute right-4 top-4 p-2 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+                        aria-label={language === 'zh' ? '关闭付款二维码' : 'Close payment QR code'}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                       <h3 className="text-lg font-bold text-stone-900 mb-2">
                         {qrProvider === 'wechat' ? '微信收款码' : '支付宝收款码'}
                       </h3>
@@ -827,10 +849,13 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                       )}
                       <button
                         type="button"
-                        onClick={() => setQrProvider(null)}
+                        onClick={() => confirmPurchase(qrProvider === 'wechat' ? 'WeChat Pay' : 'Alipay')}
+                        disabled={isProcessing}
                         className="w-full mt-2 py-2.5 rounded-xl text-sm font-medium bg-stone-900 text-white hover:bg-stone-800 transition-colors"
                       >
-                        {language === 'zh' ? '我已完成付款' : 'I have completed the payment'}
+                        {isProcessing
+                          ? (language === 'zh' ? '正在提交…' : 'Submitting…')
+                          : (language === 'zh' ? '我已完成付款' : 'I have completed the payment')}
                       </button>
                     </div>
                   </div>

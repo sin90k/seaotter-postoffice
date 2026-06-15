@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Users, Gift, Ban, RotateCcw, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Gift, Ban, RotateCcw, Search, Filter, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
 import { User } from '../../App';
 import { cn } from '../../lib/utils';
 
@@ -32,6 +32,7 @@ export default function AdminUsers({
   const [editPaid, setEditPaid] = useState(0);
   const [saving, setSaving] = useState(false);
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'banned'>('all');
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'vip' | 'free'>('all');
@@ -94,6 +95,12 @@ export default function AdminUsers({
   const openDetail = (userId: string) => {
     setDetailUserId(userId);
     loadUserDetail(userId);
+  };
+
+  const copyUserId = async (userId: string) => {
+    await navigator.clipboard.writeText(userId);
+    setCopiedUserId(userId);
+    window.setTimeout(() => setCopiedUserId((current) => current === userId ? null : current), 1500);
   };
 
   const detailUser = displayUsers.find((u) => u.id === detailUserId);
@@ -217,11 +224,12 @@ export default function AdminUsers({
           </div>
         </div>
         <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
-          <table className="w-full text-left min-w-[1100px]">
+          <table className="w-full text-left min-w-[1400px]">
             <thead>
               <tr className="text-xs text-stone-400 uppercase tracking-widest bg-stone-50/50 whitespace-nowrap">
                 <th className="px-4 py-3 font-bold">用户</th>
                 <th className="px-4 py-3 font-bold">邮箱</th>
+                <th className="px-4 py-3 font-bold">UUID</th>
                 <th className="px-4 py-3 font-bold">登录方式</th>
                 <th className="px-4 py-3 font-bold">状态</th>
                 <th className="px-4 py-3 font-bold">用户类型</th>
@@ -238,7 +246,7 @@ export default function AdminUsers({
             <tbody className="divide-y divide-stone-50">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 13 : 12} className="px-4 py-12 text-center text-stone-400 italic text-sm">
+                  <td colSpan={isAdmin ? 14 : 13} className="px-4 py-12 text-center text-stone-400 italic text-sm">
                     No users found.
                   </td>
                 </tr>
@@ -282,6 +290,22 @@ export default function AdminUsers({
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-stone-600 truncate max-w-[180px] block">{u.email || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.id ? (
+                        <div className="flex items-center gap-2 min-w-[270px]">
+                          <span className="font-mono text-[11px] text-stone-600 select-all">{u.id}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyUserId(u.id!)}
+                            className="shrink-0 p-1.5 rounded-lg text-stone-400 hover:text-stone-900 hover:bg-stone-100"
+                            title="复制 UUID"
+                            aria-label="复制 UUID"
+                          >
+                            {copiedUserId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      ) : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-bold uppercase">
@@ -466,7 +490,18 @@ export default function AdminUsers({
                 <h4 className="text-sm font-bold text-stone-700 mb-2">用户信息</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="text-stone-500">用户 ID</div>
-                  <div className="text-stone-900 break-all">{detailUser.id}</div>
+                  <div className="flex items-start gap-2 text-stone-900 break-all">
+                    <span className="font-mono">{detailUser.id}</span>
+                    <button
+                      type="button"
+                      onClick={() => copyUserId(detailUser.id!)}
+                      className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-900 hover:bg-stone-100"
+                      title="复制 UUID"
+                      aria-label="复制 UUID"
+                    >
+                      {copiedUserId === detailUser.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   <div className="text-stone-500">Email</div>
                   <div className="text-stone-900">{detailUser.email || '-'}</div>
                   <div className="text-stone-500">登录方式</div>

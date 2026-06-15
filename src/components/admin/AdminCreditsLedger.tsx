@@ -46,6 +46,7 @@ export default function AdminCreditsLedger({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [compUserId, setCompUserId] = useState('');
+  const [compUserSearch, setCompUserSearch] = useState('');
   const [compType, setCompType] = useState<'promo' | 'paid'>('promo');
   const [compAmount, setCompAmount] = useState(0);
   const [compNotes, setCompNotes] = useState('');
@@ -86,6 +87,19 @@ export default function AdminCreditsLedger({
   const currentPage = Math.min(page, totalPages);
   const visibleEntries = filteredEntries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  const selectableUsers = useMemo(() => {
+    const q = compUserSearch.trim().toLowerCase();
+    return Object.entries(userMap)
+      .map(([id, user]) => ({ id, ...user }))
+      .filter((user) => {
+        if (!q) return true;
+        return user.id.toLowerCase().includes(q)
+          || user.email?.toLowerCase().includes(q)
+          || user.nickname?.toLowerCase().includes(q);
+      })
+      .sort((a, b) => (a.email || a.nickname || a.id).localeCompare(b.email || b.nickname || b.id));
+  }, [compUserSearch, userMap]);
+
   const handleSubmit = async () => {
     if (!compUserId || compAmount === 0) return;
     setSaving(true);
@@ -93,6 +107,7 @@ export default function AdminCreditsLedger({
     setSaving(false);
     setShowModal(false);
     setCompUserId('');
+    setCompUserSearch('');
     setCompAmount(0);
     setCompNotes('');
   };
@@ -253,14 +268,29 @@ export default function AdminCreditsLedger({
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-stone-900">手动补偿积分</h3>
             <div>
-              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">用户 ID（auth.users）</label>
+              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">查找用户</label>
               <input
                 type="text"
-                value={compUserId}
-                onChange={(e) => setCompUserId(e.target.value)}
-                placeholder="uuid"
+                value={compUserSearch}
+                onChange={(e) => setCompUserSearch(e.target.value)}
+                placeholder="搜索邮箱、昵称或 UUID"
                 className="w-full border border-stone-200 rounded-xl px-3 py-2 text-stone-900 text-sm"
               />
+              <select
+                value={compUserId}
+                onChange={(e) => setCompUserId(e.target.value)}
+                className="w-full mt-2 border border-stone-200 rounded-xl px-3 py-2 text-stone-900 text-sm"
+              >
+                <option value="">请选择用户</option>
+                {selectableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.nickname || user.email || '未命名用户'}{user.nickname && user.email ? ` · ${user.email}` : ''} · {user.id}
+                  </option>
+                ))}
+              </select>
+              {compUserId && (
+                <p className="mt-1 text-[11px] font-mono text-stone-400 break-all">UUID: {compUserId}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">积分类型</label>
