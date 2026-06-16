@@ -21,8 +21,8 @@ export default function AdminBrand() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
   const [watermarkPosition, setWatermarkPosition] = useState('bottom-center');
-  const [watermarkOpacity, setWatermarkOpacity] = useState('0.25');
-  const [watermarkSize, setWatermarkSize] = useState('0.35');
+  const [watermarkOpacity, setWatermarkOpacity] = useState('0.62');
+  const [watermarkSize, setWatermarkSize] = useState('1');
 
   useEffect(() => {
     const ls = typeof localStorage !== 'undefined' ? localStorage : null;
@@ -35,8 +35,8 @@ export default function AdminBrand() {
     setLogoUrl(persistedLogoUrl || persistedLogoData || DEFAULT_LOGO_URL);
     setLogoPreview(persistedLogoData || persistedLogoUrl || DEFAULT_LOGO_URL);
     setWatermarkPosition(ls.getItem('admin_watermark_position') || 'bottom-center');
-    setWatermarkOpacity(ls.getItem('admin_watermark_opacity') ?? '0.25');
-    setWatermarkSize(ls.getItem('admin_watermark_size') ?? '0.35');
+    setWatermarkOpacity(ls.getItem('admin_watermark_opacity') ?? '0.62');
+    setWatermarkSize(ls.getItem('admin_watermark_size') ?? '1');
   }, []);
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印尺寸（相对值，例如 0.35）</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印尺寸（相对值，例如 1）</label>
             <input
               type="number"
               min="0.1"

@@ -281,6 +281,15 @@ export default function Step5Process({
     }
     return '';
   };
+  const isUnreliableInferredLocation = (raw?: string) => {
+    const value = String(raw || '').trim();
+    if (!value) return false;
+    return /^(家中|家里|家裡|在家|室内|室內|室内一角|室內一角|屋内|屋內|房间|房間|客厅|客廳|卧室|臥室|厨房|廚房|home|at home|indoors?|inside|room|living room)$/i.test(value);
+  };
+  const cleanInferredLocation = (raw?: string) => {
+    const cleaned = cleanLocationDisplay(String(raw || '').trim());
+    return isUnreliableInferredLocation(cleaned) ? '' : cleaned;
+  };
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -526,7 +535,7 @@ export default function Step5Process({
 1. Visual Analysis: Identify the primary subject, the context/location, and the overall mood.
 2. Spatial Composition: Find the largest "negative space" for text placement.
 3. Literary Creation: Write a title and message that STRICTLY follows the ${settings.copywritingStyle} style.
-4. Back Image Prompt: Write a prompt for a complementary pencil sketch.
+4. Back Image Prompt: Write a prompt for a subtle decorative postcard-back motif, not a literal redraw.
 
 MANDATORY STYLE: ${currentStyle}`;
 
@@ -555,6 +564,7 @@ If the target language is Chinese:
 - AVOID clichés like "愿你...", "在这个喧嚣的世界里". 
 - ONLY describe what is ACTUALLY visible in the photo, and keep it consistent with the EXIF location if provided.
 - For 'location_name': If EXIF location exists, base it on that real-world place (city / region / country). Only when EXIF has no location, you may use a poetic generic one (e.g., "街角", "海边").
+- If there is no EXIF/GPS location and no recognizable public place, return an empty string for 'location_name'. Never use private/vague guesses such as "家中", "家里", "室内", "房间", "home", or "indoors" as a location.
 - THE OVERALL TONE MUST BE FORCEFULLY ${settings.copywritingStyle.toUpperCase()}.
 
 Output JSON strictly in this format:
@@ -572,7 +582,7 @@ Output JSON strictly in this format:
   "postmark": "Short postmark text",
   "artistic_icons": ["icon1", "icon2"],
   "text_position": "One of: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'",
-  "back_image_prompt": "Prompt for pencil sketch"
+  "back_image_prompt": "Prompt for a subtle decorative postcard-back motif"
 }`;
 
                   const analysisResponse = await withTimeout(
@@ -608,7 +618,7 @@ Output JSON strictly in this format:
 
                   let analysisLocation = "";
                   if (analysisData.location_name) {
-                    analysisLocation = analysisData.location_name;
+                    analysisLocation = cleanInferredLocation(analysisData.location_name);
                   }
 
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
@@ -649,7 +659,7 @@ Output JSON strictly in this format:
                       const general = analysisData.general_elements;
 
                       const styleDesc =
-                        "finely detailed pencil sketch with soft pastel colors, delicate lines, white background, high quality, artistic, elegant, subtle shading, watermark style";
+                        "subtle postcard-back decorative motif, refined pencil sketch, soft pastel accents, delicate lines, airy white background, understated symbolic details, not photorealistic, not a literal redraw, no readable text, no watermark, no logo";
                       
                       if (subject && context) {
                         backImagePrompt = `A ${styleDesc} of ${subject} in ${context}.`;
@@ -679,7 +689,7 @@ Output JSON strictly in this format:
                         const fallbackResponse = await invokePostcardAi('image', {
                           model: "dall-e-3",
                           prompt:
-                            "A finely detailed pencil sketch of a beautiful landscape, soft pastel colors, delicate lines, pure white background, elegant, watermark style.",
+                            "A subtle postcard-back decorative motif in refined pencil sketch style, soft pastel accents, delicate lines, pure white background, airy negative space, understated symbolic travel details, not photorealistic, no readable text, no watermark, no logo.",
                           n: 1,
                           size: "1024x1024",
                           response_format: "b64_json",
@@ -709,6 +719,9 @@ Output JSON strictly in this format:
               if (!needFrontTitle) title = '';
               if (!needFrontLocation) location = '';
               location = cleanLocationDisplay(location);
+              if (!getExifLocationName(photo.exif) && isUnreliableInferredLocation(location)) {
+                location = '';
+              }
 
               const defaultFrontStyle: ProcessedPostcard['frontStyle'] = { fontSize: 5, color: '#ffffff', position: textPosition };
               const defaultBackStyle: ProcessedPostcard['backStyle'] = { fontSize: 3.2, color: '#44403c' };
@@ -1832,17 +1845,29 @@ Output JSON strictly in this format:
 
     const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
 
-    // 1. AI Illustration (Full Background)
+    // 1. AI Illustration (subtle decorative layer)
     if (generatedBackImage) {
       try {
         const backImg = await loadImage(generatedBackImage);
         ctx.save();
-        // Make the AI back visually unmistakable while keeping text readable.
+        const motifW = cw * 0.46;
+        const motifH = Math.min(ch * 0.54, motifW);
+        const motifX = padding * 1.1;
+        const motifY = ch - motifH - padding * 1.2;
+        ctx.globalAlpha = 0.28;
+        ctx.filter = 'saturate(0.78) contrast(0.9) brightness(1.08)';
+        ctx.drawImage(backImg, motifX, motifY, motifW, motifH);
+        ctx.filter = 'none';
         ctx.globalAlpha = 0.72;
-        ctx.drawImage(backImg, 0, 0, cw, ch);
+        const paperWash = ctx.createLinearGradient(0, 0, cw, ch);
+        paperWash.addColorStop(0, 'rgba(253,251,247,0.38)');
+        paperWash.addColorStop(0.55, 'rgba(255,255,255,0.68)');
+        paperWash.addColorStop(1, 'rgba(253,251,247,0.84)');
+        ctx.fillStyle = paperWash;
+        ctx.fillRect(0, 0, cw, ch);
         ctx.restore();
       } catch (e) {
-        console.warn("Failed to load generated back image for full background", e);
+        console.warn("Failed to load generated back image for decorative layer", e);
       }
     } else if (backMode === 'ai') {
       // Visible local fallback for AI-back mode. This prevents the UI from looking
@@ -2175,18 +2200,16 @@ Output JSON strictly in this format:
       const opacity = brandConfig.watermarkOpacity();
       const relSize = brandConfig.watermarkSize();
       const shortSide = Math.min(cw, ch);
-      const wmPadding = padding * 2;
-      // Logo 随画布尺寸缩放，适中大小：短边的 5%~10%， clamp 32~80
-      const logoSize = Math.max(32, Math.min(80, shortSide * 0.06 * relSize));
-      const gap = Math.max(logoSize * 0.8, 16); // 足够间距避免重叠
-      const lineHeight = shortSide * 0.04;
-      const fontSize1 = Math.max(12, shortSide * 0.022);
-      const fontSize2 = Math.max(10, shortSide * 0.018);
+      const wmPadding = padding * 1.45;
+      const logoSize = Math.max(46, Math.min(118, shortSide * 0.095 * relSize));
+      const gap = Math.max(logoSize * 0.32, 14);
+      const lineHeight = shortSide * 0.045;
+      const fontSize1 = Math.max(16, Math.min(34, shortSide * 0.031 * relSize));
+      const fontSize2 = Math.max(11, Math.min(22, shortSide * 0.02 * relSize));
       ctx.save();
       ctx.font = `${fontSize1}px "Inter", sans-serif`;
       const brandWidth = ctx.measureText(brandName).width;
       const totalLine1W = logoUrl ? logoSize + gap + brandWidth : brandWidth;
-      ctx.globalAlpha = opacity;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       let line1StartX = wmPadding;
@@ -2198,7 +2221,30 @@ Output JSON strictly in this format:
       const line1Y = ch - wmPadding - lineHeight - fontSize2 - lineHeight * 0.5 - fontSize1 / 2;
       const line2Y = ch - wmPadding - fontSize2 / 2 - lineHeight * 0.5;
       const baseStartX = line1StartX;
+      const panelPadX = Math.max(18, logoSize * 0.24);
+      const panelPadY = Math.max(10, logoSize * 0.16);
+      const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
+      ctx.font = `${fontSize2}px "Inter", sans-serif`;
+      const urlWidth = ctx.measureText(urlText).width;
+      const panelW = Math.min(cw - wmPadding * 2, Math.max(totalLine1W, urlWidth) + panelPadX * 2);
+      const contentX = pos.includes('center')
+        ? (cw - panelW) / 2
+        : pos.includes('right')
+          ? cw - wmPadding - panelW
+          : wmPadding;
+      const panelH = Math.max(logoSize + panelPadY * 2, (line2Y - line1Y) + fontSize1 + fontSize2 + panelPadY);
+      const panelY = Math.max(wmPadding, line1Y - logoSize / 2 - panelPadY);
+      ctx.globalAlpha = Math.min(0.88, opacity + 0.18);
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.strokeStyle = 'rgba(120,113,108,0.22)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(contentX, panelY, panelW, panelH, Math.min(22, panelH / 3));
+      ctx.fill();
+      ctx.stroke();
+      line1StartX = contentX + panelPadX;
       let textX = line1StartX;
+      ctx.globalAlpha = opacity;
       if (logoUrl) {
         try {
           const logoImg = await loadImage(logoUrl);
@@ -2211,11 +2257,10 @@ Output JSON strictly in this format:
       ctx.fillText(brandName, textX, line1Y);
       ctx.font = `${fontSize2}px "Inter", sans-serif`;
       ctx.fillStyle = '#78716c';
-      const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
-      const urlWidth = ctx.measureText(urlText).width;
       let urlX = baseStartX;
-      if (pos.includes('center')) urlX = (cw - urlWidth) / 2;
-      else if (pos.includes('right')) urlX = cw - wmPadding - urlWidth;
+      if (pos.includes('center')) urlX = contentX + (panelW - urlWidth) / 2;
+      else if (pos.includes('right')) urlX = contentX + panelW - panelPadX - urlWidth;
+      else urlX = contentX + panelPadX;
       ctx.fillText(urlText, urlX, line2Y);
       ctx.restore();
     }
@@ -2524,13 +2569,14 @@ Output JSON strictly in this format:
     settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
 
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
-    const prompt = `Create an elegant illustrated postcard back inspired by the uploaded photo and postcard text.
+    const prompt = `Create a subtle decorative illustration for the back of a postcard.
+This is not a full image remake. Do not redraw the photo literally. Extract only the mood and one or two small symbolic details from the scene.
 Target language/context: ${result.settings.aiLanguage || 'Chinese'}.
 Title: ${result.draftTitle || result.title || ''}
 Location: ${result.draftLocation || result.location || ''}
 Date: ${result.draftDate || result.date || ''}
 Message: ${result.draftMessage || result.message || ''}
-Visual direction: refined pencil sketch with soft pastel accents, airy white space, premium travel postcard, subtle hand-drawn details from the scene, no readable text, no watermark, no logo.`;
+Visual direction: refined pencil sketch, soft pastel accents, airy white background, generous negative space, understated corner vignette or faint paper-texture motif, premium travel postcard back, no photorealism, no full-bleed scene, no readable text, no watermark, no logo.`;
 
     const response = await withTimeout(
       invokePostcardAi('image', {
@@ -2680,7 +2726,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
       } else if (field === 'title') {
         prompt += `\nMake it a very short, elegant, and poetic phrase (max 4-6 words). Style: '信雅达' (faithful, expressive, elegant).`;
       } else if (field === 'location') {
-        prompt += `\nKeep it to just the location name (e.g., city, country, or landmark).`;
+        prompt += `\nKeep it to just a real public location name (city, country, region, or landmark). If the image has no recognizable public place, output nothing. Never output vague/private guesses such as "家中", "家里", "室内", "房间", "home", or "indoors".`;
       }
 
       const response = await withTimeout(
@@ -2706,6 +2752,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
       
       if (field === 'message') {
         newText = newText.trim();
+      } else if (field === 'location') {
+        newText = cleanInferredLocation(newText);
       }
       
       if (editingDraft && editingDraft.id === photoId) {

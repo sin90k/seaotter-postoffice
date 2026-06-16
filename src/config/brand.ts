@@ -42,15 +42,15 @@ export const brandConfig = {
   /** 0–1 */
   watermarkOpacity: (): number => {
     const v = getAdmin('admin_watermark_opacity');
-    if (v == null || v === '') return 0.25;
+    if (v == null || v === '') return 0.62;
     const n = parseFloat(v);
-    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.25;
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.62;
   },
   /** Relative size (e.g. 0.5 = 50% of stamp area). */
   watermarkSize: (): number => {
     const v = getAdmin('admin_watermark_size');
-    if (v == null || v === '') return 0.35;
+    if (v == null || v === '') return 1;
     const n = parseFloat(v);
-    return Number.isFinite(n) ? Math.max(0.1, Math.min(2, n)) : 0.35;
+    return Number.isFinite(n) ? Math.max(0.1, Math.min(2, n)) : 1;
   },
 };
