@@ -1824,19 +1824,41 @@ Output JSON strictly in this format:
     const stampSize = Math.min(cw, ch) * 0.12;
     const padding = Math.min(cw, ch) * 0.04;
 
-    // 1. AI Illustration (Full Background) - "拉伸顶格"
-    // This is the artistically constructed image based on the front content, now as a full background
+    const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+
+    // 1. AI Illustration (Full Background)
     if (generatedBackImage) {
       try {
         const backImg = await loadImage(generatedBackImage);
         ctx.save();
-        // Use a balanced alpha so it's visible but doesn't drown out the handwriting/text
-        ctx.globalAlpha = 0.45; 
+        // Make the AI back visually unmistakable while keeping text readable.
+        ctx.globalAlpha = 0.72;
         ctx.drawImage(backImg, 0, 0, cw, ch);
         ctx.restore();
       } catch (e) {
         console.warn("Failed to load generated back image for full background", e);
       }
+    } else if (backMode === 'ai') {
+      // Visible local fallback for AI-back mode. This prevents the UI from looking
+      // identical to the fixed template while the remote AI image is missing.
+      ctx.save();
+      const scale = Math.max(cw / img.width, ch / img.height);
+      const sw = cw / scale;
+      const sh = ch / scale;
+      const sx = (img.width - sw) / 2;
+      const sy = (img.height - sh) / 2;
+      ctx.globalAlpha = 0.28;
+      ctx.filter = 'grayscale(0.75) sepia(0.18) blur(1.5px) brightness(1.15)';
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 0.62;
+      const wash = ctx.createLinearGradient(0, 0, cw, ch);
+      wash.addColorStop(0, 'rgba(255,255,255,0.78)');
+      wash.addColorStop(0.45, 'rgba(255,255,255,0.50)');
+      wash.addColorStop(1, 'rgba(255,255,255,0.82)');
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.restore();
     }
     
     // 1. Draw Stamp based on theme
@@ -2974,7 +2996,9 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 {rewritingState?.id === result.id && rewritingState?.field === 'back'
                                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                   : <Wand2 className="h-3.5 w-3.5" />}
-                                {language === 'zh' ? 'AI 重绘' : 'Redraw'}
+                                {result.generatedBackImage
+                                  ? (language === 'zh' ? '重新生成' : 'Regenerate')
+                                  : (language === 'zh' ? '生成 AI 背面' : 'Generate AI Back')}
                               </button>
                             )}
                             {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
