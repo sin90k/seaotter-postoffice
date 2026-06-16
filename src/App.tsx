@@ -19,6 +19,7 @@ import { loadHistory, saveHistory } from './lib/storage';
 import { isSupabaseConnected, supabase } from './lib/supabaseClient';
 import { logEvent } from './lib/events';
 import { APP_VERSION } from './version';
+import { loadBrandSettings } from './lib/brandSettings';
 
 
 export type UserLevel = 'free' | 'vip';
@@ -662,6 +663,7 @@ export default function App() {
 
   // 组件挂载时，初始化 Supabase 会话 & 监听 Auth 状态变更
   useEffect(() => {
+    loadBrandSettings().catch(() => {});
     syncUserFromSupabase();
     const {
       data: { subscription },

@@ -300,7 +300,7 @@ export default function AdminSettings() {
         </div>
       </div>
       <p className="text-sm text-stone-500">
-        Logo 与本机水印预览请使用左侧「品牌设置」；分享图底部 branding 使用「分享图设置」，该项保存到 Supabase。
+        Logo 与背面水印请使用左侧「品牌设置」，连接 Supabase 后保存为线上正式配置；分享图底部 branding 使用「分享图设置」。
       </p>
     </div>
   );

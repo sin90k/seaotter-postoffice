@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
-import { RotateCcw, Save } from 'lucide-react';
+import { RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { SeaOtterLogo } from '../SeaOtterLogo';
+import { isSupabaseConnected } from '../../lib/supabaseClient';
+import {
+  DEFAULT_BRAND_SETTINGS,
+  applyBrandSettingsToLocalCache,
+  loadBrandSettings,
+  readLocalBrandSettings,
+  saveBrandSettings,
+  type BrandSettings,
+} from '../../lib/brandSettings';
 
 const DEFAULT_LOGO_URL = '/seaotter-logo.svg';
 
@@ -23,20 +32,27 @@ export default function AdminBrand() {
   const [watermarkPosition, setWatermarkPosition] = useState('bottom-center');
   const [watermarkOpacity, setWatermarkOpacity] = useState('0.62');
   const [watermarkSize, setWatermarkSize] = useState('1');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const applyToForm = (settings: BrandSettings) => {
+    setBrandName(settings.brandName);
+    setBrandNameZh(settings.brandNameZh);
+    setBrandDomain(settings.brandDomain);
+    setLogoUrl(settings.logoUrl);
+    setLogoPreview(settings.logoUrl);
+    setWatermarkPosition(settings.watermarkPosition);
+    setWatermarkOpacity(String(settings.watermarkOpacity));
+    setWatermarkSize(String(settings.watermarkSize));
+  };
 
   useEffect(() => {
-    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
-    if (!ls) return;
-    const persistedLogoData = ls.getItem('admin_brand_logo_data') || '';
-    const persistedLogoUrl = ls.getItem('admin_brand_logo_url') || '';
-    setBrandName(ls.getItem('admin_brand_name') || '');
-    setBrandNameZh(ls.getItem('admin_brand_name_zh') || '');
-    setBrandDomain(ls.getItem('admin_brand_domain') || '');
-    setLogoUrl(persistedLogoUrl || persistedLogoData || DEFAULT_LOGO_URL);
-    setLogoPreview(persistedLogoData || persistedLogoUrl || DEFAULT_LOGO_URL);
-    setWatermarkPosition(ls.getItem('admin_watermark_position') || 'bottom-center');
-    setWatermarkOpacity(ls.getItem('admin_watermark_opacity') ?? '0.62');
-    setWatermarkSize(ls.getItem('admin_watermark_size') ?? '1');
+    applyToForm(readLocalBrandSettings());
+    setLoading(true);
+    loadBrandSettings()
+      .then(applyToForm)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -58,44 +74,41 @@ export default function AdminBrand() {
   };
 
   const handleSave = async () => {
-    const ls = typeof localStorage !== 'undefined' ? localStorage : null;
-    if (!ls) return;
-    ls.setItem('admin_brand_name', brandName.trim());
-    ls.setItem('admin_brand_name_zh', brandNameZh.trim());
-    ls.setItem('admin_brand_domain', brandDomain.trim());
-    ls.setItem('admin_watermark_position', watermarkPosition);
-    ls.setItem('admin_watermark_opacity', String(watermarkOpacity));
-    ls.setItem('admin_watermark_size', String(watermarkSize));
-    if (logoFile) {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = reject;
-        r.readAsDataURL(logoFile);
-      });
-      ls.setItem('admin_brand_logo_data', dataUrl);
-      ls.removeItem('admin_brand_logo_url');
-      setLogoUrl(dataUrl);
-      setLogoPreview(dataUrl);
-    } else if (logoUrl.trim()) {
-      const normalized = logoUrl.trim();
-      if (normalized.startsWith('data:image/')) {
-        ls.setItem('admin_brand_logo_data', normalized);
-        ls.removeItem('admin_brand_logo_url');
-      } else {
-        ls.setItem('admin_brand_logo_url', normalized);
-        ls.removeItem('admin_brand_logo_data');
+    setSaving(true);
+    try {
+      let finalLogoUrl = logoUrl.trim() || DEFAULT_LOGO_URL;
+      if (logoFile) {
+        finalLogoUrl = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result));
+          r.onerror = reject;
+          r.readAsDataURL(logoFile);
+        });
       }
-      setLogoPreview(normalized);
+      const saved = await saveBrandSettings({
+        brandName,
+        brandNameZh,
+        brandDomain,
+        logoUrl: finalLogoUrl,
+        watermarkPosition,
+        watermarkOpacity: Number(watermarkOpacity),
+        watermarkSize: Number(watermarkSize),
+      });
+      applyToForm(saved);
+      setLogoFile(null);
+      alert(isSupabaseConnected ? '品牌设置已保存到 Supabase，线上用户会读取这份配置。' : '品牌设置已保存到当前浏览器。连接 Supabase 后可保存到云端。');
+    } catch (e: any) {
+      alert('品牌设置保存失败：' + (e?.message || '请检查 Supabase 权限或是否已执行 brand_settings 迁移。'));
+    } finally {
+      setSaving(false);
     }
-    setLogoFile(null);
-    alert('品牌设置已保存到当前浏览器。本设置不会同步到 Supabase 或其他设备。');
   };
 
   const restoreDefaultLogo = () => {
     setLogoFile(null);
-    setLogoUrl(DEFAULT_LOGO_URL);
-    setLogoPreview(DEFAULT_LOGO_URL);
+    const next = { ...readLocalBrandSettings(), logoUrl: DEFAULT_BRAND_SETTINGS.logoUrl };
+    applyBrandSettingsToLocalCache(next);
+    applyToForm(next);
   };
 
   return (
@@ -105,10 +118,12 @@ export default function AdminBrand() {
         <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">品牌设置</h1>
       </div>
       <p className="text-sm text-stone-500">
-        配置品牌名称、域名和 Logo（水印）。当前页面只保存到当前浏览器，适合本机预览；线上统一品牌请使用代码默认值或后续迁移到云端配置。
+        配置品牌名称、域名和 Logo（水印）。连接 Supabase 后会保存为线上正式配置；未连接时仅保存到当前浏览器。
       </p>
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        注意：这里上传的 Logo 不会写入 Supabase，也不会自动同步到其他设备。用户分享图的云端 branding 请到「分享图设置」中配置。
+      <div className={`rounded-xl border px-4 py-3 text-sm ${isSupabaseConnected ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+        {isSupabaseConnected
+          ? '当前页面保存到 Supabase 的 brand_settings。背面水印会读取这份配置；分享图底部文字仍由「分享图设置」控制。'
+          : '当前未连接 Supabase，本页只能保存到当前浏览器，不会影响线上用户。'}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -157,7 +172,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">上传 Logo（仅当前浏览器）</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">上传 Logo（随品牌设置保存）</label>
             <input
               type="file"
               accept=".png,.svg,.webp"
@@ -166,7 +181,7 @@ export default function AdminBrand() {
             />
             {logoFile && <span className="text-xs text-stone-500">{logoFile.name}</span>}
             {!logoFile && logoPreview && (
-              <span className="text-xs text-emerald-600">当前浏览器已保存 Logo</span>
+              <span className="text-xs text-emerald-600">{isSupabaseConnected ? '当前线上 Logo' : '当前浏览器已保存 Logo'}</span>
             )}
           </div>
           <div className="md:col-span-2">
@@ -228,9 +243,11 @@ export default function AdminBrand() {
         </div>
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors"
+          disabled={saving || loading}
+          className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors disabled:opacity-60"
         >
-          <Save className="w-4 h-4" /> 保存
+          {saving || loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? '保存中...' : isSupabaseConnected ? '保存到 Supabase' : '保存到当前浏览器'}
         </button>
       </div>
     </div>

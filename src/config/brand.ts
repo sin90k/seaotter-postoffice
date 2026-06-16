@@ -1,6 +1,6 @@
 /**
  * Brand configuration for watermark and display.
- * 优先从管理员后台配置（localStorage）读取，否则使用环境变量。
+ * 优先从启动时同步到本地缓存的 Supabase 品牌配置读取，否则使用环境变量。
  */
 
 const env = import.meta.env as Record<string, unknown>;
