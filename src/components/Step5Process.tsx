@@ -2492,16 +2492,73 @@ Output JSON strictly in this format:
     return `${freeRetentionDays} Days`;
   };
 
-  const handleUpdatePreview = async (draftToUse?: ProcessedPostcard) => {
+  const getBackMode = (settings: SettingsType) =>
+    settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+
+  const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
+    const prompt = `Create an elegant illustrated postcard back inspired by the uploaded photo and postcard text.
+Target language/context: ${result.settings.aiLanguage || 'Chinese'}.
+Title: ${result.draftTitle || result.title || ''}
+Location: ${result.draftLocation || result.location || ''}
+Date: ${result.draftDate || result.date || ''}
+Message: ${result.draftMessage || result.message || ''}
+Visual direction: refined pencil sketch with soft pastel accents, airy white space, premium travel postcard, subtle hand-drawn details from the scene, no readable text, no watermark, no logo.`;
+
+    const response = await withTimeout(
+      invokePostcardAi('image', {
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        response_format: "b64_json",
+        style: "natural"
+      }),
+      90000,
+      "AI back redraw timed out."
+    );
+
+    const b64 = response.data?.[0]?.b64_json;
+    if (!b64) throw new Error('AI did not return an image.');
+    return `data:image/png;base64,${b64}`;
+  };
+
+  const ensureAiBackImage = async (result: ProcessedPostcard, force = false) => {
+    if (getBackMode(result.settings) !== 'ai') return result;
+    if (!force && result.generatedBackImage) return result;
+    if (user.credits < 1) {
+      setShowPricing(true);
+      throw new Error(language === 'zh' ? '积分不足，无法生成 AI 背面图。' : 'Not enough credits to generate AI back image.');
+    }
+
+    setRewritingState({ id: result.id, field: 'back' });
+    try {
+      const generatedBackImage = await generateAiBackImageForDraft(result);
+      const nextDraft = { ...result, generatedBackImage };
+      setEditingDraft(nextDraft);
+      setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+      return nextDraft;
+    } finally {
+      setRewritingState(null);
+    }
+  };
+
+  const handleUpdatePreview = async (
+    draftToUse?: ProcessedPostcard,
+    options: { generateMissingAiBack?: boolean } = { generateMissingAiBack: true }
+  ) => {
     if (!editingResultId) return;
-    const result = draftToUse || editingDraft;
+    let result = draftToUse || editingDraft;
     if (!result || !result.imgUrl) return;
+    const sourceImageUrl = result.imgUrl;
 
     try {
-      const img = await loadImage(result.imgUrl);
+      const backMode = getBackMode(result.settings);
+      if (options.generateMissingAiBack !== false && backMode === 'ai' && !result.generatedBackImage) {
+        result = await ensureAiBackImage(result);
+      }
+      const img = await loadImage(sourceImageUrl);
       const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
       const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
-      const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newBack = backMode === 'none'
         ? ''
         : await generateBack(
@@ -2521,13 +2578,16 @@ Output JSON strictly in this format:
       setLivePreview({ front: newFront, back: newBack });
     } catch (e) {
       console.error("Failed to generate live preview", e);
+      alert(language === 'zh'
+        ? `预览更新失败：${e instanceof Error ? e.message : '请稍后再试'}`
+        : `Failed to update preview: ${e instanceof Error ? e.message : 'Please try again.'}`);
     }
   };
 
   const handleRegenerateBackImage = async (photoId: string) => {
     const result = editingDraft && editingDraft.id === photoId ? editingDraft : history.find(r => r.id === photoId);
     if (!result) return;
-    const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
+    const backMode = getBackMode(result.settings);
     if (backMode !== 'ai') {
       alert(language === 'zh' ? '当前不是 AI 背面模式，请先在全局设置中选择 AI 重绘背面。' : 'AI back mode is not enabled.');
       return;
@@ -2537,43 +2597,14 @@ Output JSON strictly in this format:
       return;
     }
 
-    setRewritingState({ id: photoId, field: 'back' });
     try {
-      const prompt = `Create an elegant postcard back illustration as a refined pencil sketch with soft pastel accents.
-Target language/context: ${result.settings.aiLanguage || 'Chinese'}.
-Title: ${result.draftTitle || result.title || ''}
-Location: ${result.draftLocation || result.location || ''}
-Date: ${result.draftDate || result.date || ''}
-Message: ${result.draftMessage || result.message || ''}
-Style: delicate lines, airy white space, premium travel postcard, no text, no watermark, no logo.`;
-
-      const response = await withTimeout(
-        invokePostcardAi('image', {
-          model: "dall-e-3",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-          response_format: "b64_json",
-          style: "natural"
-        }),
-        90000,
-        "AI back redraw timed out."
-      );
-
-      const b64 = response.data?.[0]?.b64_json;
-      if (!b64) throw new Error('AI did not return an image.');
-      const generatedBackImage = `data:image/png;base64,${b64}`;
-      const nextDraft = { ...result, generatedBackImage };
-      setEditingDraft(nextDraft);
+      const nextDraft = await ensureAiBackImage(result, true);
       await handleUpdatePreview(nextDraft);
-      setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
     } catch (e: any) {
       console.error('Failed to redraw back image', e);
       alert(language === 'zh'
         ? `AI 背面重绘失败：${e?.message || '请稍后再试'}`
         : `Failed to redraw the back: ${e?.message || 'Please try again.'}`);
-    } finally {
-      setRewritingState(null);
     }
   };
 
@@ -2593,7 +2624,7 @@ Style: delicate lines, airy white space, premium travel postcard, no text, no wa
     
     setEditingDraft({ ...result });
     // Initial load of live preview when opening modal
-    handleUpdatePreview({ ...result });
+    handleUpdatePreview({ ...result }, { generateMissingAiBack: false });
   }, [editingResultId]);
 
   const handleRewriteField = async (photoId: string, field: 'title' | 'location' | 'message') => {
@@ -2933,6 +2964,19 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs font-medium px-2.5 py-1 rounded-md z-10">
                               {t.backSide}
                             </div>
+                            {getBackMode(result.settings) === 'ai' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRegenerateBackImage(result.id)}
+                                disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
+                                className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                              >
+                                {rewritingState?.id === result.id && rewritingState?.field === 'back'
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Wand2 className="h-3.5 w-3.5" />}
+                                {language === 'zh' ? 'AI 重绘' : 'Redraw'}
+                              </button>
+                            )}
                             {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
                               <img src={livePreview?.back || result.backDataUrl || result.backUrl} alt="Back" className="w-full aspect-[3/2] object-contain" />
                             ) : (
