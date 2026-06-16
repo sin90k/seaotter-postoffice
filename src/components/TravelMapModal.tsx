@@ -2,6 +2,30 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, MapPin, Download } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
+type LonLat = [number, number];
+
+const WORLD_LANDMASSES: LonLat[][] = [
+  [[-168, 72], [-145, 70], [-128, 57], [-115, 49], [-96, 50], [-78, 43], [-66, 25], [-83, 15], [-105, 19], [-123, 31], [-140, 50], [-166, 59]],
+  [[-52, 82], [-28, 76], [-20, 65], [-36, 58], [-55, 61], [-70, 72]],
+  [[-82, 12], [-66, 9], [-50, -5], [-42, -22], [-53, -48], [-68, -55], [-77, -37], [-79, -12]],
+  [[-12, 72], [35, 71], [61, 57], [42, 37], [16, 35], [-10, 43], [-25, 58]],
+  [[-18, 36], [11, 38], [35, 31], [51, 10], [43, -31], [20, -35], [4, -25], [-12, -2]],
+  [[36, 72], [92, 70], [154, 61], [178, 48], [150, 22], [118, 8], [96, 15], [79, 7], [62, 24], [43, 34], [55, 52]],
+  [[100, 8], [125, 19], [145, 12], [137, -8], [113, -8]],
+  [[112, -10], [154, -12], [153, -38], [134, -44], [114, -35], [109, -23]],
+  [[166, -34], [179, -39], [173, -47], [166, -43]],
+  [[-180, -66], [-120, -70], [-40, -68], [40, -70], [120, -67], [180, -70], [180, -86], [-180, -86]],
+];
+
+const MAP_LABELS = [
+  { label: 'NORTH AMERICA', lat: 47, lng: -112 },
+  { label: 'SOUTH AMERICA', lat: -24, lng: -62 },
+  { label: 'EUROPE', lat: 52, lng: 17 },
+  { label: 'AFRICA', lat: 3, lng: 20 },
+  { label: 'ASIA', lat: 42, lng: 92 },
+  { label: 'OCEANIA', lat: -27, lng: 135 },
+];
+
 type MarkerRow = {
   placeKey?: string;
   label?: string;
@@ -108,10 +132,60 @@ export default function TravelMapModal({ language, onClose }: Props) {
     };
   }, []);
 
-  const markerToStyle = (lat: number, lng: number) => {
+  const projectPercent = (lat: number, lng: number) => {
     const left = ((lng + 180) / 360) * 100;
     const top = ((90 - lat) / 180) * 100;
     return { left: `${Math.max(0, Math.min(100, left))}%`, top: `${Math.max(0, Math.min(100, top))}%` };
+  };
+
+  const landPath = (points: LonLat[]) =>
+    points
+      .map(([lng, lat], index) => {
+        const { left, top } = projectPercent(lat, lng);
+        return `${index === 0 ? 'M' : 'L'} ${parseFloat(left).toFixed(3)} ${parseFloat(top).toFixed(3)}`;
+      })
+      .join(' ') + ' Z';
+
+  const drawCanvasMapBase = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    const project = (lat: number, lng: number) => ({
+      x: x + ((lng + 180) / 360) * w,
+      y: y + ((90 - lat) / 180) * h,
+    });
+    const water = ctx.createLinearGradient(0, y, 0, y + h);
+    water.addColorStop(0, '#dceefa');
+    water.addColorStop(1, '#cfe6f4');
+    ctx.fillStyle = water;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(104, 126, 146, 0.16)';
+    ctx.lineWidth = 1;
+    for (let lng = -180; lng <= 180; lng += 30) {
+      const p = project(0, lng);
+      ctx.beginPath();
+      ctx.moveTo(p.x, y);
+      ctx.lineTo(p.x, y + h);
+      ctx.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const p = project(lat, 0);
+      ctx.beginPath();
+      ctx.moveTo(x, p.y);
+      ctx.lineTo(x + w, p.y);
+      ctx.stroke();
+    }
+    WORLD_LANDMASSES.forEach((region) => {
+      ctx.beginPath();
+      region.forEach(([lng, lat], index) => {
+        const p = project(lat, lng);
+        if (index === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = '#f7f4ed';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(124, 116, 101, 0.28)';
+      ctx.stroke();
+    });
+    return project;
   };
 
   const exportShareImage = () => {
@@ -120,41 +194,24 @@ export default function TravelMapModal({ language, onClose }: Props) {
     canvas.height = 800;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = '#0b1220';
+    ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#1f2937';
-    ctx.fillRect(40, 100, 1120, 620);
-    ctx.strokeStyle = '#334155';
-    for (let i = 0; i <= 6; i++) {
-      const y = 100 + i * (620 / 6);
-      ctx.beginPath();
-      ctx.moveTo(40, y);
-      ctx.lineTo(1160, y);
-      ctx.stroke();
-    }
-    for (let i = 0; i <= 12; i++) {
-      const x = 40 + i * (1120 / 12);
-      ctx.beginPath();
-      ctx.moveTo(x, 100);
-      ctx.lineTo(x, 720);
-      ctx.stroke();
-    }
-    const project = (lat: number, lng: number) => {
-      const x = 40 + ((lng + 180) / 360) * 1120;
-      const y = 100 + ((90 - lat) / 180) * 620;
-      return { x, y };
-    };
-    ctx.fillStyle = '#38bdf8';
+    const project = drawCanvasMapBase(ctx, 40, 100, 1120, 620);
+    ctx.fillStyle = '#2563eb';
     markers.forEach((m) => {
       const p = project(m.latitude, m.longitude);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
     });
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#111827';
     ctx.font = 'bold 36px sans-serif';
     ctx.fillText('Sea Otter Travel Map', 40, 56);
-    ctx.font = '24px sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.font = '22px sans-serif';
     ctx.fillText(`${t.countries}: ${stats.countries_count}   ${t.cities}: ${stats.cities_count}   ${t.postcards}: ${stats.postcards_count}`, 40, 765);
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
@@ -234,27 +291,65 @@ export default function TravelMapModal({ language, onClose }: Props) {
               <div className="text-2xl font-bold">{stats.postcards_count}</div>
             </div>
           </div>
-          <div ref={mapRef} className="relative w-full h-[460px] rounded-xl border border-stone-200 overflow-hidden bg-gradient-to-b from-sky-100 to-blue-200">
-            <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_20%_25%,#fff_0,transparent_30%),radial-gradient(circle_at_70%_65%,#fff_0,transparent_30%)]" />
+          <div ref={mapRef} className="relative w-full h-[460px] rounded-xl border border-slate-200 overflow-hidden bg-[#dceefa] shadow-inner">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="travel-water" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#e5f2fb" />
+                  <stop offset="100%" stopColor="#cfe6f4" />
+                </linearGradient>
+                <filter id="land-shadow" x="-5%" y="-5%" width="110%" height="110%">
+                  <feDropShadow dx="0" dy="0.35" stdDeviation="0.35" floodColor="#94a3b8" floodOpacity="0.28" />
+                </filter>
+              </defs>
+              <rect width="100" height="100" fill="url(#travel-water)" />
+              {Array.from({ length: 13 }).map((_, i) => (
+                <line key={`lng-${i}`} x1={i * (100 / 12)} x2={i * (100 / 12)} y1="0" y2="100" stroke="#8ba6bd" strokeOpacity="0.16" strokeWidth="0.12" />
+              ))}
+              {Array.from({ length: 7 }).map((_, i) => (
+                <line key={`lat-${i}`} x1="0" x2="100" y1={i * (100 / 6)} y2={i * (100 / 6)} stroke="#8ba6bd" strokeOpacity="0.16" strokeWidth="0.12" />
+              ))}
+              {WORLD_LANDMASSES.map((region, i) => (
+                <path key={`land-${i}`} d={landPath(region)} fill="#f7f4ed" stroke="#cfc7b8" strokeWidth="0.22" filter="url(#land-shadow)" />
+              ))}
+              <path d="M3 62 C18 58 27 66 39 61 S64 55 78 62 93 57 99 63" fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.28" />
+              <path d="M8 39 C22 34 36 41 49 36 S77 35 94 41" fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="0.22" />
+            </svg>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.45)_0,transparent_22%),radial-gradient(circle_at_80%_72%,rgba(255,255,255,0.32)_0,transparent_28%)]" />
+            {MAP_LABELS.map((item) => {
+              const pos = projectPercent(item.lat, item.lng);
+              return (
+                <div
+                  key={item.label}
+                  className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-[9px] font-semibold tracking-[0.18em] text-slate-500/45"
+                  style={{ left: pos.left, top: pos.top }}
+                >
+                  {item.label}
+                </div>
+              );
+            })}
+            <div className="absolute left-4 top-4 rounded-lg border border-white/70 bg-white/75 px-3 py-2 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
+              {loading ? 'Loading...' : `${stats.postcards_count} ${t.postcards}`}
+            </div>
             <div className="absolute inset-0">
               {markers.map((m, i) => {
-                const pos = markerToStyle(m.latitude, m.longitude);
+                const pos = projectPercent(m.latitude, m.longitude);
                 return (
                   <div
                     key={m.placeKey || `${m.city}-${m.country}-${i}`}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 group"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
                     style={{ left: pos.left, top: pos.top }}
                     title={getMarkerLabel(m)}
                     onClick={() => loadCityCards(m)}
                   >
-                    <button className="relative block min-w-4 h-4 rounded-full bg-sky-600 border-2 border-white shadow hover:scale-110 transition-transform">
+                    <button className="relative block h-5 min-w-5 rounded-full border-[3px] border-white bg-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.35)] ring-4 ring-blue-500/15 transition-transform hover:scale-110">
                       {(m.count || 0) > 1 && (
-                        <span className="absolute -right-2 -top-2 min-w-4 h-4 px-1 rounded-full bg-stone-900 text-white text-[9px] leading-4 font-bold">
+                        <span className="absolute -right-2.5 -top-2.5 min-w-4 h-4 px-1 rounded-full bg-slate-900 text-white text-[9px] leading-4 font-bold">
                           {m.count}
                         </span>
                       )}
                     </button>
-                    <span className="hidden group-hover:block absolute left-2 top-2 whitespace-nowrap text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded">
+                    <span className="hidden group-hover:block absolute left-3 top-3 whitespace-nowrap rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-lg">
                       {getMarkerLabel(m)}{(m.count || 0) > 1 ? ` · ${m.count}` : ''}
                     </span>
                   </div>
