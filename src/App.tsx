@@ -194,6 +194,11 @@ export type ProcessedPostcard = {
   latitude?: number;
   longitude?: number;
   theme_slug?: string;
+  locationSource?: 'exif_gps' | 'exif_text' | 'ai_place' | 'manual' | 'unknown';
+  rawLocationLabel?: string | null;
+  locationConfidence?: number | null;
+  mapEligible?: boolean;
+  rejectedLocationReason?: string | null;
 };
 
 type MarketPricing = {

@@ -32,6 +32,7 @@ type MarkerRow = {
   count?: number;
   themeSlug?: string | null;
   postcardLocalId?: string | null;
+  locationSource?: string | null;
 };
 
 type StatsRow = {
@@ -290,7 +291,7 @@ export default function TravelMapModal({ language, onClose }: Props) {
             </div>
           </div>
           <div ref={mapRef} className="relative w-full h-[460px] rounded-xl border border-slate-200 overflow-hidden bg-[#eef3f5] shadow-inner">
-            <div className="absolute inset-0">
+            <div className="absolute left-0 top-1/2 w-full aspect-square -translate-y-1/2">
               {mapTiles.map((tile) => (
                 <img
                   key={`${tile.z}-${tile.x}-${tile.y}`}
@@ -302,6 +303,31 @@ export default function TravelMapModal({ language, onClose }: Props) {
                   referrerPolicy="no-referrer"
                 />
               ))}
+              <div className="absolute inset-0">
+                {markers.map((m, i) => {
+                  const pos = projectMercatorPercent(m.latitude, m.longitude);
+                  return (
+                    <div
+                      key={m.placeKey || `${m.city}-${m.country}-${i}`}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
+                      style={{ left: pos.left, top: pos.top }}
+                      title={getMarkerLabel(m)}
+                      onClick={() => loadCityCards(m)}
+                    >
+                      <button className="relative block h-5 min-w-5 rounded-full border-[3px] border-white bg-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.35)] ring-4 ring-blue-500/15 transition-transform hover:scale-110">
+                        {(m.count || 0) > 1 && (
+                          <span className="absolute -right-2.5 -top-2.5 min-w-4 h-4 px-1 rounded-full bg-slate-900 text-white text-[9px] leading-4 font-bold">
+                            {m.count}
+                          </span>
+                        )}
+                      </button>
+                      <span className="hidden group-hover:block absolute left-3 top-3 whitespace-nowrap rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-lg">
+                        {getMarkerLabel(m)}{(m.count || 0) > 1 ? ` · ${m.count}` : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.28)),radial-gradient(circle_at_52%_48%,transparent_0,rgba(15,23,42,0.08)_100%)]" />
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
@@ -327,31 +353,6 @@ export default function TravelMapModal({ language, onClose }: Props) {
               >
                 <Minus className="h-4 w-4" />
               </button>
-            </div>
-            <div className="absolute inset-0">
-              {markers.map((m, i) => {
-                const pos = projectMercatorPercent(m.latitude, m.longitude);
-                return (
-                  <div
-                    key={m.placeKey || `${m.city}-${m.country}-${i}`}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
-                    style={{ left: pos.left, top: pos.top }}
-                    title={getMarkerLabel(m)}
-                    onClick={() => loadCityCards(m)}
-                  >
-                    <button className="relative block h-5 min-w-5 rounded-full border-[3px] border-white bg-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.35)] ring-4 ring-blue-500/15 transition-transform hover:scale-110">
-                      {(m.count || 0) > 1 && (
-                        <span className="absolute -right-2.5 -top-2.5 min-w-4 h-4 px-1 rounded-full bg-slate-900 text-white text-[9px] leading-4 font-bold">
-                          {m.count}
-                        </span>
-                      )}
-                    </button>
-                    <span className="hidden group-hover:block absolute left-3 top-3 whitespace-nowrap rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-lg">
-                      {getMarkerLabel(m)}{(m.count || 0) > 1 ? ` · ${m.count}` : ''}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
             {!loading && markers.length === 0 && (
               <div className="absolute left-1/2 top-1/2 w-[min(360px,calc(100%-48px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/80 bg-white/92 p-5 text-center shadow-xl backdrop-blur">

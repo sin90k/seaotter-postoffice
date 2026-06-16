@@ -31,6 +31,7 @@ export default function AdminTravelMap() {
       supabase
         .from('postcard_metadata')
         .select('country,user_id')
+        .eq('map_eligible', true)
         .limit(5000),
     ]);
     if (statsRes.error) {
@@ -153,7 +154,7 @@ export default function AdminTravelMap() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-stone-500">保存到 Supabase。按用户聚合旅行范围（国家/城市）和明信片数量，数据来自 postcard_metadata。</p>
+      <p className="text-sm text-stone-500">保存到 Supabase。只统计已通过 GPS 校验并允许显示到地图的 postcard_metadata 数据。</p>
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-4">
         <div className="text-sm font-semibold mb-2">国家热度 Top 20</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">

@@ -1,6 +1,7 @@
 import { get, set } from 'idb-keyval';
 import { ProcessedPostcard } from '../App';
 import { supabase, isSupabaseConnected } from './supabaseClient';
+import { resolveLocationSource } from './locationSource';
 
 const isTableMissing = (err: { code?: string; message?: string }) =>
   err?.code === 'PGRST205' || (err?.message ?? '').includes('Could not find the table');
@@ -301,6 +302,21 @@ const saveHistoryNow = async (history: ProcessedPostcard[], options?: SaveOption
         const metadataRows = advancedInsert.data
           .map((r: { id?: string; payload?: ProcessedPostcard }) => {
             const payload = (r.payload || {}) as ProcessedPostcard;
+            const displayLocation = payload.draftLocation || payload.location || '';
+            const manualLocation =
+              !!payload.draftLocation &&
+              !!payload.location &&
+              String(payload.draftLocation).trim() !== String(payload.location).trim();
+            const locationMeta = resolveLocationSource({
+              displayLocation,
+              city: payload.city,
+              country: payload.country,
+              latitude: payload.latitude,
+              longitude: payload.longitude,
+              hasExifGps: payload.locationSource === 'exif_gps' && !manualLocation,
+              hasExifText: payload.locationSource === 'exif_text',
+              isManual: manualLocation || payload.locationSource === 'manual',
+            });
             return {
               postcard_id: r.id,
               user_id: userId,
@@ -310,7 +326,12 @@ const saveHistoryNow = async (history: ProcessedPostcard[], options?: SaveOption
               latitude: typeof payload.latitude === 'number' ? payload.latitude : null,
               longitude: typeof payload.longitude === 'number' ? payload.longitude : null,
               theme_slug: payload.theme_slug || null,
-              source: 'exif_or_ai',
+              source: locationMeta.locationSource,
+              location_source: locationMeta.locationSource,
+              raw_location_label: locationMeta.rawLocationLabel,
+              location_confidence: locationMeta.locationConfidence,
+              map_eligible: locationMeta.mapEligible,
+              rejected_location_reason: locationMeta.rejectedLocationReason,
               updated_at: new Date().toISOString(),
             };
           })

@@ -13,6 +13,8 @@ import { syncGeneratedCount } from '../lib/profileSync';
 import { logEvent } from '../lib/events';
 import { buildShareCardBlob, type ShareType } from '../lib/shareCard';
 import { getShareBranding } from '../lib/shareBranding';
+import { getPublishedPromptContent } from '../lib/promptService';
+import { resolveLocationSource } from '../lib/locationSource';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -473,6 +475,11 @@ export default function Step5Process({
         }
       }
 
+      const [captionPromptGuidance, backImagePromptGuidance] = await Promise.all([
+        getPublishedPromptContent('caption_generation_default').catch(() => ''),
+        getPublishedPromptContent('back_image_default').catch(() => ''),
+      ]);
+
       try {
         const newResults: ProcessedPostcard[] = [];
         const concurrencyLimit = 3;
@@ -538,6 +545,10 @@ export default function Step5Process({
 4. Back Image Prompt: Write a prompt for a subtle decorative postcard-back motif, not a literal redraw.
 
 MANDATORY STYLE: ${currentStyle}`;
+
+                  if (captionPromptGuidance.trim()) {
+                    analysisPrompt += `\n\nADMIN PUBLISHED PROMPT GUIDANCE:\n${captionPromptGuidance.trim()}`;
+                  }
 
                   // EXIF 地点与日期：要求模型在标题与背面文案中优先参考 EXIF，而不是随意猜城市
                   let exifLocationLabel = "";
@@ -659,7 +670,8 @@ Output JSON strictly in this format:
                       const general = analysisData.general_elements;
 
                       const styleDesc =
-                        "subtle postcard-back decorative motif, refined pencil sketch, soft pastel accents, delicate lines, airy white background, understated symbolic details, not photorealistic, not a literal redraw, no readable text, no watermark, no logo";
+                        backImagePromptGuidance.trim()
+                          || "subtle postcard-back decorative motif, refined pencil sketch, soft pastel accents, delicate lines, airy white background, understated symbolic details, not photorealistic, not a literal redraw, no readable text, no watermark, no logo";
                       
                       if (subject && context) {
                         backImagePrompt = `A ${styleDesc} of ${subject} in ${context}.`;
@@ -722,6 +734,18 @@ Output JSON strictly in this format:
               if (!getExifLocationName(photo.exif) && isUnreliableInferredLocation(location)) {
                 location = '';
               }
+              const latitude = typeof photo.exif?.location?.lat === 'number' ? photo.exif.location.lat : undefined;
+              const longitude = typeof photo.exif?.location?.lng === 'number' ? photo.exif.location.lng : undefined;
+              const locationMeta = resolveLocationSource({
+                displayLocation: location,
+                city: photo.exif?.city,
+                region: photo.exif?.region,
+                country: photo.exif?.country,
+                latitude,
+                longitude,
+                hasExifGps: !!photo.exif?.location,
+                hasExifText: !!(photo.exif?.city || photo.exif?.region || photo.exif?.country),
+              });
 
               const defaultFrontStyle: ProcessedPostcard['frontStyle'] = { fontSize: 5, color: '#ffffff', position: textPosition };
               const defaultBackStyle: ProcessedPostcard['backStyle'] = { fontSize: 3.2, color: '#44403c' };
@@ -801,9 +825,14 @@ Output JSON strictly in this format:
                 watermark: useWatermark,
                 city: photo.exif?.city || undefined,
                 country: photo.exif?.country || undefined,
-                latitude: typeof photo.exif?.location?.lat === 'number' ? photo.exif.location.lat : undefined,
-                longitude: typeof photo.exif?.location?.lng === 'number' ? photo.exif.location.lng : undefined,
+                latitude,
+                longitude,
                 theme_slug: slugifyTheme(theme),
+                locationSource: locationMeta.locationSource,
+                rawLocationLabel: locationMeta.rawLocationLabel,
+                locationConfidence: locationMeta.locationConfidence,
+                mapEligible: locationMeta.mapEligible,
+                rejectedLocationReason: locationMeta.rejectedLocationReason,
               });
             } catch (e: any) {
               console.error("AI Generation failed for image", i, e);

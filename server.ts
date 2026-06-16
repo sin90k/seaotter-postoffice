@@ -220,8 +220,9 @@ async function startServer() {
           .maybeSingle(),
         supabaseAdmin!
           .from("postcard_metadata")
-          .select("city,country,latitude,longitude,theme_slug,postcard_local_id")
+          .select("city,country,latitude,longitude,theme_slug,postcard_local_id,location_source,raw_location_label,map_eligible")
           .eq("user_id", user.userId)
+          .eq("map_eligible", true)
           .order("updated_at", { ascending: false })
           .limit(2000),
       ]);
@@ -263,6 +264,7 @@ async function startServer() {
             count: 1,
             themeSlug: m.theme_slug || null,
             postcardLocalId: m.postcard_local_id || null,
+            locationSource: m.location_source || null,
             postcardLocalIds: [m.postcard_local_id || null],
           });
         }
@@ -279,6 +281,7 @@ async function startServer() {
         count: m.count,
         themeSlug: m.themeSlug,
         postcardLocalId: m.postcardLocalId,
+        locationSource: m.locationSource,
       }));
       const countriesCount = new Set(rows.map((m: any) => String(m?.country || "").trim()).filter(Boolean)).size;
       const citiesCount = new Set(markers.map((m: any) => m.placeKey)).size;
@@ -314,8 +317,9 @@ async function startServer() {
 
       let metaQuery = supabaseAdmin!
         .from("postcard_metadata")
-        .select("postcard_id,postcard_local_id,city,country,latitude,longitude,theme_slug,updated_at")
+        .select("postcard_id,postcard_local_id,city,country,latitude,longitude,theme_slug,updated_at,location_source")
         .eq("user_id", user.userId)
+        .eq("map_eligible", true)
         .order("updated_at", { ascending: false })
         .limit(hasGpsBucket ? 2000 : 120);
       if (city) metaQuery = metaQuery.eq("city", city);
