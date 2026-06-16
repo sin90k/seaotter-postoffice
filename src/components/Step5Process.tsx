@@ -542,7 +542,8 @@ export default function Step5Process({
 1. Visual Analysis: Identify the primary subject, the context/location, and the overall mood.
 2. Spatial Composition: Find the largest "negative space" for text placement.
 3. Literary Creation: Write a title and message that STRICTLY follows the ${settings.copywritingStyle} style.
-4. Back Image Prompt: Write a prompt for a subtle decorative postcard-back motif, not a literal redraw.
+4. Back Template Direction: Choose a theme that also controls the postcard-back template: modern=clean right sidebar, vintage=gallery/memo layout, handwritten=soft personal note, classic=traditional split postcard.
+5. Back Image Prompt: Write a prompt for a subtle decorative postcard-back motif, not a literal redraw.
 
 MANDATORY STYLE: ${currentStyle}`;
 
@@ -589,7 +590,7 @@ Output JSON strictly in this format:
   "color_palette": ["#hex1", "#hex2"],
   "title": "Title in ${settings.copywritingStyle} style",
   "message": "Message in ${settings.copywritingStyle} style",
-  "theme": "One of: 'classic', 'modern', 'vintage', 'handwritten'",
+  "theme": "One of: 'classic', 'modern', 'vintage', 'handwritten'. Choose based on the image and desired back template.",
   "postmark": "Short postmark text",
   "artistic_icons": ["icon1", "icon2"],
   "text_position": "One of: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'",
@@ -773,7 +774,7 @@ Output JSON strictly in this format:
               const displayDate = settings.showDate === false ? '' : dateStr;
               
               const useWatermark = watermarkByPhotoId.get(photo.id) === true;
-              const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate);
+              const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
               const backDataUrl = backMode === 'none'
                 ? ''
                 : await generateBack(
@@ -1032,7 +1033,111 @@ Output JSON strictly in this format:
     return { x: cropX, y: cropY, w: cropW, h: cropH };
   };
 
-  const generateFront = async (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string) => {
+  const drawBrandMark = async (
+    ctx: CanvasRenderingContext2D,
+    cw: number,
+    ch: number,
+    options: {
+      position: 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-center' | 'top-left' | 'top-right';
+      compact?: boolean;
+      subtle?: boolean;
+      opacity?: number;
+      scale?: number;
+      padding?: number;
+      locale?: 'zh' | 'en';
+    }
+  ) => {
+    const brandName = brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
+    const domain = brandConfig.domain();
+    const logoUrl = brandConfig.logoUrl();
+    if (!brandName && !logoUrl) return;
+
+    const shortSide = Math.min(cw, ch);
+    const relScale = options.scale ?? 1;
+    const compact = options.compact === true;
+    const subtle = options.subtle === true;
+    const padding = options.padding ?? shortSide * 0.045;
+    const opacity = options.opacity ?? (subtle ? 0.42 : brandConfig.watermarkOpacity());
+    const logoSize = compact
+      ? Math.max(24, Math.min(54, shortSide * 0.055 * relScale))
+      : Math.max(62, Math.min(150, shortSide * 0.125 * relScale));
+    const gap = compact ? Math.max(8, logoSize * 0.22) : Math.max(16, logoSize * 0.3);
+    const fontSize1 = compact
+      ? Math.max(11, Math.min(20, shortSide * 0.019 * relScale))
+      : Math.max(18, Math.min(38, shortSide * 0.036 * relScale));
+    const fontSize2 = compact
+      ? Math.max(8, Math.min(14, shortSide * 0.013 * relScale))
+      : Math.max(12, Math.min(23, shortSide * 0.021 * relScale));
+    const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
+
+    ctx.save();
+    ctx.font = `${fontSize1}px "Inter", sans-serif`;
+    const brandWidth = brandName ? ctx.measureText(brandName).width : 0;
+    ctx.font = `${fontSize2}px "Inter", sans-serif`;
+    const urlWidth = compact ? 0 : ctx.measureText(urlText).width;
+    const line1W = (logoUrl ? logoSize + gap : 0) + brandWidth;
+    const panelPadX = compact ? Math.max(10, logoSize * 0.22) : Math.max(20, logoSize * 0.26);
+    const panelPadY = compact ? Math.max(6, logoSize * 0.12) : Math.max(12, logoSize * 0.18);
+    const panelW = Math.min(cw - padding * 2, Math.max(line1W, urlWidth) + panelPadX * 2);
+    const panelH = compact
+      ? Math.max(logoSize + panelPadY * 2, fontSize1 + panelPadY * 2)
+      : Math.max(logoSize + panelPadY * 2, logoSize + fontSize2 + panelPadY * 2.4);
+
+    const position = options.position;
+    const panelX = position.includes('right')
+      ? cw - padding - panelW
+      : position.includes('center')
+        ? (cw - panelW) / 2
+        : padding;
+    const panelY = position.includes('top') ? padding : ch - padding - panelH;
+
+    ctx.globalAlpha = subtle ? Math.min(0.58, opacity + 0.12) : Math.min(0.9, opacity + 0.16);
+    ctx.fillStyle = subtle ? 'rgba(255,255,255,0.48)' : 'rgba(255,255,255,0.74)';
+    ctx.strokeStyle = subtle ? 'rgba(68,64,60,0.12)' : 'rgba(120,113,108,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, Math.min(18, panelH / 3));
+    ctx.fill();
+    ctx.stroke();
+
+    let textX = panelX + panelPadX;
+    const line1Y = compact ? panelY + panelH / 2 : panelY + panelPadY + logoSize * 0.45;
+    ctx.globalAlpha = opacity;
+    if (logoUrl) {
+      try {
+        const logoImg = await loadImage(logoUrl);
+        ctx.drawImage(logoImg, panelX + panelPadX, line1Y - logoSize / 2, logoSize, logoSize);
+        textX += logoSize + gap;
+      } catch (_) {
+        // Brand text is enough if the image fails.
+      }
+    }
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${fontSize1}px "Inter", sans-serif`;
+    ctx.fillStyle = subtle ? '#57534e' : '#44403c';
+    if (brandName) ctx.fillText(brandName, textX, line1Y);
+    if (!compact) {
+      ctx.font = `${fontSize2}px "Inter", sans-serif`;
+      ctx.fillStyle = '#78716c';
+      const urlX = position.includes('center')
+        ? panelX + (panelW - urlWidth) / 2
+        : position.includes('right')
+          ? panelX + panelW - panelPadX - urlWidth
+          : panelX + panelPadX;
+      ctx.fillText(urlText, urlX, panelY + panelH - panelPadY - fontSize2 / 2);
+    }
+    ctx.restore();
+  };
+
+  const resolveBackTemplateVariant = (theme: string, generatedBackImage?: string) => {
+    if (theme === 'modern') return 'sidebar';
+    if (theme === 'vintage' || generatedBackImage) return 'gallery';
+    return 'classic';
+  };
+
+  const generateFront = async (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string, useFrontWatermark?: boolean) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
@@ -1254,6 +1359,17 @@ Output JSON strictly in this format:
         }
       };
       renderPolaroidText();
+
+      if (useFrontWatermark) {
+        await drawBrandMark(ctx, cw, ch, {
+          position: fillMode === 'fill' ? 'bottom-right' : 'bottom-left',
+          compact: true,
+          subtle: true,
+          opacity: fillMode === 'fill' ? 0.36 : 0.46,
+          scale: 0.9,
+          padding: Math.min(cw, ch) * 0.035,
+        });
+      }
 
       return canvas.toDataURL('image/jpeg', 0.9);
     }
@@ -1572,8 +1688,21 @@ Output JSON strictly in this format:
       }
     }
 
-    if (user.level !== 'vip') {
-      // Watermark removed from front as requested
+    if (useFrontWatermark) {
+      const preferredPosition =
+        fillMode === 'fill'
+          ? 'bottom-right'
+          : fillMode === 'border'
+            ? 'bottom-left'
+            : 'bottom-right';
+      await drawBrandMark(ctx, cw, ch, {
+        position: preferredPosition,
+        compact: true,
+        subtle: true,
+        opacity: fillMode === 'fill' ? 0.34 : 0.44,
+        scale: 0.92,
+        padding: Math.min(cw, ch) * 0.035,
+      });
     }
 
     return canvas.toDataURL('image/jpeg', 0.9);
@@ -1873,6 +2002,34 @@ Output JSON strictly in this format:
     const padding = Math.min(cw, ch) * 0.04;
 
     const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+    const templateVariant = resolveBackTemplateVariant(theme, generatedBackImage);
+    const dividerX = templateVariant === 'sidebar' ? cw * 0.62 : templateVariant === 'gallery' ? cw * 0.58 : cw * 0.5;
+    const messageMaxWidth = templateVariant === 'sidebar'
+      ? dividerX - padding * 2.4
+      : templateVariant === 'gallery'
+        ? dividerX - padding * 2
+        : cw / 2 - padding * 2;
+    const addressLineStart = templateVariant === 'sidebar' ? cw * 0.68 : dividerX + padding;
+
+    if (templateVariant === 'gallery') {
+      ctx.save();
+      ctx.strokeStyle = theme === 'vintage' ? 'rgba(139,69,19,0.16)' : 'rgba(68,64,60,0.12)';
+      ctx.lineWidth = Math.max(1, Math.min(cw, ch) * 0.003);
+      ctx.beginPath();
+      ctx.roundRect(padding * 0.8, padding * 0.8, cw - padding * 1.6, ch - padding * 1.6, Math.min(28, padding * 0.9));
+      ctx.stroke();
+      ctx.globalAlpha = 0.08;
+      drawArtisticIcon(ctx, artisticIcons[0] || 'camera', padding * 1.4, padding * 1.1, Math.min(cw, ch) * 0.12, '#44403c');
+      ctx.restore();
+    } else if (templateVariant === 'sidebar') {
+      ctx.save();
+      const panel = ctx.createLinearGradient(dividerX, 0, cw, 0);
+      panel.addColorStop(0, 'rgba(248,250,252,0.72)');
+      panel.addColorStop(1, 'rgba(255,255,255,0.92)');
+      ctx.fillStyle = panel;
+      ctx.fillRect(dividerX, 0, cw - dividerX, ch);
+      ctx.restore();
+    }
 
     // 1. AI Illustration (subtle decorative layer)
     if (generatedBackImage) {
@@ -2019,25 +2176,25 @@ Output JSON strictly in this format:
     }
 
     // 3. Layout & Divider Line
-    if (theme === 'modern') {
+    if (templateVariant === 'sidebar') {
       // Modern layout: No center divider, instead a subtle left border for address
       ctx.beginPath();
-      ctx.moveTo(cw * 0.55, padding * 1.5);
-      ctx.lineTo(cw * 0.55, ch - padding * 1.5);
-      ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+      ctx.moveTo(dividerX, padding * 1.35);
+      ctx.lineTo(dividerX, ch - padding * 1.35);
+      ctx.strokeStyle = 'rgba(15,23,42,0.08)';
       ctx.lineWidth = 1;
       ctx.stroke();
     } else {
       ctx.beginPath();
-      ctx.moveTo(cw / 2, padding * 1.2);
-      ctx.lineTo(cw / 2, ch - padding * 1.2);
+      ctx.moveTo(dividerX, padding * 1.2);
+      ctx.lineTo(dividerX, ch - padding * 1.2);
       ctx.strokeStyle = theme === 'vintage' ? '#d2b48c' : '#e7e5e4';
       ctx.lineWidth = 1;
       
       if (theme === 'handwritten') {
         ctx.beginPath();
         for (let y = padding * 1.2; y < ch - padding * 1.2; y += 10) {
-          ctx.lineTo(cw / 2 + Math.sin(y * 0.05) * 3, y);
+          ctx.lineTo(dividerX + Math.sin(y * 0.05) * 3, y);
         }
       } else if (theme === 'vintage') {
         ctx.setLineDash([5, 5]);
@@ -2047,7 +2204,7 @@ Output JSON strictly in this format:
       
       if (theme === 'classic' || theme === 'vintage') {
         ctx.save();
-        ctx.translate(cw / 2, ch / 2);
+        ctx.translate(dividerX, ch / 2);
         ctx.rotate(Math.PI / 4);
         ctx.fillStyle = theme === 'vintage' ? '#8b4513' : '#d6d3d1';
         ctx.fillRect(-4, -4, 8, 8);
@@ -2064,7 +2221,7 @@ Output JSON strictly in this format:
     
     for (let i = 0; i < lineCount; i++) {
       ctx.beginPath();
-      const lineXStart = theme === 'modern' ? cw * 0.6 : cw * 0.55;
+      const lineXStart = addressLineStart;
       ctx.moveTo(lineXStart, startY + (i * lineSpacing));
       ctx.lineTo(cw - padding, startY + (i * lineSpacing));
       ctx.stroke();
@@ -2146,8 +2303,8 @@ Output JSON strictly in this format:
       const formattedMessage = message.trim();
       const paragraphs = formattedMessage.split('\n');
       
-      let y = ch * 0.22; // Reset to default Y as illustration is now background
-      const maxWidth = theme === 'modern' ? (cw * 0.55 - padding * 2) : (cw / 2 - padding * 2);
+      let y = templateVariant === 'gallery' ? ch * 0.25 : ch * 0.22; // Reset to default Y as illustration is now background
+      const maxWidth = messageMaxWidth;
       const x = padding;
 
       // Dynamic font size adjustment for short texts to prevent awkward orphans
@@ -2218,80 +2375,31 @@ Output JSON strictly in this format:
       }
     }
 
-    // 9. Watermark (Logo + 服务名 + 网址) - 使用 promo 积分时显示，布局：第一行 Logo 服务名，第二行 网址
+    // 9. Watermark (Logo + 服务名 + 网址) - 使用 promo 积分或后台开启品牌信息时显示
     const watermark = useWatermark && (brandConfig.logoUrl() || brandConfig.brandName('zh'));
     if (watermark) {
       const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
-      const brandName = brandConfig.brandName(locale);
-      const domain = brandConfig.domain();
-      const logoUrl = brandConfig.logoUrl();
-      const pos = brandConfig.watermarkPosition() || 'bottom-center';
-      const opacity = brandConfig.watermarkOpacity();
-      const relSize = brandConfig.watermarkSize();
-      const shortSide = Math.min(cw, ch);
-      const wmPadding = padding * 1.45;
-      const logoSize = Math.max(46, Math.min(118, shortSide * 0.095 * relSize));
-      const gap = Math.max(logoSize * 0.32, 14);
-      const lineHeight = shortSide * 0.045;
-      const fontSize1 = Math.max(16, Math.min(34, shortSide * 0.031 * relSize));
-      const fontSize2 = Math.max(11, Math.min(22, shortSide * 0.02 * relSize));
-      ctx.save();
-      ctx.font = `${fontSize1}px "Inter", sans-serif`;
-      const brandWidth = ctx.measureText(brandName).width;
-      const totalLine1W = logoUrl ? logoSize + gap + brandWidth : brandWidth;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      let line1StartX = wmPadding;
-      if (pos.includes('center')) {
-        line1StartX = Math.max(wmPadding, (cw - totalLine1W) / 2);
-      } else if (pos.includes('right')) {
-        line1StartX = Math.max(wmPadding, cw - wmPadding - totalLine1W);
-      }
-      const line1Y = ch - wmPadding - lineHeight - fontSize2 - lineHeight * 0.5 - fontSize1 / 2;
-      const line2Y = ch - wmPadding - fontSize2 / 2 - lineHeight * 0.5;
-      const baseStartX = line1StartX;
-      const panelPadX = Math.max(18, logoSize * 0.24);
-      const panelPadY = Math.max(10, logoSize * 0.16);
-      const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
-      ctx.font = `${fontSize2}px "Inter", sans-serif`;
-      const urlWidth = ctx.measureText(urlText).width;
-      const panelW = Math.min(cw - wmPadding * 2, Math.max(totalLine1W, urlWidth) + panelPadX * 2);
-      const contentX = pos.includes('center')
-        ? (cw - panelW) / 2
-        : pos.includes('right')
-          ? cw - wmPadding - panelW
-          : wmPadding;
-      const panelH = Math.max(logoSize + panelPadY * 2, (line2Y - line1Y) + fontSize1 + fontSize2 + panelPadY);
-      const panelY = Math.max(wmPadding, line1Y - logoSize / 2 - panelPadY);
-      ctx.globalAlpha = Math.min(0.88, opacity + 0.18);
-      ctx.fillStyle = 'rgba(255,255,255,0.72)';
-      ctx.strokeStyle = 'rgba(120,113,108,0.22)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(contentX, panelY, panelW, panelH, Math.min(22, panelH / 3));
-      ctx.fill();
-      ctx.stroke();
-      line1StartX = contentX + panelPadX;
-      let textX = line1StartX;
-      ctx.globalAlpha = opacity;
-      if (logoUrl) {
-        try {
-          const logoImg = await loadImage(logoUrl);
-          ctx.drawImage(logoImg, line1StartX, line1Y - logoSize / 2, logoSize, logoSize);
-          textX = line1StartX + logoSize + gap;
-        } catch (_) {}
-      }
-      ctx.font = `${fontSize1}px "Inter", sans-serif`;
-      ctx.fillStyle = '#44403c';
-      ctx.fillText(brandName, textX, line1Y);
-      ctx.font = `${fontSize2}px "Inter", sans-serif`;
-      ctx.fillStyle = '#78716c';
-      let urlX = baseStartX;
-      if (pos.includes('center')) urlX = contentX + (panelW - urlWidth) / 2;
-      else if (pos.includes('right')) urlX = contentX + panelW - panelPadX - urlWidth;
-      else urlX = contentX + panelPadX;
-      ctx.fillText(urlText, urlX, line2Y);
-      ctx.restore();
+      const allowedBrandPositions = ['bottom-center', 'bottom-left', 'bottom-right', 'top-center', 'top-left', 'top-right'] as const;
+      type BrandMarkPosition = typeof allowedBrandPositions[number];
+      const configuredPosRaw = brandConfig.watermarkPosition() || 'bottom-center';
+      const configuredPos: BrandMarkPosition = (allowedBrandPositions as readonly string[]).includes(configuredPosRaw)
+        ? configuredPosRaw as BrandMarkPosition
+        : 'bottom-center';
+      const autoPos =
+        templateVariant === 'sidebar'
+          ? 'bottom-right'
+          : templateVariant === 'gallery'
+            ? 'bottom-left'
+            : 'top-left';
+      await drawBrandMark(ctx, cw, ch, {
+        position: configuredPos === 'bottom-center' ? autoPos : configuredPos,
+        compact: false,
+        subtle: false,
+        opacity: Math.max(0.58, brandConfig.watermarkOpacity()),
+        scale: Math.max(1.08, brandConfig.watermarkSize()),
+        padding: padding * 1.18,
+        locale,
+      });
     }
 
     return canvas.toDataURL('image/jpeg', 0.9);
@@ -2536,8 +2644,8 @@ Output JSON strictly in this format:
     try {
       const img = await loadImage(result.imgUrl || '');
       const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
-      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
+      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
         ? ''
         : await generateBack(
@@ -2661,7 +2769,7 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
       }
       const img = await loadImage(sourceImageUrl);
       const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
-      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate);
+      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
         ? ''
         : await generateBack(
