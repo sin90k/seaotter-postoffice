@@ -89,7 +89,7 @@ export default function AdminBrand() {
       setLogoPreview(normalized);
     }
     setLogoFile(null);
-    alert('Brand settings saved.');
+    alert('品牌设置已保存到当前浏览器。本设置不会同步到 Supabase 或其他设备。');
   };
 
   const restoreDefaultLogo = () => {
@@ -105,8 +105,11 @@ export default function AdminBrand() {
         <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">品牌设置</h1>
       </div>
       <p className="text-sm text-stone-500">
-        配置品牌名称、域名和 Logo（水印）。当用户使用赠送积分生成时，水印会自动应用在明信片背面。
+        配置品牌名称、域名和 Logo（水印）。当前页面只保存到当前浏览器，适合本机预览；线上统一品牌请使用代码默认值或后续迁移到云端配置。
       </p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        注意：这里上传的 Logo 不会写入 Supabase，也不会自动同步到其他设备。用户分享图的云端 branding 请到「分享图设置」中配置。
+      </div>
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
@@ -154,7 +157,7 @@ export default function AdminBrand() {
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">上传 Logo（PNG / SVG / WebP）</label>
+            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">上传 Logo（仅当前浏览器）</label>
             <input
               type="file"
               accept=".png,.svg,.webp"
@@ -163,7 +166,7 @@ export default function AdminBrand() {
             />
             {logoFile && <span className="text-xs text-stone-500">{logoFile.name}</span>}
             {!logoFile && logoPreview && (
-              <span className="text-xs text-emerald-600">已使用已保存 Logo</span>
+              <span className="text-xs text-emerald-600">当前浏览器已保存 Logo</span>
             )}
           </div>
           <div className="md:col-span-2">

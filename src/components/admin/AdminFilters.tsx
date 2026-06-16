@@ -30,22 +30,23 @@ export default function AdminFilters() {
   const handleSave = () => {
     saveTravelFilterPresets(presets);
     setEdited(false);
-    alert('Filter presets saved. New postcards will use updated styles.');
+    alert('滤镜预设已保存到当前浏览器。换设备或清缓存后不会保留。');
   };
 
   return (
     <div className="space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
-        Travel Photo Filters
+        照片滤镜
       </h1>
       <p className="text-sm text-stone-500">
-        Edit names, descriptions and numeric presets for each postcard filter. The rendering engine
-        uses these parameters (exposure, contrast, saturation, etc.) and scales them with the user
-        intensity slider.
+        调整每个旅行滤镜的名称、说明和数值参数。当前页面只保存到当前浏览器，适合调试滤镜手感；线上默认滤镜仍来自代码配置。
       </p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        注意：说明文字只帮助管理者理解风格，不会改变滤镜效果；真正影响画面的只有下方数值参数。
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-          <h2 className="font-semibold text-stone-900 mb-3">Filters</h2>
+          <h2 className="font-semibold text-stone-900 mb-3">滤镜列表</h2>
           <ul className="space-y-1 max-h-[400px] overflow-y-auto">
             {presets.map((p) => (
               <li key={p.id}>
@@ -70,7 +71,7 @@ export default function AdminFilters() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
-                    Display name
+                    显示名称
                   </label>
                   <input
                     type="text"
@@ -81,22 +82,22 @@ export default function AdminFilters() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
-                    Style description
+                    风格说明
                   </label>
                   <textarea
                     value={current.description}
                     onChange={(e) => updateCurrent({ description: e.target.value })}
                     rows={8}
                     className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
-                    placeholder="Describe the mood, tone, contrast, color and grain in natural language."
+                    placeholder="用自然语言描述氛围、色调、对比度、颜色和颗粒感。"
                   />
                   <p className="text-xs text-stone-400">
-                    This text is for humans only and does not change the math. Adjust numeric parameters below to tune the effect.
+                    这段说明只用于阅读，不会改变实际滤镜。请调整下方数值参数来改变效果。
                   </p>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
-                    Numeric parameters (-100 to +100)
+                    数值参数（-100 到 +100）
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                     {[
@@ -141,15 +142,14 @@ export default function AdminFilters() {
                 className="mt-4 flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors disabled:opacity-60"
                 disabled={!edited}
               >
-                <Save className="w-4 h-4" /> {edited ? 'Save changes' : 'Saved'}
+                <Save className="w-4 h-4" /> {edited ? '保存修改' : '已保存'}
               </button>
             </>
           ) : (
-            <p className="text-sm text-stone-500">Select a filter to edit.</p>
+            <p className="text-sm text-stone-500">请选择一个滤镜进行编辑。</p>
           )}
         </div>
       </div>
     </div>
   );
 }
-

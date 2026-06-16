@@ -59,17 +59,17 @@ export function listPromptIds(): { prompt_id: string; prompt_name: string; promp
   return [
     {
       prompt_id: 'caption_generation_default',
-      prompt_name: 'Caption / title generation',
+      prompt_name: '标题与正文生成',
       prompt_type: 'caption_generation',
     },
     {
       prompt_id: 'postcard_layout_default',
-      prompt_name: 'Postcard layout',
+      prompt_name: '明信片布局',
       prompt_type: 'postcard_layout',
     },
     {
       prompt_id: 'translation_default',
-      prompt_name: 'Translation',
+      prompt_name: '翻译',
       prompt_type: 'translation',
     },
   ];

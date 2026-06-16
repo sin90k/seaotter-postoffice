@@ -125,7 +125,7 @@ export default function AdminTravelMap() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Travel Map</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">旅行地图</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => triggerRefresh()}
@@ -153,14 +153,14 @@ export default function AdminTravelMap() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-stone-500">按用户聚合旅行范围（国家/城市）和明信片数量，来自 `postcard_metadata`。</p>
+      <p className="text-sm text-stone-500">保存到 Supabase。按用户聚合旅行范围（国家/城市）和明信片数量，数据来自 postcard_metadata。</p>
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-4">
         <div className="text-sm font-semibold mb-2">国家热度 Top 20</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
           {countryHot.map((r) => (
             <div key={r.country} className="rounded-lg border border-stone-200 px-3 py-2 text-sm bg-stone-50">
               <div className="font-semibold">{r.country}</div>
-              <div className="text-xs text-stone-500">Postcards: {r.postcards} | Users: {r.users}</div>
+              <div className="text-xs text-stone-500">明信片：{r.postcards} | 用户：{r.users}</div>
             </div>
           ))}
           {countryHot.length === 0 && <div className="text-sm text-stone-500">暂无国家热度数据</div>}
@@ -170,11 +170,11 @@ export default function AdminTravelMap() {
         <table className="min-w-full text-sm">
           <thead className="bg-stone-50 text-stone-600">
             <tr>
-              <th className="px-3 py-2 text-left">User</th>
-              <th className="px-3 py-2 text-left">Countries</th>
-              <th className="px-3 py-2 text-left">Cities</th>
-              <th className="px-3 py-2 text-left">Postcards</th>
-              <th className="px-3 py-2 text-left">Updated At</th>
+              <th className="px-3 py-2 text-left">用户</th>
+              <th className="px-3 py-2 text-left">国家</th>
+              <th className="px-3 py-2 text-left">城市</th>
+              <th className="px-3 py-2 text-left">明信片</th>
+              <th className="px-3 py-2 text-left">更新时间</th>
             </tr>
           </thead>
           <tbody>

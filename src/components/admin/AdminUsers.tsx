@@ -247,7 +247,7 @@ export default function AdminUsers({
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={isAdmin ? 14 : 13} className="px-4 py-12 text-center text-stone-400 italic text-sm">
-                    No users found.
+                    没有找到用户。
                   </td>
                 </tr>
               ) : (
@@ -282,7 +282,7 @@ export default function AdminUsers({
                         )}
                         <div>
                           <button type="button" onClick={() => u.id && openDetail(u.id)} className="font-bold text-stone-900 hover:underline text-left">
-                            {u.nickname || 'Anonymous'}
+                            {u.nickname || '未设置昵称'}
                           </button>
                           <div className="text-[10px] text-stone-400">ID: {u.id?.slice(0, 8) || idx + 1000}</div>
                         </div>
@@ -434,6 +434,23 @@ export default function AdminUsers({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => !saving && setEditingUser(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-stone-900">编辑积分 · {editingUser.nickname || editingUser.email || '用户'}</h3>
+            {editingUser.id && (
+              <div className="rounded-xl bg-stone-50 border border-stone-200 px-3 py-2 text-xs text-stone-600">
+                <div className="mb-1 font-bold text-stone-500">用户 UUID</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono break-all select-all">{editingUser.id}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyUserId(editingUser.id!)}
+                    className="shrink-0 p-1.5 rounded-lg text-stone-400 hover:text-stone-900 hover:bg-white"
+                    title="复制 UUID"
+                    aria-label="复制 UUID"
+                  >
+                    {copiedUserId === editingUser.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">赠送积分</label>
@@ -481,7 +498,7 @@ export default function AdminUsers({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setDetailUserId(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-stone-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-stone-900">{detailUser.nickname || detailUser.email || 'User'}</h3>
+              <h3 className="text-lg font-bold text-stone-900">{detailUser.nickname || detailUser.email || '用户'}</h3>
               <button type="button" onClick={() => setDetailUserId(null)} className="text-stone-400 hover:text-stone-600">×</button>
             </div>
             <div className="p-4 overflow-y-auto space-y-4">
@@ -502,7 +519,7 @@ export default function AdminUsers({
                       {copiedUserId === detailUser.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <div className="text-stone-500">Email</div>
+                  <div className="text-stone-500">邮箱</div>
                   <div className="text-stone-900">{detailUser.email || '-'}</div>
                   <div className="text-stone-500">登录方式</div>
                   <div className="text-stone-900">
@@ -580,7 +597,7 @@ export default function AdminUsers({
                 <h4 className="text-sm font-bold text-stone-700 mb-2">积分流水（最近）</h4>
                 <ul className="text-xs space-y-1 max-h-32 overflow-y-auto">
                   {ledger.length === 0 ? (
-                    <li className="text-stone-400">No ledger entries.</li>
+                    <li className="text-stone-400">暂无积分流水。</li>
                   ) : (
                     ledger.slice(0, 20).map((r) => (
                       <li key={r.id} className="flex justify-between">
@@ -596,7 +613,7 @@ export default function AdminUsers({
                 <h4 className="text-sm font-bold text-stone-700 mb-2">最近生成记录</h4>
                 <ul className="text-xs space-y-1 max-h-24 overflow-y-auto">
                   {postcards.length === 0 ? (
-                    <li className="text-stone-400">None.</li>
+                    <li className="text-stone-400">暂无生成记录。</li>
                   ) : (
                     postcards.slice(0, 10).map((r) => (
                       <li key={r.id}>

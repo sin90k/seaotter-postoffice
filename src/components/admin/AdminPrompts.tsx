@@ -35,8 +35,12 @@ export default function AdminPrompts() {
     <div className="space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">AI 提示词管理</h1>
       <p className="text-sm text-stone-500">
-        编辑并保存提示词。保存后会覆盖默认配置文件中的内容，无需重新部署即可生效。
+        这里用于临时调试前端提示词，只保存在当前浏览器，不会同步到 Supabase 或 Vercel。
+        线上 AI 主流程和背面重绘仍以代码与 Supabase Edge Function 中的提示词为准。
       </p>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        注意：清空浏览器缓存、换设备或换浏览器后，这里的修改会消失。需要全站生效的提示词应迁移到云端配置或直接修改代码后发布。
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
           <h2 className="font-semibold text-stone-900 mb-3">提示词列表</h2>
@@ -64,7 +68,7 @@ export default function AdminPrompts() {
                   {list.find((p) => p.prompt_id === selectedId)?.prompt_name} · {list.find((p) => p.prompt_id === selectedId)?.prompt_type}
                 </span>
                 {lastModified != null && (
-                  <span className="text-xs text-stone-400">Last modified: {new Date(lastModified).toLocaleString()}</span>
+                  <span className="text-xs text-stone-400">最后修改：{new Date(lastModified).toLocaleString()}</span>
                 )}
               </div>
               <textarea

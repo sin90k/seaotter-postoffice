@@ -53,7 +53,7 @@ export default function AdminPricing() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">Region Pricing</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">地区定价</h1>
         <button
           onClick={() => load()}
           className="px-3 py-2 rounded-lg border border-stone-200 hover:bg-stone-50 text-sm"
@@ -61,7 +61,7 @@ export default function AdminPricing() {
           {loading ? '加载中...' : '刷新'}
         </button>
       </div>
-      <p className="text-sm text-stone-500">按国家市场配置基础单价与套餐价格，前台会自动按市场加载。</p>
+      <p className="text-sm text-stone-500">保存到 Supabase。按国家市场配置基础单价与套餐价格，前台会自动按市场加载。</p>
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-stone-50 text-stone-600">

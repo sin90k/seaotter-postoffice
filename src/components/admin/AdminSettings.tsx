@@ -158,16 +158,21 @@ export default function AdminSettings() {
         return;
       }
     }
-    alert('System configuration saved.');
+    alert(isSupabaseConnected ? '系统配置已保存到 Supabase。' : '系统配置只保存到当前浏览器，因为 Supabase 尚未连接。');
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">System Configuration</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">系统配置</h1>
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
         <p className="text-sm text-stone-500">
           <strong>OpenAI</strong>: 主流程、编辑页改写、AI 背面重绘都通过 Supabase Edge Function 调用。请在 Supabase Secrets 配置 OPENAI_API_KEY；OPENAI_BASE_URL 仅在使用代理时需要。
         </p>
+        {!isSupabaseConnected && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            当前未连接 Supabase，本页保存只会写入当前浏览器，不会影响线上用户。
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">
@@ -233,7 +238,7 @@ export default function AdminSettings() {
           onClick={handleSave}
           className="flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors"
         >
-          <Save className="w-4 h-4" /> Save
+          <Save className="w-4 h-4" /> 保存系统配置
         </button>
       </div>
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
@@ -294,7 +299,9 @@ export default function AdminSettings() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-stone-500">Logo and brand: use <strong>Brand Settings</strong> in the sidebar.</p>
+      <p className="text-sm text-stone-500">
+        Logo 与本机水印预览请使用左侧「品牌设置」；分享图底部 branding 使用「分享图设置」，该项保存到 Supabase。
+      </p>
     </div>
   );
 }
