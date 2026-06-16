@@ -1,8 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useRef, useState } from 'react';
 import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
-import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2, Move } from 'lucide-react';
 import JSZip from 'jszip';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
@@ -266,6 +265,22 @@ export default function Step5Process({
     });
     return unique.join(', ');
   };
+  const getExifLocationName = (exif?: Photo['exif']) => {
+    if (!exif) return '';
+    const city = cleanLocationPart(exif.city);
+    const country = cleanLocationPart(exif.country);
+    const region = cleanLocationPart(exif.region);
+    if (city) return [city, country].filter(Boolean).join(', ');
+    if (region || country) return [region, country].filter(Boolean).join(', ');
+    if (exif.location) {
+      const lat = Number(exif.location.lat);
+      const lng = Number(exif.location.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      }
+    }
+    return '';
+  };
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -386,7 +401,7 @@ export default function Step5Process({
         const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
         const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
         const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
-        const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
+        const hasExifLocation = !!getExifLocationName(photo.exif);
         const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
         return count + (usesAi ? 1 : 0);
       }, 0);
@@ -420,7 +435,7 @@ export default function Step5Process({
           const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
           const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
           const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
-          const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
+          const hasExifLocation = !!getExifLocationName(photo.exif);
           const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
           const cost = usesAi ? creditsPerCard : 0;
 
@@ -476,7 +491,7 @@ export default function Step5Process({
               const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
               const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
               const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
-              const hasExifLocation = !!(photo.exif?.city || photo.exif?.region || photo.exif?.country || photo.exif?.location);
+              const hasExifLocation = !!getExifLocationName(photo.exif);
               
               // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
               const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
@@ -508,9 +523,9 @@ MANDATORY STYLE: ${currentStyle}`;
                   // EXIF 地点与日期：要求模型在标题与背面文案中优先参考 EXIF，而不是随意猜城市
                   let exifLocationLabel = "";
                   if (photo.exif) {
-                    const parts = [photo.exif.city, photo.exif.region, photo.exif.country].filter(Boolean) as string[];
-                    if (parts.length > 0) {
-                      exifLocationLabel = parts.join(", ");
+                    const loc = getExifLocationName(photo.exif);
+                    if (loc) {
+                      exifLocationLabel = loc;
                       analysisPrompt += `\nPhoto EXIF location (most reliable real-world place): ${exifLocationLabel}.`;
                     }
                     if (photo.exif.location) {
@@ -587,19 +602,7 @@ Output JSON strictly in this format:
                   }
 
                   // 尝试从 EXIF 提取地点信息，优先使用真实位置而不是模型臆测
-                  let exifLocationName = "";
-                  if (photo.exif) {
-                    // 优先展示具体城市，让用户一眼知道“在哪个城市”
-                    const city = cleanLocationPart(photo.exif.city);
-                    const country = cleanLocationPart(photo.exif.country);
-                    const region = cleanLocationPart(photo.exif.region);
-                    if (city) {
-                      exifLocationName = [city, country].filter(Boolean).join(', ');
-                    } else {
-                      const parts = [region, country].filter(Boolean) as string[];
-                      if (parts.length > 0) exifLocationName = parts.join(', ');
-                    }
-                  }
+                  const exifLocationName = getExifLocationName(photo.exif);
                   if (needFrontLocation) {
                     if (exifLocationName) {
                       location = exifLocationName;
@@ -694,11 +697,7 @@ Output JSON strictly in this format:
 
               // 非 AI 路径下，也允许用 EXIF 填充地点（当选择了仅地点/标题+地点时）
               if (!runAi && needFrontLocation && !location && photo.exif) {
-                const city = cleanLocationPart(photo.exif.city);
-                const country = cleanLocationPart(photo.exif.country);
-                const region = cleanLocationPart(photo.exif.region);
-                if (city) location = [city, country].filter(Boolean).join(', ');
-                else location = [region, country].filter(Boolean).join(', ');
+                location = getExifLocationName(photo.exif);
               }
 
               if (!needFrontTitle) title = '';
@@ -2525,6 +2524,59 @@ Output JSON strictly in this format:
     }
   };
 
+  const handleRegenerateBackImage = async (photoId: string) => {
+    const result = editingDraft && editingDraft.id === photoId ? editingDraft : history.find(r => r.id === photoId);
+    if (!result) return;
+    const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
+    if (backMode !== 'ai') {
+      alert(language === 'zh' ? '当前不是 AI 背面模式，请先在全局设置中选择 AI 重绘背面。' : 'AI back mode is not enabled.');
+      return;
+    }
+    if (user.credits < 1) {
+      setShowPricing(true);
+      return;
+    }
+
+    setRewritingState({ id: photoId, field: 'back' });
+    try {
+      const prompt = `Create an elegant postcard back illustration as a refined pencil sketch with soft pastel accents.
+Target language/context: ${result.settings.aiLanguage || 'Chinese'}.
+Title: ${result.draftTitle || result.title || ''}
+Location: ${result.draftLocation || result.location || ''}
+Date: ${result.draftDate || result.date || ''}
+Message: ${result.draftMessage || result.message || ''}
+Style: delicate lines, airy white space, premium travel postcard, no text, no watermark, no logo.`;
+
+      const response = await withTimeout(
+        invokePostcardAi('image', {
+          model: "dall-e-3",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json",
+          style: "natural"
+        }),
+        90000,
+        "AI back redraw timed out."
+      );
+
+      const b64 = response.data?.[0]?.b64_json;
+      if (!b64) throw new Error('AI did not return an image.');
+      const generatedBackImage = `data:image/png;base64,${b64}`;
+      const nextDraft = { ...result, generatedBackImage };
+      setEditingDraft(nextDraft);
+      await handleUpdatePreview(nextDraft);
+      setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+    } catch (e: any) {
+      console.error('Failed to redraw back image', e);
+      alert(language === 'zh'
+        ? `AI 背面重绘失败：${e?.message || '请稍后再试'}`
+        : `Failed to redraw the back: ${e?.message || 'Please try again.'}`);
+    } finally {
+      setRewritingState(null);
+    }
+  };
+
   const handleCancelEdit = () => {
     setEditingResultId(null);
     if (onClearEdit) onClearEdit();
@@ -2572,28 +2624,24 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
         prompt += `\nKeep it to just the location name (e.g., city, country, or landmark).`;
       }
 
-      let newText = '';
-      
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("Gemini API Key is missing.");
-      }
-      
-      const ai = new GoogleGenAI({ apiKey });
       const response = await withTimeout(
-        ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: {
-            parts: [
-              { inlineData: { mimeType: 'image/jpeg', data: base64Data.split(',')[1] } },
-              { text: prompt }
-            ]
-          }
+        invokePostcardAi('chat', {
+          model: "gpt-4o",
+          temperature: 0.8,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: base64Data } },
+              ],
+            },
+          ],
         }),
         60000,
         "AI Rewrite timed out."
       );
-      newText = response.text || '';
+      let newText = response.choices?.[0]?.message?.content || '';
       
       newText = newText.trim().replace(/^["']|["']$/g, '');
       
@@ -2869,12 +2917,14 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   onPointerMove={handleFrontTextDrag}
                                   onPointerUp={() => { isDraggingFrontText.current = false; }}
                                   onPointerCancel={() => { isDraggingFrontText.current = false; }}
-                                  className="absolute z-20 max-w-[70%] cursor-move touch-none select-none rounded-md border border-white/80 bg-black/55 px-3 py-2 text-center text-white shadow-lg ring-1 ring-black/20"
+                                  className="absolute z-20 max-w-[62%] cursor-grab touch-none select-none rounded-lg border border-white/70 bg-black/45 px-2.5 py-1.5 text-center text-white shadow-md ring-1 ring-black/10 active:cursor-grabbing"
                                   style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
                                 >
-                                  {result.draftTitle && <span className="block text-sm font-semibold leading-tight">{result.draftTitle}</span>}
-                                  {result.draftLocation && <span className="mt-0.5 block text-xs leading-tight opacity-90">{result.draftLocation}</span>}
-                                  <span className="mt-1 block text-[10px] opacity-70">{language === 'zh' ? '拖动调整位置' : 'Drag to position'}</span>
+                                  <span className="pointer-events-none absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white text-stone-700 shadow-sm">
+                                    <Move className="h-3 w-3" />
+                                  </span>
+                                  {result.draftTitle && <span className="block text-xs font-semibold leading-tight sm:text-sm">{result.draftTitle}</span>}
+                                  {result.draftLocation && <span className="mt-0.5 block text-[10px] leading-tight opacity-90 sm:text-xs">{result.draftLocation}</span>}
                                 </button>
                               );
                             })()}
@@ -3058,6 +3108,17 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
                             <div className="space-y-4">
                               <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.backSide} {t.style}</h4>
+                              <button
+                                type="button"
+                                onClick={() => handleRegenerateBackImage(result.id)}
+                                disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
+                                className="inline-flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+                              >
+                                {rewritingState?.id === result.id && rewritingState?.field === 'back'
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Wand2 className="h-4 w-4" />}
+                                {language === 'zh' ? 'AI 重绘背面图' : 'Redraw AI Back'}
+                              </button>
                               
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
