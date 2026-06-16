@@ -319,6 +319,16 @@ export default function Step5Process({
     return data;
   };
 
+  const getGeneratedImageSource = (response: any) => {
+    const image = response?.data?.[0];
+    if (image?.b64_json) {
+      const mimeType = image.mime_type || 'image/png';
+      return `data:${mimeType};base64,${image.b64_json}`;
+    }
+    if (image?.url) return image.url;
+    return null;
+  };
+
   const slugifyTheme = (raw?: string) =>
     String(raw || '')
       .trim()
@@ -662,9 +672,7 @@ Output JSON strictly in this format:
                         style: "natural"
                       });
 
-                      if (response.data && response.data[0] && response.data[0].b64_json) {
-                        generatedBackImageBase64 = `data:image/png;base64,${response.data[0].b64_json}`;
-                      }
+                      generatedBackImageBase64 = getGeneratedImageSource(response);
                     } catch (openAiErr) {
                       console.warn("OpenAI image generation failed, trying fallback prompt", openAiErr);
                       try {
@@ -677,9 +685,7 @@ Output JSON strictly in this format:
                           response_format: "b64_json",
                           style: "natural"
                         });
-                        if (fallbackResponse.data && fallbackResponse.data[0] && fallbackResponse.data[0].b64_json) {
-                          generatedBackImageBase64 = `data:image/png;base64,${fallbackResponse.data[0].b64_json}`;
-                        }
+                        generatedBackImageBase64 = getGeneratedImageSource(fallbackResponse);
                       } catch (fallbackErr) {
                         console.warn("Fallback image generation also failed", fallbackErr);
                       }
@@ -2539,9 +2545,9 @@ Visual direction: refined pencil sketch with soft pastel accents, airy white spa
       "AI back redraw timed out."
     );
 
-    const b64 = response.data?.[0]?.b64_json;
-    if (!b64) throw new Error('AI did not return an image.');
-    return `data:image/png;base64,${b64}`;
+    const generatedImage = getGeneratedImageSource(response);
+    if (!generatedImage) throw new Error('AI did not return an image.');
+    return generatedImage;
   };
 
   const ensureAiBackImage = async (result: ProcessedPostcard, force = false) => {

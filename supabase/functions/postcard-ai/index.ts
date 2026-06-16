@@ -11,6 +11,52 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const readOpenAiJson = async (response: Response) =>
+  response.json().catch(() => ({ error: { message: "Invalid OpenAI response" } }));
+
+const callOpenAi = async (baseUrl: string, apiKey: string, endpoint: string, payload: Record<string, unknown>) => {
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await readOpenAiJson(response);
+  return { response, data };
+};
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+};
+
+const normalizeImageResponse = async (data: any) => {
+  const image = data?.data?.[0];
+  if (!image?.url || image?.b64_json) return data;
+
+  const imageResponse = await fetch(image.url);
+  if (!imageResponse.ok) return data;
+
+  const b64 = arrayBufferToBase64(await imageResponse.arrayBuffer());
+  return {
+    ...data,
+    data: [
+      {
+        ...image,
+        b64_json: b64,
+        mime_type: imageResponse.headers.get("content-type") || "image/png",
+      },
+    ],
+  };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -30,20 +76,24 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body?.action;
     const payload = body?.payload;
-    if (!payload || (action !== "chat" && action !== "image")) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || (action !== "chat" && action !== "image")) {
       return json({ error: "Invalid request" }, 400);
     }
 
     const endpoint = action === "chat" ? "/chat/completions" : "/images/generations";
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json().catch(() => ({ error: { message: "Invalid OpenAI response" } }));
+    let { response, data } = await callOpenAi(baseUrl, apiKey, endpoint, payload);
+
+    if (action === "image" && !response.ok && response.status === 400 && "response_format" in payload) {
+      const retryPayload = { ...payload };
+      delete retryPayload.response_format;
+      console.error("[postcard-ai] Image request rejected, retrying without response_format", {
+        status: response.status,
+        baseHost: new URL(baseUrl).host,
+        message: data?.error?.message || "Unknown upstream error",
+      });
+      ({ response, data } = await callOpenAi(baseUrl, apiKey, endpoint, retryPayload));
+    }
+
     if (!response.ok) {
       console.error("[postcard-ai] OpenAI request rejected", {
         action,
@@ -51,6 +101,8 @@ Deno.serve(async (req) => {
         baseHost: new URL(baseUrl).host,
         message: data?.error?.message || "Unknown upstream error",
       });
+    } else if (action === "image") {
+      data = await normalizeImageResponse(data);
     }
     return json(data, response.status);
   } catch (error) {
