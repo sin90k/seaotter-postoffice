@@ -276,7 +276,7 @@ export default function Step5Process({
       const lat = Number(exif.location.lat);
       const lng = Number(exif.location.lng);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        return `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
       }
     }
     return '';

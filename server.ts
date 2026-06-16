@@ -225,21 +225,71 @@ async function startServer() {
           .order("updated_at", { ascending: false })
           .limit(2000),
       ]);
-      const markers = Array.isArray(metaRes.data)
-        ? metaRes.data
-            .filter((m: any) => m && (m.city || m.country) && typeof m.latitude === "number" && typeof m.longitude === "number")
-            .map((m: any) => ({
-              city: m.city || "",
-              country: m.country || "",
-              latitude: m.latitude,
-              longitude: m.longitude,
-              themeSlug: m.theme_slug || null,
-              postcardLocalId: m.postcard_local_id || null,
-            }))
-        : [];
+      const rows = Array.isArray(metaRes.data) ? metaRes.data : [];
+      const placeGroups = new Map<string, any>();
+      for (const m of rows as any[]) {
+        const lat = Number(m?.latitude);
+        const lng = Number(m?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        const city = String(m?.city || "").trim();
+        const country = String(m?.country || "").trim();
+        const hasNamedPlace = !!(city || country);
+        const latBucket = Number(lat.toFixed(2));
+        const lngBucket = Number(lng.toFixed(2));
+        const placeKey = hasNamedPlace
+          ? `named:${city.toLowerCase()}|${country.toLowerCase()}`
+          : `gps:${latBucket.toFixed(2)}|${lngBucket.toFixed(2)}`;
+        const label = hasNamedPlace
+          ? [city, country].filter(Boolean).join(", ")
+          : `${latBucket.toFixed(2)}, ${lngBucket.toFixed(2)}`;
+        const existing = placeGroups.get(placeKey);
+        if (existing) {
+          existing.count += 1;
+          existing.latitudeSum += lat;
+          existing.longitudeSum += lng;
+          existing.postcardLocalIds.push(m.postcard_local_id || null);
+        } else {
+          placeGroups.set(placeKey, {
+            placeKey,
+            label,
+            city,
+            country,
+            latitudeSum: lat,
+            longitudeSum: lng,
+            latitude: lat,
+            longitude: lng,
+            latBucket,
+            lngBucket,
+            count: 1,
+            themeSlug: m.theme_slug || null,
+            postcardLocalId: m.postcard_local_id || null,
+            postcardLocalIds: [m.postcard_local_id || null],
+          });
+        }
+      }
+      const markers = Array.from(placeGroups.values()).map((m) => ({
+        placeKey: m.placeKey,
+        label: m.label,
+        city: m.city,
+        country: m.country,
+        latitude: m.latitudeSum / m.count,
+        longitude: m.longitudeSum / m.count,
+        latBucket: m.latBucket,
+        lngBucket: m.lngBucket,
+        count: m.count,
+        themeSlug: m.themeSlug,
+        postcardLocalId: m.postcardLocalId,
+      }));
+      const countriesCount = new Set(rows.map((m: any) => String(m?.country || "").trim()).filter(Boolean)).size;
+      const citiesCount = new Set(markers.map((m: any) => m.placeKey)).size;
       res.json({
         ok: true,
-        stats: statsRes.data || { countries_count: 0, cities_count: 0, postcards_count: 0, updated_at: null },
+        stats: {
+          ...(statsRes.data || { countries_count: 0, cities_count: 0, postcards_count: rows.length, updated_at: null }),
+          countries_count: countriesCount || statsRes.data?.countries_count || 0,
+          cities_count: citiesCount || statsRes.data?.cities_count || 0,
+          postcards_count: rows.length || statsRes.data?.postcards_count || 0,
+        },
         markers,
       });
     } catch (e: any) {
@@ -255,22 +305,36 @@ async function startServer() {
       if (!user) return;
       const city = String((req as any).query?.city || "").trim();
       const country = String((req as any).query?.country || "").trim();
-      if (!city && !country) {
-        return res.status(400).json({ error: "city or country is required" });
+      const latBucket = Number((req as any).query?.latBucket);
+      const lngBucket = Number((req as any).query?.lngBucket);
+      const hasGpsBucket = Number.isFinite(latBucket) && Number.isFinite(lngBucket);
+      if (!city && !country && !hasGpsBucket) {
+        return res.status(400).json({ error: "city/country or gps bucket is required" });
       }
 
       let metaQuery = supabaseAdmin!
         .from("postcard_metadata")
-        .select("postcard_id,postcard_local_id,city,country,theme_slug,updated_at")
+        .select("postcard_id,postcard_local_id,city,country,latitude,longitude,theme_slug,updated_at")
         .eq("user_id", user.userId)
         .order("updated_at", { ascending: false })
-        .limit(120);
+        .limit(hasGpsBucket ? 2000 : 120);
       if (city) metaQuery = metaQuery.eq("city", city);
       if (country) metaQuery = metaQuery.eq("country", country);
       const metaRes = await metaQuery;
       if (metaRes.error) return res.status(500).json({ error: metaRes.error.message || "metadata query failed" });
 
-      const ids = (metaRes.data || []).map((m: any) => m.postcard_id).filter(Boolean);
+      const matchedMeta = hasGpsBucket
+        ? (metaRes.data || []).filter((m: any) => {
+            if (m.city || m.country) return false;
+            const lat = Number(m.latitude);
+            const lng = Number(m.longitude);
+            return Number.isFinite(lat)
+              && Number.isFinite(lng)
+              && Number(lat.toFixed(2)) === latBucket
+              && Number(lng.toFixed(2)) === lngBucket;
+          })
+        : (metaRes.data || []);
+      const ids = matchedMeta.map((m: any) => m.postcard_id).filter(Boolean);
       if (ids.length === 0) return res.json({ ok: true, items: [] });
 
       const cards = await supabaseAdmin!
@@ -283,7 +347,7 @@ async function startServer() {
       const payloadById = new Map<string, any>();
       for (const c of cards.data || []) payloadById.set(String((c as any).id), (c as any).payload || {});
 
-      const items = (metaRes.data || []).map((m: any) => {
+      const items = matchedMeta.map((m: any) => {
         const p = payloadById.get(String(m.postcard_id)) || {};
         return {
           postcardId: m.postcard_id,
@@ -292,6 +356,8 @@ async function startServer() {
           frontUrl: p.frontDataUrl || p.frontUrl || "",
           city: m.city || "",
           country: m.country || "",
+          latitude: typeof m.latitude === "number" ? m.latitude : null,
+          longitude: typeof m.longitude === "number" ? m.longitude : null,
           themeSlug: m.theme_slug || null,
           createdAt: p.createdAt || null,
         };

@@ -3,10 +3,15 @@ import { X, MapPin, Download } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 type MarkerRow = {
+  placeKey?: string;
+  label?: string;
   city: string;
   country: string;
   latitude: number;
   longitude: number;
+  latBucket?: number;
+  lngBucket?: number;
+  count?: number;
   themeSlug?: string | null;
   postcardLocalId?: string | null;
 };
@@ -25,6 +30,8 @@ type CityCard = {
   frontUrl: string;
   city: string;
   country: string;
+  latitude?: number | null;
+  longitude?: number | null;
   themeSlug?: string | null;
   createdAt?: number | null;
 };
@@ -46,7 +53,7 @@ export default function TravelMapModal({ language, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [cityCards, setCityCards] = useState<CityCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
-  const [activeMarker, setActiveMarker] = useState<{ city: string; country: string } | null>(null);
+  const [activeMarker, setActiveMarker] = useState<MarkerRow | null>(null);
 
   const t = useMemo(
     () =>
@@ -156,13 +163,36 @@ export default function TravelMapModal({ language, onClose }: Props) {
     a.click();
   };
 
-  const loadCityCards = async (city: string, country: string) => {
+  const getMarkerLabel = (marker: {
+    label?: string | null;
+    city?: string | null;
+    country?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  }) => {
+    if (marker.label) return marker.label;
+    const named = [marker.city, marker.country].filter(Boolean).join(', ');
+    if (named) return named;
+    if (Number.isFinite(marker.latitude) && Number.isFinite(marker.longitude)) {
+      return `${Number(marker.latitude).toFixed(2)}, ${Number(marker.longitude).toFixed(2)}`;
+    }
+    return language === 'zh' ? '未知地点' : 'Unknown place';
+  };
+
+  const loadCityCards = async (marker: MarkerRow) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
     if (!token) return;
     setCardsLoading(true);
-    setActiveMarker({ city, country });
-    const url = `/api/travel-map/city-postcards?city=${encodeURIComponent(city || '')}&country=${encodeURIComponent(country || '')}`;
+    setActiveMarker(marker);
+    const params = new URLSearchParams();
+    if (marker.city) params.set('city', marker.city);
+    if (marker.country) params.set('country', marker.country);
+    if (!marker.city && !marker.country && marker.latBucket != null && marker.lngBucket != null) {
+      params.set('latBucket', String(marker.latBucket));
+      params.set('lngBucket', String(marker.lngBucket));
+    }
+    const url = `/api/travel-map/city-postcards?${params.toString()}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -211,15 +241,21 @@ export default function TravelMapModal({ language, onClose }: Props) {
                 const pos = markerToStyle(m.latitude, m.longitude);
                 return (
                   <div
-                    key={`${m.city}-${m.country}-${i}`}
+                    key={m.placeKey || `${m.city}-${m.country}-${i}`}
                     className="absolute -translate-x-1/2 -translate-y-1/2 group"
                     style={{ left: pos.left, top: pos.top }}
-                    title={`${m.city || 'Unknown city'} ${m.country || ''}`}
-                    onClick={() => loadCityCards(m.city || '', m.country || '')}
+                    title={getMarkerLabel(m)}
+                    onClick={() => loadCityCards(m)}
                   >
-                    <button className="block w-3 h-3 rounded-full bg-sky-600 border-2 border-white shadow hover:scale-110 transition-transform" />
+                    <button className="relative block min-w-4 h-4 rounded-full bg-sky-600 border-2 border-white shadow hover:scale-110 transition-transform">
+                      {(m.count || 0) > 1 && (
+                        <span className="absolute -right-2 -top-2 min-w-4 h-4 px-1 rounded-full bg-stone-900 text-white text-[9px] leading-4 font-bold">
+                          {m.count}
+                        </span>
+                      )}
+                    </button>
                     <span className="hidden group-hover:block absolute left-2 top-2 whitespace-nowrap text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded">
-                      {m.city || 'Unknown city'}{m.country ? `, ${m.country}` : ''}
+                      {getMarkerLabel(m)}{(m.count || 0) > 1 ? ` · ${m.count}` : ''}
                     </span>
                   </div>
                 );
@@ -237,7 +273,7 @@ export default function TravelMapModal({ language, onClose }: Props) {
             <div className="rounded-xl border border-stone-200 p-4">
               <div className="text-sm font-semibold mb-3">
                 {t.markerCards}
-                {activeMarker ? `: ${activeMarker.city || '-'}${activeMarker.country ? `, ${activeMarker.country}` : ''}` : ''}
+                {activeMarker ? `: ${getMarkerLabel(activeMarker)}` : ''}
               </div>
               {cardsLoading && <div className="text-sm text-stone-500">Loading...</div>}
               {!cardsLoading && cityCards.length === 0 && (
@@ -254,6 +290,7 @@ export default function TravelMapModal({ language, onClose }: Props) {
                       </div>
                       <div className="p-2 text-[10px] text-stone-600 truncate" title={c.title}>
                         {c.title}
+                        <div className="truncate text-stone-400">{getMarkerLabel(c)}</div>
                       </div>
                     </div>
                   ))}

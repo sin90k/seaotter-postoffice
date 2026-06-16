@@ -202,6 +202,24 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
     return `${hours} ${t.hoursLeft}`;
   };
 
+  const getLocationLabel = (item: ProcessedPostcard) => {
+    const city = String(item.city || '').trim();
+    const country = String(item.country || '').trim();
+    if (city || country) return [city, country].filter(Boolean).join(', ');
+    const loc = String(item.draftLocation || item.location || '').trim();
+    if (loc) {
+      const parts = loc.split(/[,，]/).map((part) => part.trim()).filter(Boolean);
+      if (parts.length >= 2 && parts.every((part) => /^-?\d+(\.\d+)?$/.test(part))) {
+        return `${Number(parts[0]).toFixed(2)}, ${Number(parts[1]).toFixed(2)}`;
+      }
+      return loc;
+    }
+    if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
+      return `${item.latitude.toFixed(2)}, ${item.longitude.toFixed(2)}`;
+    }
+    return t.unknownLocation;
+  };
+
   const toggleSelection = (id: string) => {
     const next = new Set(selectedIds);
     if (next.has(id)) {
@@ -319,13 +337,7 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
       if (groupBy === 'date') {
         key = new Date(item.createdAt || item.timestamp).toLocaleDateString();
       } else if (groupBy === 'location') {
-        const loc = item.draftLocation || item.location;
-        if (loc) {
-          const parts = loc.split(/[,，]/);
-          key = parts[parts.length - 1].trim();
-        } else {
-          key = t.unknownLocation;
-        }
+        key = getLocationLabel(item);
       } else if (groupBy === 'theme') {
         const theme = item.theme || 'standard';
         key = theme.charAt(0).toUpperCase() + theme.slice(1);
@@ -545,7 +557,7 @@ export default function HistoryView({ history, user, onClose, onDownload, onDele
                           </div>
                           <div className="p-3">
                             <h3 className="font-bold text-sm text-stone-900 truncate">{item.draftTitle || item.title || 'Untitled'}</h3>
-                            <p className="text-xs text-stone-500 truncate mb-2">{item.draftLocation || item.location || 'Unknown Location'}</p>
+                            <p className="text-xs text-stone-500 truncate mb-2">{getLocationLabel(item)}</p>
                             <div className="flex items-center gap-1 text-[10px] font-medium text-stone-500 bg-stone-100 w-fit px-2 py-0.5 rounded-full">
                               <Clock className="w-3 h-3" />
                               {formatTimeLeft(exp)}
