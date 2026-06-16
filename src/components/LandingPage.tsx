@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { ArrowRight, Image as ImageIcon, Globe2, Sparkles, Heart, MessageSquare, ChevronDown } from 'lucide-react';
+import { ArrowRight, Image as ImageIcon, Globe2, Sparkles, Heart, MessageSquare, ChevronDown, UploadCloud, Wand2, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { SeaOtterLogo } from './SeaOtterLogo';
 import { APP_VERSION } from '../version';
 import { cn } from '../lib/utils';
@@ -17,20 +17,31 @@ interface Props {
 const translations: Record<string, any> = {
   en: {
     badge: "Sea Otter Post Office",
-    title1: "Mail your moments to ",
-    title2: "the future",
-    subtitle: "Let the sea otter postman turn your precious photos into beautiful postcards. We deliver your memories with care and love.",
-    startBtn: "Start Sending",
-    featuresTitle: "Special Delivery Service",
-    featuresSubtitle: "Crafted with love by our sea otter team.",
-    feature1Title: "Smart Formatting",
-    feature1Desc: "Our otters carefully crop your photos to fit standard postcard sizes perfectly.",
-    feature2Title: "Heartfelt Messages",
-    feature2Desc: "We help you write the perfect message to capture the feeling of the moment.",
-    feature3Title: "Global Delivery",
-    feature3Desc: "Styles and themes from around the world, delivered to your digital mailbox.",
-    showcaseTitle: "Otter's Gallery",
-    showcaseSubtitle: "See the beautiful memories our post office has handled.",
+    heroEyebrow: "AI postcard maker for travel photos",
+    title1: "Turn one photo into ",
+    title2: "a finished postcard",
+    subtitle: "Upload a photo, let AI draft the title, place and message, then fine-tune the front and back before saving or sharing.",
+    startBtn: "Create a postcard",
+    secondaryBtn: "View examples",
+    proof1: "AI title and caption",
+    proof2: "Editable front and back",
+    proof3: "Travel map history",
+    workflow1Title: "Upload",
+    workflow1Desc: "Pick a travel photo or daily snapshot.",
+    workflow2Title: "Generate",
+    workflow2Desc: "AI drafts the postcard copy and layout.",
+    workflow3Title: "Edit",
+    workflow3Desc: "Move text, tune style, then export.",
+    featuresTitle: "A focused postcard workflow",
+    featuresSubtitle: "Built around the actual steps of making and saving a card.",
+    feature1Title: "Photo-aware layout",
+    feature1Desc: "Keeps the image readable while reserving room for title, date and location.",
+    feature2Title: "AI writing that you can edit",
+    feature2Desc: "Use AI as a first draft, then keep your own voice in the final card.",
+    feature3Title: "Memory archive",
+    feature3Desc: "Saved postcards can build a travel map when location data is available.",
+    showcaseTitle: "Postcard styles",
+    showcaseSubtitle: "Examples of front design, back copy and export-ready cards.",
     tryBtn: "Visit the Post Office",
     ctaTitle: "Ready to send your first card?",
     ctaSubtitle: "The sea otter postman is waiting for your photos.",
@@ -43,20 +54,31 @@ const translations: Record<string, any> = {
   },
   zh: {
     badge: "海獭邮局",
-    title1: "为您以此刻，",
-    title2: "寄往未来",
-    subtitle: "让海獭邮递员为您将珍贵的照片变成精美的明信片。我们会用爱心和关怀传递您的每一份回忆。",
-    startBtn: "开始寄信",
-    featuresTitle: "海獭特快专递",
-    featuresSubtitle: "由我们的海獭团队精心打造。",
-    feature1Title: "智能裁剪",
-    feature1Desc: "海獭们会小心地裁剪您的照片，使其完美适配明信片尺寸。",
-    feature2Title: "温情寄语",
-    feature2Desc: "我们帮您写下最完美的留言，捕捉当下的感动。",
-    feature3Title: "环球风格",
-    feature3Desc: "来自世界各地的风格和主题，投递到您的数字邮箱。",
-    showcaseTitle: "海獭画廊",
-    showcaseSubtitle: "看看邮局处理过的美好回忆。",
+    heroEyebrow: "用 AI 把照片做成明信片",
+    title1: "上传一张照片，",
+    title2: "生成一张可收藏的明信片",
+    subtitle: "自动生成标题、地点与背面文字，再手动调整排版、滤镜和水印。适合旅行记录，也适合把日常瞬间认真保存下来。",
+    startBtn: "开始制作",
+    secondaryBtn: "查看示例",
+    proof1: "AI 标题与正文",
+    proof2: "正反面可编辑",
+    proof3: "旅行地图归档",
+    workflow1Title: "上传照片",
+    workflow1Desc: "选择旅行或日常照片。",
+    workflow2Title: "AI 生成",
+    workflow2Desc: "生成标题、地点、正文和背面。",
+    workflow3Title: "编辑导出",
+    workflow3Desc: "拖动文字、调整样式并保存。",
+    featuresTitle: "围绕明信片制作的完整流程",
+    featuresSubtitle: "不是单纯套模板，而是从照片到可保存作品的一条流程。",
+    feature1Title: "照片优先的正面排版",
+    feature1Desc: "保留照片主体，同时给标题、日期和地点留下稳定位置。",
+    feature2Title: "可修改的 AI 文案",
+    feature2Desc: "AI 先帮你写第一版，你可以继续改成自己的语气。",
+    feature3Title: "可积累的旅行记录",
+    feature3Desc: "有地点信息的明信片会进入旅行地图，减少重复地点。",
+    showcaseTitle: "明信片样式示例",
+    showcaseSubtitle: "查看正面设计、背面文字和不同风格的最终效果。",
     tryBtn: "参观邮局",
     ctaTitle: "准备好寄出第一张明信片了吗？",
     ctaSubtitle: "海獭邮递员正在等待您的照片。",
@@ -295,6 +317,11 @@ const translations: Record<string, any> = {
 export default function LandingPage({ onStart, language, countryConfig, onCountryChange, onFeedback }: Props) {
   const t = translations[language] || translations.en;
   const [showCountryMenu, setShowCountryMenu] = useState(false);
+  const workflow = [
+    { icon: UploadCloud, title: t.workflow1Title, desc: t.workflow1Desc },
+    { icon: Wand2, title: t.workflow2Title, desc: t.workflow2Desc },
+    { icon: SlidersHorizontal, title: t.workflow3Title, desc: t.workflow3Desc },
+  ];
 
   return (
     <div className="min-h-screen bg-[#fafaf9] flex flex-col font-sans">
@@ -358,17 +385,16 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
       {/* Hero Section */}
       <section className="relative pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full flex flex-col items-center text-center md:text-left md:flex-row md:items-center md:justify-between gap-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-sm font-medium mb-6 border border-stone-200"
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>{t.badge}</span>
-        </motion.div>
-        
         <div className="flex-1 max-w-xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm"
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>{t.heroEyebrow || t.badge}</span>
+          </motion.div>
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -407,8 +433,21 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-stone-200 text-stone-700 bg-white/70 hover:bg-white transition-all text-sm flex items-center justify-center gap-2"
             >
               <ImageIcon className="w-4 h-4" />
-              精选示例
+              {t.secondaryBtn || t.tryBtn}
             </button>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-6 flex flex-wrap justify-center gap-2 text-xs text-stone-600 md:justify-start"
+          >
+            {[t.proof1, t.proof2, t.proof3].filter(Boolean).map((item: string) => (
+              <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                {item}
+              </span>
+            ))}
           </motion.div>
         </div>
 
@@ -427,21 +466,37 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg">
-                <div className="text-[11px] font-medium text-stone-500 mb-1">AI 设计正面</div>
-                <div className="text-sm font-semibold text-stone-900 truncate">东京黄昏街角</div>
-                <div className="text-[11px] text-stone-500 mt-1 truncate">根据照片自动生成标题与地点</div>
+	            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
+	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg">
+	                <div className="text-[11px] font-medium text-stone-500 mb-1">{language === 'zh' ? '正面' : 'Front'}</div>
+	                <div className="text-sm font-semibold text-stone-900 truncate">{language === 'zh' ? '猫咪时光' : 'Quiet Afternoon'}</div>
+	                <div className="text-[11px] text-stone-500 mt-1 truncate">{language === 'zh' ? '标题、地点、日期都可调整' : 'Editable title, place and date'}</div>
+	              </div>
+	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg hidden sm:block">
+	                <div className="text-[11px] font-medium text-stone-500 mb-1">{language === 'zh' ? '背面' : 'Back'}</div>
+	                <div className="text-[11px] text-stone-600 line-clamp-3">
+	                  {language === 'zh' ? '柔软的瞬间，被认真写成一张可以保存的明信片。' : 'A quiet moment, turned into a card worth keeping.'}
+	                </div>
+	              </div>
+	            </div>
+	          </div>
+	        </motion.div>
+      </section>
+
+      <section className="px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-6xl gap-3 md:grid-cols-3">
+          {workflow.map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-900 text-white">
+                <Icon className="h-5 w-5" />
               </div>
-              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg hidden sm:block">
-                <div className="text-[11px] font-medium text-stone-500 mb-1">AI 设计背面</div>
-                <div className="text-[11px] text-stone-600 line-clamp-3">
-                  在异国的街灯下，时间像被放慢了一拍。写下一句话，把这一刻寄给未来的自己。
-                </div>
+              <div className="min-w-0 text-left">
+                <div className="font-semibold text-stone-900">{title}</div>
+                <div className="mt-0.5 text-sm text-stone-500">{desc}</div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* Features Section */}

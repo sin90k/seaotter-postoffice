@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, MapPin, Download } from 'lucide-react';
+import { X, MapPin, Download, Navigation, Plus, Minus } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 type LonLat = [number, number];
@@ -17,14 +17,8 @@ const WORLD_LANDMASSES: LonLat[][] = [
   [[-180, -66], [-120, -70], [-40, -68], [40, -70], [120, -67], [180, -70], [180, -86], [-180, -86]],
 ];
 
-const MAP_LABELS = [
-  { label: 'NORTH AMERICA', lat: 47, lng: -112 },
-  { label: 'SOUTH AMERICA', lat: -24, lng: -62 },
-  { label: 'EUROPE', lat: 52, lng: 17 },
-  { label: 'AFRICA', lat: 3, lng: 20 },
-  { label: 'ASIA', lat: 42, lng: 92 },
-  { label: 'OCEANIA', lat: -27, lng: 135 },
-];
+const MIN_TILE_ZOOM = 2;
+const MAX_TILE_ZOOM = 3;
 
 type MarkerRow = {
   placeKey?: string;
@@ -78,6 +72,13 @@ export default function TravelMapModal({ language, onClose }: Props) {
   const [cityCards, setCityCards] = useState<CityCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
   const [activeMarker, setActiveMarker] = useState<MarkerRow | null>(null);
+  const [tileZoom, setTileZoom] = useState(MIN_TILE_ZOOM);
+  const mapTiles = useMemo(() => {
+    const count = 2 ** tileZoom;
+    return Array.from({ length: count }).flatMap((_, x) =>
+      Array.from({ length: count }).map((__, y) => ({ x, y, z: tileZoom, size: 100 / count }))
+    );
+  }, [tileZoom]);
 
   const t = useMemo(
     () =>
@@ -132,19 +133,16 @@ export default function TravelMapModal({ language, onClose }: Props) {
     };
   }, []);
 
-  const projectPercent = (lat: number, lng: number) => {
-    const left = ((lng + 180) / 360) * 100;
-    const top = ((90 - lat) / 180) * 100;
-    return { left: `${Math.max(0, Math.min(100, left))}%`, top: `${Math.max(0, Math.min(100, top))}%` };
+  const projectMercatorPercent = (lat: number, lng: number) => {
+    const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+    const sinLat = Math.sin((clampedLat * Math.PI) / 180);
+    const x = ((lng + 180) / 360) * 100;
+    const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * 100;
+    return {
+      left: `${Math.max(0, Math.min(100, x))}%`,
+      top: `${Math.max(0, Math.min(100, y))}%`,
+    };
   };
-
-  const landPath = (points: LonLat[]) =>
-    points
-      .map(([lng, lat], index) => {
-        const { left, top } = projectPercent(lat, lng);
-        return `${index === 0 ? 'M' : 'L'} ${parseFloat(left).toFixed(3)} ${parseFloat(top).toFixed(3)}`;
-      })
-      .join(' ') + ' Z';
 
   const drawCanvasMapBase = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
     const project = (lat: number, lng: number) => ({
@@ -291,49 +289,48 @@ export default function TravelMapModal({ language, onClose }: Props) {
               <div className="text-2xl font-bold">{stats.postcards_count}</div>
             </div>
           </div>
-          <div ref={mapRef} className="relative w-full h-[460px] rounded-xl border border-slate-200 overflow-hidden bg-[#dceefa] shadow-inner">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="travel-water" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#e5f2fb" />
-                  <stop offset="100%" stopColor="#cfe6f4" />
-                </linearGradient>
-                <filter id="land-shadow" x="-5%" y="-5%" width="110%" height="110%">
-                  <feDropShadow dx="0" dy="0.35" stdDeviation="0.35" floodColor="#94a3b8" floodOpacity="0.28" />
-                </filter>
-              </defs>
-              <rect width="100" height="100" fill="url(#travel-water)" />
-              {Array.from({ length: 13 }).map((_, i) => (
-                <line key={`lng-${i}`} x1={i * (100 / 12)} x2={i * (100 / 12)} y1="0" y2="100" stroke="#8ba6bd" strokeOpacity="0.16" strokeWidth="0.12" />
+          <div ref={mapRef} className="relative w-full h-[460px] rounded-xl border border-slate-200 overflow-hidden bg-[#eef3f5] shadow-inner">
+            <div className="absolute inset-0">
+              {mapTiles.map((tile) => (
+                <img
+                  key={`${tile.z}-${tile.x}-${tile.y}`}
+                  src={`https://a.basemaps.cartocdn.com/light_all/${tile.z}/${tile.x}/${tile.y}.png`}
+                  alt=""
+                  className="absolute object-cover select-none"
+                  style={{ left: `${tile.x * tile.size}%`, top: `${tile.y * tile.size}%`, width: `${tile.size}%`, height: `${tile.size}%` }}
+                  draggable={false}
+                  referrerPolicy="no-referrer"
+                />
               ))}
-              {Array.from({ length: 7 }).map((_, i) => (
-                <line key={`lat-${i}`} x1="0" x2="100" y1={i * (100 / 6)} y2={i * (100 / 6)} stroke="#8ba6bd" strokeOpacity="0.16" strokeWidth="0.12" />
-              ))}
-              {WORLD_LANDMASSES.map((region, i) => (
-                <path key={`land-${i}`} d={landPath(region)} fill="#f7f4ed" stroke="#cfc7b8" strokeWidth="0.22" filter="url(#land-shadow)" />
-              ))}
-              <path d="M3 62 C18 58 27 66 39 61 S64 55 78 62 93 57 99 63" fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.28" />
-              <path d="M8 39 C22 34 36 41 49 36 S77 35 94 41" fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="0.22" />
-            </svg>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.45)_0,transparent_22%),radial-gradient(circle_at_80%_72%,rgba(255,255,255,0.32)_0,transparent_28%)]" />
-            {MAP_LABELS.map((item) => {
-              const pos = projectPercent(item.lat, item.lng);
-              return (
-                <div
-                  key={item.label}
-                  className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-[9px] font-semibold tracking-[0.18em] text-slate-500/45"
-                  style={{ left: pos.left, top: pos.top }}
-                >
-                  {item.label}
-                </div>
-              );
-            })}
-            <div className="absolute left-4 top-4 rounded-lg border border-white/70 bg-white/75 px-3 py-2 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
+            </div>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.28)),radial-gradient(circle_at_52%_48%,transparent_0,rgba(15,23,42,0.08)_100%)]" />
+            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur">
+              <Navigation className="h-3.5 w-3.5 text-blue-600" />
               {loading ? 'Loading...' : `${stats.postcards_count} ${t.postcards}`}
+            </div>
+            <div className="absolute right-4 top-4 overflow-hidden rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setTileZoom((z) => Math.min(MAX_TILE_ZOOM, z + 1))}
+                disabled={tileZoom >= MAX_TILE_ZOOM}
+                className="flex h-8 w-8 items-center justify-center border-b border-slate-200 text-slate-600 disabled:opacity-35"
+                aria-label="zoom in"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTileZoom((z) => Math.max(MIN_TILE_ZOOM, z - 1))}
+                disabled={tileZoom <= MIN_TILE_ZOOM}
+                className="flex h-8 w-8 items-center justify-center text-slate-600 disabled:opacity-35"
+                aria-label="zoom out"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
             </div>
             <div className="absolute inset-0">
               {markers.map((m, i) => {
-                const pos = projectPercent(m.latitude, m.longitude);
+                const pos = projectMercatorPercent(m.latitude, m.longitude);
                 return (
                   <div
                     key={m.placeKey || `${m.city}-${m.country}-${i}`}
@@ -356,14 +353,24 @@ export default function TravelMapModal({ language, onClose }: Props) {
                 );
               })}
             </div>
+            {!loading && markers.length === 0 && (
+              <div className="absolute left-1/2 top-1/2 w-[min(360px,calc(100%-48px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/80 bg-white/92 p-5 text-center shadow-xl backdrop-blur">
+                <MapPin className="mx-auto mb-3 h-6 w-6 text-slate-400" />
+                <div className="text-sm font-semibold text-slate-900">
+                  {language === 'zh' ? '还没有可定位的明信片' : 'No mapped postcards yet'}
+                </div>
+                <div className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {language === 'zh'
+                    ? '生成含 GPS 或可识别地点的照片后，城市会自动合并显示在这里。'
+                    : 'Create postcards with GPS or recognizable locations to populate this map.'}
+                </div>
+              </div>
+            )}
+            <div className="absolute bottom-2 right-3 rounded bg-white/80 px-2 py-1 text-[10px] text-slate-500 shadow-sm">
+              © OpenStreetMap © CARTO
+            </div>
           </div>
           {loading && <div className="text-sm text-stone-500">Loading...</div>}
-          {!loading && markers.length === 0 && (
-            <div className="text-sm text-stone-500 flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              {language === 'zh' ? '暂无可展示的旅行地点数据。' : 'No travel locations yet.'}
-            </div>
-          )}
           {(activeMarker || cityCards.length > 0) && (
             <div className="rounded-xl border border-stone-200 p-4">
               <div className="text-sm font-semibold mb-3">
