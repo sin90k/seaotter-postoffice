@@ -1092,10 +1092,11 @@ Output JSON strictly in this format:
     if (!brandName && !logoUrl) return;
 
     const shortSide = Math.min(cw, ch);
-    const logoSize = Math.max(30, Math.min(58, shortSide * 0.058 * brandConfig.watermarkSize()));
-    const gap = Math.max(8, logoSize * 0.22);
-    const fontSize1 = Math.max(11, Math.min(18, shortSide * 0.018));
-    const fontSize2 = Math.max(8, Math.min(12, shortSide * 0.012));
+    const qrSize = Math.max(34, Math.min(58, shortSide * 0.058 * brandConfig.watermarkSize()));
+    const logoSize = Math.max(18, Math.min(30, qrSize * 0.48));
+    const gap = Math.max(7, qrSize * 0.18);
+    const fontSize1 = Math.max(10, Math.min(16, shortSide * 0.016));
+    const fontSize2 = Math.max(7, Math.min(10, shortSide * 0.01));
     const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
     const opacity = Math.min(0.5, Math.max(0.28, brandConfig.watermarkOpacity() * 0.72));
 
@@ -1103,20 +1104,44 @@ Output JSON strictly in this format:
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
     const brandWidth = brandName ? ctx.measureText(brandName).width : 0;
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
-    const urlWidth = ctx.measureText(urlText).width;
-    const contentW = Math.max((logoUrl ? logoSize + gap : 0) + brandWidth, urlWidth);
+    const domainWidth = ctx.measureText(domain.replace(/^https?:\/\//, '').replace(/\/$/, '')).width;
+    const contentW = qrSize + gap + Math.max((logoUrl ? logoSize + gap : 0) + brandWidth, domainWidth);
     const x = options.anchor === 'right'
       ? Math.max(options.padding, cw - options.padding - contentW)
       : options.padding;
-    const y = ch - options.padding - logoSize * 0.2;
-    let textX = x;
+    const y = ch - options.padding - qrSize;
+    const textX = x + qrSize + gap;
 
     ctx.globalAlpha = opacity;
+    try {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=${encodeURIComponent(urlText)}`;
+      const qrImg = await loadImage(qrUrl);
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.68, opacity + 0.18);
+      ctx.fillStyle = 'rgba(255,255,255,0.76)';
+      ctx.fillRect(x - 3, y - 3, qrSize + 6, qrSize + 6);
+      ctx.drawImage(qrImg, x, y, qrSize, qrSize);
+      ctx.restore();
+    } catch (_) {
+      ctx.save();
+      ctx.globalAlpha = opacity * 0.9;
+      ctx.strokeStyle = '#78716c';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, qrSize, qrSize);
+      ctx.font = `600 ${fontSize2}px "Inter", sans-serif`;
+      ctx.fillStyle = '#78716c';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('QR', x + qrSize / 2, y + qrSize / 2);
+      ctx.restore();
+    }
+
+    let nameX = textX;
     if (logoUrl) {
       try {
         const logoImg = await loadImage(logoUrl);
-        ctx.drawImage(logoImg, x, y - logoSize, logoSize, logoSize);
-        textX = x + logoSize + gap;
+        ctx.drawImage(logoImg, textX, y + qrSize * 0.1, logoSize, logoSize);
+        nameX = textX + logoSize + gap * 0.75;
       } catch (_) {
         // Text fallback below.
       }
@@ -1126,11 +1151,11 @@ Output JSON strictly in this format:
     ctx.textBaseline = 'alphabetic';
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
     ctx.fillStyle = '#57534e';
-    if (brandName) ctx.fillText(brandName, textX, y - logoSize * 0.5 + fontSize1 * 0.35);
+    if (brandName) ctx.fillText(brandName, nameX, y + qrSize * 0.1 + logoSize * 0.62);
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
     ctx.fillStyle = '#78716c';
     ctx.globalAlpha = opacity * 0.72;
-    ctx.fillText(urlText, textX, y - logoSize * 0.5 + fontSize1 * 0.35 + fontSize2 * 1.35);
+    ctx.fillText(domain.replace(/^https?:\/\//, '').replace(/\/$/, ''), textX, y + qrSize * 0.1 + logoSize * 0.62 + fontSize2 * 1.5);
     ctx.restore();
   };
 
@@ -1379,8 +1404,8 @@ Output JSON strictly in this format:
 
     const hasFrontText = !!(title || location || author || date);
     const bottomBorderRatio = isSquare
-      ? (hasFrontText ? 0.12 : 0.09)
-      : (hasFrontText ? 0.11 : 0.08);
+      ? (hasFrontText ? 0.18 : 0.1)
+      : (hasFrontText ? 0.17 : 0.09);
 
     let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
@@ -1553,9 +1578,9 @@ Output JSON strictly in this format:
       if (author && date) metaText += ` • `;
       if (date) metaText += date;
 
-      const metaSize = titleSize * 0.6; // Increased from 0.4
-      const spacing1 = locationSize * 0.5; // Increased space between title and location
-      const spacing2 = locationSize * 0.5; // Increased space between location and meta
+      let metaSize = titleSize * 0.6;
+      let spacing1 = locationSize * 0.42;
+      let spacing2 = locationSize * 0.38;
 
       // Calculate positions
       let align: CanvasTextAlign = 'left';
@@ -1574,14 +1599,31 @@ Output JSON strictly in this format:
       }
 
       // Calculate actual heights based on what's present
-      const actualTitleHeight = titleCase ? titleSize : 0;
-      const actualLocHeight = location ? locationSize : 0;
-      const actualMetaHeight = metaText ? metaSize : 0;
-      
-      const actualSpacing1 = (titleCase && location) ? spacing1 : 0;
-      const actualSpacing2 = (location && metaText) ? spacing2 : ((titleCase && metaText && !location) ? spacing1 : 0);
+      let actualTitleHeight = titleCase ? titleSize : 0;
+      let actualLocHeight = location ? locationSize : 0;
+      let actualMetaHeight = metaText ? metaSize : 0;
+      let actualSpacing1 = (titleCase && location) ? spacing1 : 0;
+      let actualSpacing2 = (location && metaText) ? spacing2 : ((titleCase && metaText && !location) ? spacing1 : 0);
+      let totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
 
-      const totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
+      if (hasTextInBorder) {
+        const bottomBorderHeight = ch * bottomBorderRatio;
+        const availableTextHeight = bottomBorderHeight * 0.72;
+        if (totalHeight > availableTextHeight && totalHeight > 0) {
+          const fitScale = Math.max(0.62, availableTextHeight / totalHeight);
+          titleSize *= fitScale;
+          locationSize *= fitScale;
+          metaSize *= fitScale;
+          spacing1 *= fitScale;
+          spacing2 *= fitScale;
+          actualTitleHeight = titleCase ? titleSize : 0;
+          actualLocHeight = location ? locationSize : 0;
+          actualMetaHeight = metaText ? metaSize : 0;
+          actualSpacing1 = (titleCase && location) ? spacing1 : 0;
+          actualSpacing2 = (location && metaText) ? spacing2 : ((titleCase && metaText && !location) ? spacing1 : 0);
+          totalHeight = actualTitleHeight + actualSpacing1 + actualLocHeight + actualSpacing2 + actualMetaHeight;
+        }
+      }
 
       if (hasCustomPosition) {
         align = 'center';
@@ -1602,7 +1644,7 @@ Output JSON strictly in this format:
         // 与绘图一致的底部留白比例，避免文字与留白错位
         const bottomBorderHeight = ch * bottomBorderRatio;
         // 在留白区内再预留上下安全距离，避免贴边
-        const innerPaddingY = bottomBorderHeight * 0.15;
+        const innerPaddingY = Math.max(bottomBorderHeight * 0.12, (bottomBorderHeight - totalHeight) / 2);
         
         // 从留白区顶部 + 安全距离开始排布，保证与图片和底边都有间距
         let currentY = ch - bottomBorderHeight + innerPaddingY;
