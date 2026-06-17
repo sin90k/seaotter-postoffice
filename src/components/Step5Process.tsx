@@ -2815,6 +2815,75 @@ Output JSON strictly in this format:
   const getBackMode = (settings: SettingsType) =>
     settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
 
+  const recoverBackImagePromptForDraft = async (result: ProcessedPostcard): Promise<string> => {
+    const existingPrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
+    if (existingPrompt) return existingPrompt;
+    if (!result.imgUrl) return '';
+
+    try {
+      const img = await loadImage(result.imgUrl);
+      const base64Data = getCompressedBase64(img);
+      const styleInstructions: Record<string, string> = {
+        auto: "Automatically determine the best style based on the image content. If landscape, be poetic. If street/urban, be modern.",
+        poetic: "STYLE: Poetic & Lyrical. Use metaphors, classical imagery, or rhythmic prose. Tone: Elegant, deep, artistic. Example: '山海入怀，万物皆诗' (Mountains and seas in my heart, all things are poetry).",
+        modern: "STYLE: Modern & Direct. Use contemporary, straightforward language. Tone: Fresh, urban, direct. Example: '在东京街头，遇见一场不期而至的雨' (Meeting an unexpected rain on the streets of Tokyo).",
+        witty: "STYLE: Witty & Humorous. Use a clever, slightly ironic, or playful tone. Tone: Wry, funny, personal. Example: '这里的猫比人还多，而且它们看起来都比我有钱' (More cats than people here, and they all look richer than me).",
+        nostalgic: "STYLE: Nostalgic & Sentimental. Use a warm, slightly melancholic tone. Tone: Warm, reflective, timeless. Example: '风里有旧时光的味道，像极了小时候的夏天' (The wind smells like old times, just like the summers of childhood).",
+        minimalist: "STYLE: Minimalist & Concise. Use extremely short, punchy phrases. 3-5 words max for title. Tone: Zen, essence-focused. Example: '静谧。深蓝。' (Quiet. Deep blue.).",
+      };
+      const copywritingStyle = result.settings.copywritingStyle || 'auto';
+      const currentStyle = styleInstructions[copywritingStyle] || styleInstructions.auto;
+      const prompt = `You are an expert graphic designer, a master photographer, and a world-class poet. Your task is to analyze this photo to create a breathtaking, elegant postcard.
+
+1. Visual Analysis: Identify the primary subject, the context/location, and the overall mood.
+2. Spatial Composition: Find the largest "negative space" for text placement.
+3. Literary Creation: Respect the existing title/message if provided and keep the ${copywritingStyle} style.
+4. Back Image Prompt: Write a prompt for a complementary pencil sketch.
+
+MANDATORY STYLE: ${currentStyle}
+
+Existing title: ${result.draftTitle || result.title || ''}
+Existing location: ${result.draftLocation || result.location || ''}
+Existing date: ${result.draftDate || result.date || ''}
+Existing back message: ${result.draftMessage || result.message || ''}
+
+IMPORTANT: Return JSON only. The key we need most is "back_image_prompt".
+If the target language is Chinese, do not include English in user-facing copy, but the image prompt may be in concise English for the image model.
+
+Output JSON strictly in this format:
+{
+  "subject": "Main subject",
+  "context": "Context/location",
+  "mood": "Atmosphere",
+  "back_image_prompt": "Prompt for pencil sketch"
+}`;
+
+      const analysisResponse = await withTimeout(
+        invokePostcardAi('chat', {
+          model: "gpt-4o-mini",
+          temperature: 0.7,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: base64Data } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+        60000,
+        "AI back prompt recovery timed out."
+      );
+      const analysisData = JSON.parse(analysisResponse.choices?.[0]?.message?.content || "{}");
+      return String(analysisData.back_image_prompt || '').trim();
+    } catch (e) {
+      console.warn('Failed to recover photo-specific back image prompt', e);
+      return '';
+    }
+  };
+
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
     const publishedBackPrompt = (await getPublishedPromptContent('back_image_default')).trim();
     const cursorEraPrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
@@ -2872,8 +2941,10 @@ Message mood: ${result.draftMessage || result.message || ''}`;
 
     setRewritingState({ id: result.id, field: 'back' });
     try {
-      const generatedBackImage = await generateAiBackImageForDraft(result);
-      const nextDraft = { ...result, generatedBackImage };
+      const recoveredPrompt = await recoverBackImagePromptForDraft(result);
+      const promptReadyResult = recoveredPrompt ? { ...result, backImagePrompt: recoveredPrompt } : result;
+      const generatedBackImage = await generateAiBackImageForDraft(promptReadyResult);
+      const nextDraft = { ...promptReadyResult, generatedBackImage };
       setEditingDraft(nextDraft);
       if (user.id && isSupabaseConnected) {
         const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
@@ -2996,28 +3067,30 @@ Message mood: ${result.draftMessage || result.message || ''}`;
     for (const target of targets) {
       setRewritingState({ id: target.id, field: 'back' });
       try {
-        const generatedBackImage = await generateAiBackImageForDraft(target);
+        const recoveredPrompt = await recoverBackImagePromptForDraft(target);
+        const promptReadyTarget = recoveredPrompt ? { ...target, backImagePrompt: recoveredPrompt } : target;
+        const generatedBackImage = await generateAiBackImageForDraft(promptReadyTarget);
         const img = await loadImage(target.imgUrl || '');
-        const backMode = getBackMode(target.settings);
-        const useWatermark = target.watermark === true || (target.settings.backBrandingEnabled !== false && backMode !== 'none');
+        const backMode = getBackMode(promptReadyTarget.settings);
+        const useWatermark = promptReadyTarget.watermark === true || (promptReadyTarget.settings.backBrandingEnabled !== false && backMode !== 'none');
         const newBack = backMode === 'none'
           ? ''
           : await generateBack(
               img,
-              target.draftMessage || target.message || '',
-              target.draftLocation || target.location || '',
-              target.postmark || '',
-              target.theme || 'standard',
-              target.settings,
-              target.draftBackStyle || target.backStyle,
-              target.draftAuthor || target.author,
-              target.draftDate || target.date,
-              target.decorativeIcons,
+              promptReadyTarget.draftMessage || promptReadyTarget.message || '',
+              promptReadyTarget.draftLocation || promptReadyTarget.location || '',
+              promptReadyTarget.postmark || '',
+              promptReadyTarget.theme || 'standard',
+              promptReadyTarget.settings,
+              promptReadyTarget.draftBackStyle || promptReadyTarget.backStyle,
+              promptReadyTarget.draftAuthor || promptReadyTarget.author,
+              promptReadyTarget.draftDate || promptReadyTarget.date,
+              promptReadyTarget.decorativeIcons,
               generatedBackImage,
               useWatermark
             );
         const updated = {
-          ...target,
+          ...promptReadyTarget,
           generatedBackImage,
           backDataUrl: newBack,
           backUrl: newBack || target.backUrl,
