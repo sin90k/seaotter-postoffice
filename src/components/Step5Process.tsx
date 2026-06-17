@@ -2704,7 +2704,7 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
 
     const response = await withTimeout(
       invokePostcardAi('image', {
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt,
         n: 1,
         size: "1024x1024",

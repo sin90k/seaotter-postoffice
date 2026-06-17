@@ -57,6 +57,22 @@ const normalizeImageResponse = async (data: any) => {
   };
 };
 
+const sanitizeImagePayload = (payload: Record<string, unknown>, model?: string) => {
+  const next = { ...payload };
+  const requestedModel = String(next.model || "");
+  const preferredModel = model || Deno.env.get("OPENAI_IMAGE_MODEL") || Deno.env.get("VITE_OPENAI_IMAGE_MODEL") || "gpt-image-2";
+  if (!requestedModel || requestedModel.startsWith("dall-e")) {
+    next.model = preferredModel;
+  }
+  return next;
+};
+
+const shouldRetryImageModel = (response: Response, data: any) => {
+  if (response.ok || response.status !== 400) return false;
+  const message = String(data?.error?.message || "").toLowerCase();
+  return message.includes("model") && (message.includes("does not exist") || message.includes("not found") || message.includes("unsupported"));
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -81,18 +97,39 @@ Deno.serve(async (req) => {
     }
 
     const endpoint = action === "chat" ? "/chat/completions" : "/images/generations";
-    let { response, data } = await callOpenAi(baseUrl, apiKey, endpoint, payload);
+    const upstreamPayload = action === "image" ? sanitizeImagePayload(payload as Record<string, unknown>) : payload;
+    let { response, data } = await callOpenAi(baseUrl, apiKey, endpoint, upstreamPayload);
 
-    if (action === "image" && !response.ok && response.status === 400 && ("response_format" in payload || "style" in payload)) {
-      const retryPayload = { ...payload };
+    if (action === "image" && !response.ok && response.status === 400 && ("response_format" in upstreamPayload || "style" in upstreamPayload)) {
+      const retryPayload = { ...upstreamPayload };
       delete retryPayload.response_format;
       delete retryPayload.style;
-      console.error("[postcard-ai] Image request rejected, retrying without response_format", {
+      console.error("[postcard-ai] Image request rejected, retrying without incompatible image params", {
         status: response.status,
         baseHost: new URL(baseUrl).host,
         message: data?.error?.message || "Unknown upstream error",
       });
       ({ response, data } = await callOpenAi(baseUrl, apiKey, endpoint, retryPayload));
+    }
+
+    if (action === "image" && shouldRetryImageModel(response, data)) {
+      const configuredModel = Deno.env.get("OPENAI_IMAGE_MODEL") || Deno.env.get("VITE_OPENAI_IMAGE_MODEL");
+      const currentModel = String((upstreamPayload as Record<string, unknown>).model || "");
+      const fallbackModels = [configuredModel, "gpt-image-2", "gpt-image-1"].filter(
+        (model, index, arr): model is string => !!model && model !== currentModel && arr.indexOf(model) === index
+      );
+      for (const model of fallbackModels) {
+        const retryPayload = sanitizeImagePayload(upstreamPayload as Record<string, unknown>, model);
+        delete retryPayload.response_format;
+        delete retryPayload.style;
+        console.error("[postcard-ai] Image model unavailable, retrying with fallback model", {
+          from: currentModel || "unknown",
+          to: model,
+          message: data?.error?.message || "Unknown upstream error",
+        });
+        ({ response, data } = await callOpenAi(baseUrl, apiKey, endpoint, retryPayload));
+        if (!shouldRetryImageModel(response, data)) break;
+      }
     }
 
     if (!response.ok) {
