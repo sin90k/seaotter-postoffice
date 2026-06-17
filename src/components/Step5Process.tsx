@@ -1076,6 +1076,64 @@ Output JSON strictly in this format:
     ctx.restore();
   };
 
+  const drawBackBrandSignature = async (
+    ctx: CanvasRenderingContext2D,
+    cw: number,
+    ch: number,
+    options: {
+      anchor: 'left' | 'right';
+      padding: number;
+      locale?: 'zh' | 'en';
+    }
+  ) => {
+    const brandName = brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
+    const domain = brandConfig.domain();
+    const logoUrl = brandConfig.logoUrl();
+    if (!brandName && !logoUrl) return;
+
+    const shortSide = Math.min(cw, ch);
+    const logoSize = Math.max(30, Math.min(58, shortSide * 0.058 * brandConfig.watermarkSize()));
+    const gap = Math.max(8, logoSize * 0.22);
+    const fontSize1 = Math.max(11, Math.min(18, shortSide * 0.018));
+    const fontSize2 = Math.max(8, Math.min(12, shortSide * 0.012));
+    const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
+    const opacity = Math.min(0.5, Math.max(0.28, brandConfig.watermarkOpacity() * 0.72));
+
+    ctx.save();
+    ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
+    const brandWidth = brandName ? ctx.measureText(brandName).width : 0;
+    ctx.font = `${fontSize2}px "Inter", sans-serif`;
+    const urlWidth = ctx.measureText(urlText).width;
+    const contentW = Math.max((logoUrl ? logoSize + gap : 0) + brandWidth, urlWidth);
+    const x = options.anchor === 'right'
+      ? Math.max(options.padding, cw - options.padding - contentW)
+      : options.padding;
+    const y = ch - options.padding - logoSize * 0.2;
+    let textX = x;
+
+    ctx.globalAlpha = opacity;
+    if (logoUrl) {
+      try {
+        const logoImg = await loadImage(logoUrl);
+        ctx.drawImage(logoImg, x, y - logoSize, logoSize, logoSize);
+        textX = x + logoSize + gap;
+      } catch (_) {
+        // Text fallback below.
+      }
+    }
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
+    ctx.fillStyle = '#57534e';
+    if (brandName) ctx.fillText(brandName, textX, y - logoSize * 0.5 + fontSize1 * 0.35);
+    ctx.font = `${fontSize2}px "Inter", sans-serif`;
+    ctx.fillStyle = '#78716c';
+    ctx.globalAlpha = opacity * 0.72;
+    ctx.fillText(urlText, textX, y - logoSize * 0.5 + fontSize1 * 0.35 + fontSize2 * 1.35);
+    ctx.restore();
+  };
+
   const resolveBackTemplateVariant = (theme: string, generatedBackImage?: string) => {
     if (theme === 'modern') return 'sidebar';
     if (theme === 'vintage' || generatedBackImage) return 'gallery';
@@ -2324,25 +2382,9 @@ Output JSON strictly in this format:
     const watermark = useWatermark && (brandConfig.logoUrl() || brandConfig.brandName('zh'));
     if (watermark) {
       const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
-      const allowedBrandPositions = ['bottom-center', 'bottom-left', 'bottom-right', 'top-center', 'top-left', 'top-right'] as const;
-      type BrandMarkPosition = typeof allowedBrandPositions[number];
-      const configuredPosRaw = brandConfig.watermarkPosition() || 'bottom-center';
-      const configuredPos: BrandMarkPosition = (allowedBrandPositions as readonly string[]).includes(configuredPosRaw)
-        ? configuredPosRaw as BrandMarkPosition
-        : 'bottom-center';
-      const autoPos =
-        templateVariant === 'sidebar'
-          ? 'bottom-right'
-          : templateVariant === 'gallery'
-            ? 'bottom-left'
-            : 'top-left';
-      await drawBrandMark(ctx, cw, ch, {
-        position: configuredPos === 'bottom-center' ? autoPos : configuredPos,
-        compact: false,
-        subtle: false,
-        opacity: Math.max(0.58, brandConfig.watermarkOpacity()),
-        scale: Math.max(1.08, brandConfig.watermarkSize()),
-        padding: padding * 1.18,
+      await drawBackBrandSignature(ctx, cw, ch, {
+        anchor: templateVariant === 'sidebar' ? 'right' : 'left',
+        padding: padding * 1.1,
         locale,
       });
     }
