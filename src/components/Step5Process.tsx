@@ -2143,21 +2143,34 @@ Output JSON strictly in this format:
       try {
         const backImg = await loadImage(generatedBackImage);
         ctx.save();
-        const motifW = cw * 0.46;
-        const motifH = Math.min(ch * 0.54, motifW);
-        const motifX = padding * 1.1;
-        const motifY = ch - motifH - padding * 1.2;
-        ctx.globalAlpha = 0.28;
-        ctx.filter = 'saturate(0.78) contrast(0.9) brightness(1.08)';
-        ctx.drawImage(backImg, motifX, motifY, motifW, motifH);
+        const motifBoxW = Math.max(cw * 0.34, dividerX - padding * 2.2);
+        const motifBoxH = ch * 0.48;
+        const motifX = padding * 1.05;
+        const motifY = ch - motifBoxH - padding * 1.05;
+        const scale = Math.min(motifBoxW / backImg.width, motifBoxH / backImg.height);
+        const motifW = backImg.width * scale;
+        const motifH = backImg.height * scale;
+        const drawX = motifX + (motifBoxW - motifW) / 2;
+        const drawY = motifY + (motifBoxH - motifH) / 2;
+
+        ctx.globalAlpha = 0.6;
+        ctx.filter = 'saturate(0.96) contrast(1.05) brightness(1.02)';
+        ctx.drawImage(backImg, drawX, drawY, motifW, motifH);
         ctx.filter = 'none';
-        ctx.globalAlpha = 0.72;
-        const paperWash = ctx.createLinearGradient(0, 0, cw, ch);
-        paperWash.addColorStop(0, 'rgba(253,251,247,0.38)');
-        paperWash.addColorStop(0.55, 'rgba(255,255,255,0.68)');
-        paperWash.addColorStop(1, 'rgba(253,251,247,0.84)');
-        ctx.fillStyle = paperWash;
-        ctx.fillRect(0, 0, cw, ch);
+
+        ctx.globalAlpha = 0.64;
+        const textWash = ctx.createLinearGradient(0, padding * 0.4, 0, ch * 0.38);
+        textWash.addColorStop(0, 'rgba(255,255,255,0.94)');
+        textWash.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = textWash;
+        ctx.fillRect(0, 0, dividerX, ch * 0.46);
+
+        ctx.globalAlpha = 0.34;
+        const addressWash = ctx.createLinearGradient(dividerX, 0, cw, 0);
+        addressWash.addColorStop(0, 'rgba(255,255,255,0.16)');
+        addressWash.addColorStop(1, 'rgba(255,255,255,0.76)');
+        ctx.fillStyle = addressWash;
+        ctx.fillRect(dividerX, 0, cw - dividerX, ch);
         ctx.restore();
       } catch (e) {
         console.warn("Failed to load generated back image for decorative layer", e);
@@ -2817,12 +2830,13 @@ This must feel like premium printed stationery, not a photo remake. Keep the car
 Rules:
 - Preserve the intent of the photo-specific prompt above.
 - Convert it into a small complementary pencil sketch, corner vignette, faint margin ornament, postal texture, map-like trace, or soft paper wash.
-- Preserve at least 80% clean off-white negative space.
+- Make the motif clearly visible at postcard preview size; avoid ultra-faint marks that disappear on a white card.
+- Preserve roughly 60-70% clean off-white negative space.
 - The center and right address area must remain quiet and readable.
 
 Style direction:
 - refined pencil sketch, quiet watercolor, light risograph grain, Japanese travel stationery, warm off-white paper
-- low contrast, delicate edges, elegant and restrained
+- gentle but visible contrast, delicate edges, elegant and restrained
 - no photorealistic background, no full-bleed scene, no literal redraw of the photo, no large faded photo, no text, no readable words, no logo, no QR code, no watermark
 
 Context language: ${result.settings.aiLanguage || 'Chinese'}
