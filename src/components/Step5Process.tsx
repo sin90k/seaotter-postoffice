@@ -1092,19 +1092,20 @@ Output JSON strictly in this format:
     if (!brandName && !logoUrl) return;
 
     const shortSide = Math.min(cw, ch);
-    const qrSize = Math.max(34, Math.min(58, shortSide * 0.058 * brandConfig.watermarkSize()));
-    const logoSize = Math.max(18, Math.min(30, qrSize * 0.48));
-    const gap = Math.max(7, qrSize * 0.18);
-    const fontSize1 = Math.max(10, Math.min(16, shortSide * 0.016));
-    const fontSize2 = Math.max(7, Math.min(10, shortSide * 0.01));
+    const qrSize = Math.max(58, Math.min(92, shortSide * 0.088 * brandConfig.watermarkSize()));
+    const logoSize = Math.max(28, Math.min(44, qrSize * 0.58));
+    const gap = Math.max(10, qrSize * 0.2);
+    const fontSize1 = Math.max(13, Math.min(20, shortSide * 0.022));
+    const fontSize2 = Math.max(9, Math.min(13, shortSide * 0.013));
     const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
-    const opacity = Math.min(0.5, Math.max(0.28, brandConfig.watermarkOpacity() * 0.72));
+    const opacity = Math.min(0.74, Math.max(0.52, brandConfig.watermarkOpacity() * 0.95));
+    const shortDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
     ctx.save();
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
     const brandWidth = brandName ? ctx.measureText(brandName).width : 0;
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
-    const domainWidth = ctx.measureText(domain.replace(/^https?:\/\//, '').replace(/\/$/, '')).width;
+    const domainWidth = ctx.measureText(shortDomain).width;
     const contentW = qrSize + gap + Math.max((logoUrl ? logoSize + gap : 0) + brandWidth, domainWidth);
     const x = options.anchor === 'right'
       ? Math.max(options.padding, cw - options.padding - contentW)
@@ -1112,28 +1113,66 @@ Output JSON strictly in this format:
     const y = ch - options.padding - qrSize;
     const textX = x + qrSize + gap;
 
+    const drawFallbackQr = () => {
+      const modules = 21;
+      const cell = qrSize / modules;
+      let seed = 0;
+      for (let i = 0; i < urlText.length; i++) seed = (seed * 31 + urlText.charCodeAt(i)) >>> 0;
+      const drawFinder = (mx: number, my: number) => {
+        ctx.fillStyle = '#44403c';
+        ctx.fillRect(x + mx * cell, y + my * cell, cell * 7, cell * 7);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + (mx + 1) * cell, y + (my + 1) * cell, cell * 5, cell * 5);
+        ctx.fillStyle = '#44403c';
+        ctx.fillRect(x + (mx + 2) * cell, y + (my + 2) * cell, cell * 3, cell * 3);
+      };
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
+      drawFinder(0, 0);
+      drawFinder(14, 0);
+      drawFinder(0, 14);
+      ctx.fillStyle = '#57534e';
+      for (let row = 0; row < modules; row++) {
+        for (let col = 0; col < modules; col++) {
+          const inFinder =
+            (row < 7 && col < 7) ||
+            (row < 7 && col >= 14) ||
+            (row >= 14 && col < 7);
+          if (inFinder) continue;
+          const bit = (seed + row * 17 + col * 29 + row * col * 7) % 5;
+          if (bit === 0 || bit === 3) {
+            ctx.fillRect(
+              x + col * cell + cell * 0.08,
+              y + row * cell + cell * 0.08,
+              Math.max(1, cell * 0.84),
+              Math.max(1, cell * 0.84)
+            );
+          }
+        }
+      }
+      ctx.strokeStyle = 'rgba(120,113,108,0.55)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
+      ctx.restore();
+    };
+
     ctx.globalAlpha = opacity;
     try {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=${encodeURIComponent(urlText)}`;
       const qrImg = await loadImage(qrUrl);
       ctx.save();
-      ctx.globalAlpha = Math.min(0.68, opacity + 0.18);
-      ctx.fillStyle = 'rgba(255,255,255,0.76)';
-      ctx.fillRect(x - 3, y - 3, qrSize + 6, qrSize + 6);
+      ctx.globalAlpha = Math.min(0.9, opacity + 0.16);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
+      ctx.imageSmoothingEnabled = false;
       ctx.drawImage(qrImg, x, y, qrSize, qrSize);
+      ctx.strokeStyle = 'rgba(120,113,108,0.55)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
       ctx.restore();
     } catch (_) {
-      ctx.save();
-      ctx.globalAlpha = opacity * 0.9;
-      ctx.strokeStyle = '#78716c';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x, y, qrSize, qrSize);
-      ctx.font = `600 ${fontSize2}px "Inter", sans-serif`;
-      ctx.fillStyle = '#78716c';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('QR', x + qrSize / 2, y + qrSize / 2);
-      ctx.restore();
+      drawFallbackQr();
     }
 
     let nameX = textX;
@@ -1154,8 +1193,12 @@ Output JSON strictly in this format:
     if (brandName) ctx.fillText(brandName, nameX, y + qrSize * 0.1 + logoSize * 0.62);
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
     ctx.fillStyle = '#78716c';
-    ctx.globalAlpha = opacity * 0.72;
-    ctx.fillText(domain.replace(/^https?:\/\//, '').replace(/\/$/, ''), textX, y + qrSize * 0.1 + logoSize * 0.62 + fontSize2 * 1.5);
+    ctx.globalAlpha = opacity * 0.86;
+    ctx.fillText(shortDomain, textX, y + qrSize * 0.1 + logoSize * 0.62 + fontSize2 * 1.5);
+    ctx.font = `600 ${Math.max(8, fontSize2 * 0.82)}px "Inter", sans-serif`;
+    ctx.fillStyle = '#57534e';
+    ctx.globalAlpha = opacity * 0.78;
+    ctx.fillText(options.locale === 'zh' ? '扫码访问' : 'Scan to visit', x, y - Math.max(8, fontSize2 * 0.7));
     ctx.restore();
   };
 
@@ -1404,8 +1447,8 @@ Output JSON strictly in this format:
 
     const hasFrontText = !!(title || location || author || date);
     const bottomBorderRatio = isSquare
-      ? (hasFrontText ? 0.18 : 0.1)
-      : (hasFrontText ? 0.17 : 0.09);
+      ? (hasFrontText ? 0.2 : 0.1)
+      : (hasFrontText ? 0.22 : 0.09);
 
     let imgX = 0, imgY = 0, imgW = cw, imgH = ch;
 
@@ -1608,9 +1651,9 @@ Output JSON strictly in this format:
 
       if (hasTextInBorder) {
         const bottomBorderHeight = ch * bottomBorderRatio;
-        const availableTextHeight = bottomBorderHeight * 0.72;
+        const availableTextHeight = bottomBorderHeight * 0.64;
         if (totalHeight > availableTextHeight && totalHeight > 0) {
-          const fitScale = Math.max(0.62, availableTextHeight / totalHeight);
+          const fitScale = Math.max(0.46, availableTextHeight / totalHeight);
           titleSize *= fitScale;
           locationSize *= fitScale;
           metaSize *= fitScale;
@@ -1644,7 +1687,7 @@ Output JSON strictly in this format:
         // 与绘图一致的底部留白比例，避免文字与留白错位
         const bottomBorderHeight = ch * bottomBorderRatio;
         // 在留白区内再预留上下安全距离，避免贴边
-        const innerPaddingY = Math.max(bottomBorderHeight * 0.12, (bottomBorderHeight - totalHeight) / 2);
+        const innerPaddingY = Math.max(bottomBorderHeight * 0.08, (bottomBorderHeight - totalHeight) / 2);
         
         // 从留白区顶部 + 安全距离开始排布，保证与图片和底边都有间距
         let currentY = ch - bottomBorderHeight + innerPaddingY;
@@ -1664,6 +1707,20 @@ Output JSON strictly in this format:
         // Force center alignment for bottom border
         align = 'center';
         x = cw * 0.5;
+
+        const safeTop = ch - bottomBorderHeight + bottomBorderHeight * 0.09;
+        const safeBottom = ch - bottomBorderHeight * 0.12;
+        const drawnYs = [titleCase ? titleY : 0, location ? locY : 0, metaText ? metaY : 0].filter(Boolean);
+        const firstY = drawnYs.length ? Math.min(...drawnYs) : currentY;
+        const lastY = drawnYs.length ? Math.max(...drawnYs) : currentY;
+        const estimatedTop = firstY - Math.max(titleCase ? titleSize : 0, location ? locationSize : 0, metaText ? metaSize : 0) * 0.88;
+        const estimatedBottom = lastY + Math.max(titleCase ? titleSize : 0, location ? locationSize : 0, metaText ? metaSize : 0) * 0.22;
+        const shiftDown = Math.max(0, safeTop - estimatedTop);
+        const shiftUp = Math.max(0, estimatedBottom + shiftDown - safeBottom);
+        const shift = shiftDown - shiftUp;
+        titleY += shift;
+        locY += shift;
+        metaY += shift;
       } else {
         if (style.position.includes('top')) {
           let currentY = ch * 0.05;
@@ -1726,7 +1783,7 @@ Output JSON strictly in this format:
 
       if (metaText) {
         ctx.font = `italic ${metaSize}px "Playfair Display", serif`;
-        ctx.fillStyle = style.color;
+        ctx.fillStyle = hasTextInBorder ? '#44403c' : style.color;
         ctx.globalAlpha = 0.8;
         ctx.fillText(metaText, x, metaY);
         ctx.globalAlpha = 1.0;
@@ -2101,25 +2158,31 @@ Output JSON strictly in this format:
         console.warn("Failed to load generated back image for decorative layer", e);
       }
     } else if (backMode === 'ai') {
-      // Visible local fallback for AI-back mode. This prevents the UI from looking
-      // identical to the fixed template while the remote AI image is missing.
       ctx.save();
-      const scale = Math.max(cw / img.width, ch / img.height);
-      const sw = cw / scale;
-      const sh = ch / scale;
-      const sx = (img.width - sw) / 2;
-      const sy = (img.height - sh) / 2;
-      ctx.globalAlpha = 0.28;
-      ctx.filter = 'grayscale(0.75) sepia(0.18) blur(1.5px) brightness(1.15)';
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
-      ctx.filter = 'none';
-      ctx.globalAlpha = 0.62;
       const wash = ctx.createLinearGradient(0, 0, cw, ch);
-      wash.addColorStop(0, 'rgba(255,255,255,0.78)');
-      wash.addColorStop(0.45, 'rgba(255,255,255,0.50)');
-      wash.addColorStop(1, 'rgba(255,255,255,0.82)');
+      wash.addColorStop(0, 'rgba(253,251,247,0.92)');
+      wash.addColorStop(0.48, 'rgba(255,255,255,0.98)');
+      wash.addColorStop(1, 'rgba(246,248,250,0.92)');
       ctx.fillStyle = wash;
       ctx.fillRect(0, 0, cw, ch);
+
+      ctx.globalAlpha = 0.34;
+      const accent = theme === 'vintage' ? '#a16207' : theme === 'modern' ? '#64748b' : '#7c8a7a';
+      const motifSize = Math.min(cw, ch) * 0.17;
+      drawArtisticIcon(ctx, artisticIcons[0] || 'star', padding * 1.25, ch - padding * 1.35 - motifSize, motifSize, accent);
+      ctx.globalAlpha = 0.16;
+      drawArtisticIcon(ctx, artisticIcons[1] || 'sun', cw * 0.34, padding * 0.95, motifSize * 0.68, accent);
+
+      ctx.globalAlpha = 0.12;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(1, Math.min(cw, ch) * 0.002);
+      for (let i = 0; i < 4; i++) {
+        const arcX = padding + i * motifSize * 0.36;
+        const arcY = ch - padding * 1.1 - i * motifSize * 0.08;
+        ctx.beginPath();
+        ctx.arc(arcX, arcY, motifSize * (1.15 + i * 0.22), Math.PI * 1.05, Math.PI * 1.56);
+        ctx.stroke();
+      }
       ctx.restore();
     }
     
@@ -2425,7 +2488,7 @@ Output JSON strictly in this format:
     if (watermark) {
       const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
       await drawBackBrandSignature(ctx, cw, ch, {
-        anchor: templateVariant === 'sidebar' ? 'right' : 'left',
+        anchor: 'right',
         padding: padding * 1.1,
         locale,
       });
@@ -2735,14 +2798,26 @@ Output JSON strictly in this format:
     settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
 
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
-    const prompt = `Create a subtle decorative illustration for the back of a postcard.
-This is not a full image remake. Do not redraw the photo literally. Extract only the mood and one or two small symbolic details from the scene.
-Target language/context: ${result.settings.aiLanguage || 'Chinese'}.
+    const prompt = `Design only the decorative artwork layer for the BACK SIDE of a postcard.
+
+This must feel like premium printed stationery, not a photo remake. Keep the card mostly blank so the app can place message text, stamp, address lines, logo and QR code later.
+
+Use the uploaded/front-photo context only as inspiration:
+- choose 1 or 2 poetic visual clues from the scene, mood, season, place, subject or light
+- turn them into a small corner vignette, faint margin ornament, postal texture, simple line drawing, stamp-like mark, map-like trace, or soft paper wash
+- preserve at least 80% clean off-white negative space
+- the center and right address area must remain quiet and readable
+
+Style direction:
+- refined pencil sketch, quiet watercolor, light risograph grain, Japanese travel stationery, warm off-white paper
+- low contrast, delicate edges, elegant and restrained
+- no photorealistic background, no full-bleed scene, no literal redraw of the photo, no large faded photo, no text, no readable words, no logo, no QR code, no watermark
+
+Context language: ${result.settings.aiLanguage || 'Chinese'}
 Title: ${result.draftTitle || result.title || ''}
 Location: ${result.draftLocation || result.location || ''}
 Date: ${result.draftDate || result.date || ''}
-Message: ${result.draftMessage || result.message || ''}
-Visual direction: refined pencil sketch, soft pastel accents, airy white background, generous negative space, understated corner vignette or faint paper-texture motif, premium travel postcard back, no photorealism, no full-bleed scene, no readable text, no watermark, no logo.`;
+Message mood: ${result.draftMessage || result.message || ''}`;
 
     const response = await withTimeout(
       invokePostcardAi('image', {
