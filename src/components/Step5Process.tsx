@@ -445,21 +445,16 @@ export default function Step5Process({
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
         const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
         const brandingEnabled = settings.backBrandingEnabled !== false;
-        if (backMode === 'none') {
-          watermarkByPhotoId.set(photo.id, false);
-          continue;
-        }
+        const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
+        const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
+        const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
+        const hasExifLocation = !!getExifLocationName(photo.exif);
+        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
+        const cost = usesAi ? creditsPerCard : 0;
 
-        if (brandingEnabled) {
+        if (backMode !== 'none' && brandingEnabled) {
           watermarkByPhotoId.set(photo.id, true);
         } else {
-          const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
-          const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
-          const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
-          const hasExifLocation = !!getExifLocationName(photo.exif);
-          const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
-          const cost = usesAi ? creditsPerCard : 0;
-
           let promoUsed = false;
           if (cost > 0) {
             const paidUsed = Math.min(remainPaid, cost);
@@ -475,10 +470,7 @@ export default function Step5Process({
         }
       }
 
-      const [captionPromptGuidance, backImagePromptGuidance] = await Promise.all([
-        getPublishedPromptContent('caption_generation_default').catch(() => ''),
-        getPublishedPromptContent('back_image_default').catch(() => ''),
-      ]);
+      const captionPromptGuidance = await getPublishedPromptContent('caption_generation_default').catch(() => '');
 
       try {
         const newResults: ProcessedPostcard[] = [];
@@ -662,57 +654,9 @@ Output JSON strictly in this format:
                       textPosition = analysisData.text_position;
                     }
 
-                    // 2. Generate Back Image（仅在启用 AI 背面时调用 DALL·E）
-                    let backImagePrompt = analysisData.back_image_prompt || "";
-                    
-                    if (!backImagePrompt) {
-                      const subject = analysisData.subject;
-                      const context = analysisData.context;
-                      const general = analysisData.general_elements;
-
-                      const styleDesc =
-                        backImagePromptGuidance.trim()
-                          || "subtle postcard-back decorative motif, refined pencil sketch, soft pastel accents, delicate lines, airy white background, understated symbolic details, not photorealistic, not a literal redraw, no readable text, no watermark, no logo";
-                      
-                      if (subject && context) {
-                        backImagePrompt = `A ${styleDesc} of ${subject} in ${context}.`;
-                      } else if (subject) {
-                        backImagePrompt = `A ${styleDesc} of ${subject}.`;
-                      } else if (context) {
-                        backImagePrompt = `A ${styleDesc} of ${context}.`;
-                      } else {
-                        backImagePrompt = `A ${styleDesc} of ${general || "scenery"}.`;
-                      }
-                    }
-
-                    try {
-                      const response = await invokePostcardAi('image', {
-                        model: "dall-e-3",
-                        prompt: backImagePrompt,
-                        n: 1,
-                        size: "1024x1024",
-                        response_format: "b64_json",
-                        style: "natural"
-                      });
-
-                      generatedBackImageBase64 = getGeneratedImageSource(response);
-                    } catch (openAiErr) {
-                      console.warn("OpenAI image generation failed, trying fallback prompt", openAiErr);
-                      try {
-                        const fallbackResponse = await invokePostcardAi('image', {
-                          model: "dall-e-3",
-                          prompt:
-                            "A subtle postcard-back decorative motif in refined pencil sketch style, soft pastel accents, delicate lines, pure white background, airy negative space, understated symbolic travel details, not photorealistic, no readable text, no watermark, no logo.",
-                          n: 1,
-                          size: "1024x1024",
-                          response_format: "b64_json",
-                          style: "natural"
-                        });
-                        generatedBackImageBase64 = getGeneratedImageSource(fallbackResponse);
-                      } catch (fallbackErr) {
-                        console.warn("Fallback image generation also failed", fallbackErr);
-                      }
-                    }
+                    // 首轮批量生成不再等待 DALL·E 背面图。
+                    // 背面先使用 AI 文案 + 自动模板，用户需要时可在编辑页按需生成装饰图。
+                    generatedBackImageBase64 = null;
                   }
                 } catch (aiErr) {
                   console.error("AI Analysis failed", aiErr);
@@ -2746,7 +2690,26 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
       const generatedBackImage = await generateAiBackImageForDraft(result);
       const nextDraft = { ...result, generatedBackImage };
       setEditingDraft(nextDraft);
-      setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+      if (user.id && isSupabaseConnected) {
+        const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
+          referenceId: result.id,
+          notes: 'Generate AI back decorative image',
+          operator: 'system',
+          bucket: null,
+        });
+        if (creditRes.ok && creditRes.data) {
+          setUser(prev => ({
+            ...prev,
+            credits: creditRes.data!.total_credits,
+            promo_credits: creditRes.data!.promo_credits,
+            paid_credits: creditRes.data!.paid_credits,
+          }));
+        } else {
+          setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+        }
+      } else {
+        setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+      }
       return nextDraft;
     } finally {
       setRewritingState(null);
@@ -2755,7 +2718,7 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
 
   const handleUpdatePreview = async (
     draftToUse?: ProcessedPostcard,
-    options: { generateMissingAiBack?: boolean } = { generateMissingAiBack: true }
+    options: { generateMissingAiBack?: boolean } = { generateMissingAiBack: false }
   ) => {
     if (!editingResultId) return;
     let result = draftToUse || editingDraft;
@@ -3189,7 +3152,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   : <Wand2 className="h-3.5 w-3.5" />}
                                 {result.generatedBackImage
                                   ? (language === 'zh' ? '重新生成' : 'Regenerate')
-                                  : (language === 'zh' ? '生成 AI 背面' : 'Generate AI Back')}
+                                  : (language === 'zh' ? '生成 AI 背面图（1积分）' : 'Generate AI Back (1 credit)')}
                               </button>
                             )}
                             {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
@@ -3376,7 +3339,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 {rewritingState?.id === result.id && rewritingState?.field === 'back'
                                   ? <Loader2 className="h-4 w-4 animate-spin" />
                                   : <Wand2 className="h-4 w-4" />}
-                                {language === 'zh' ? 'AI 重绘背面图' : 'Redraw AI Back'}
+                                {language === 'zh' ? 'AI 重绘背面图（1积分）' : 'Redraw AI Back (1 credit)'}
                               </button>
                               
                               <div className="grid grid-cols-2 gap-4">
