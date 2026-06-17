@@ -83,9 +83,10 @@ Deno.serve(async (req) => {
     const endpoint = action === "chat" ? "/chat/completions" : "/images/generations";
     let { response, data } = await callOpenAi(baseUrl, apiKey, endpoint, payload);
 
-    if (action === "image" && !response.ok && response.status === 400 && "response_format" in payload) {
+    if (action === "image" && !response.ok && response.status === 400 && ("response_format" in payload || "style" in payload)) {
       const retryPayload = { ...payload };
       delete retryPayload.response_format;
+      delete retryPayload.style;
       console.error("[postcard-ai] Image request rejected, retrying without response_format", {
         status: response.status,
         baseHost: new URL(baseUrl).host,

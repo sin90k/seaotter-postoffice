@@ -304,6 +304,7 @@ export default function Step5Process({
   const [livePreview, setLivePreview] = useState<{ front: string, back: string } | null>(null);
   const [rewritingState, setRewritingState] = useState<{ id: string, field: string } | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [batchBackState, setBatchBackState] = useState<{ running: boolean; done: number; total: number }>({ running: false, done: 0, total: 0 });
   const isDraggingFrontText = useRef(false);
 
   const invokePostcardAi = async (action: 'chat' | 'image', payload: Record<string, unknown>) => {
@@ -591,7 +592,7 @@ Output JSON strictly in this format:
 
                   const analysisResponse = await withTimeout(
                     invokePostcardAi('chat', {
-                      model: "gpt-4o",
+                      model: "gpt-4o-mini",
                       temperature: 0.7,
                       messages: [
                         {
@@ -2665,8 +2666,7 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
         prompt,
         n: 1,
         size: "1024x1024",
-        response_format: "b64_json",
-        style: "natural"
+        response_format: "b64_json"
       }),
       90000,
       "AI back redraw timed out."
@@ -2779,6 +2779,102 @@ Visual direction: refined pencil sketch, soft pastel accents, airy white backgro
       alert(language === 'zh'
         ? `AI 背面重绘失败：${e?.message || '请稍后再试'}`
         : `Failed to redraw the back: ${e?.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleBatchGenerateBackImages = async () => {
+    if (batchBackState.running) return;
+    const targets = displayedHistory.filter((result) =>
+      result.selected &&
+      getBackMode(result.settings) === 'ai' &&
+      !result.generatedBackImage &&
+      !!result.imgUrl
+    );
+    if (targets.length === 0) {
+      alert(language === 'zh'
+        ? '没有需要生成 AI 背面图的已选明信片。'
+        : 'No selected postcards need an AI back image.');
+      return;
+    }
+    if (user.credits < targets.length) {
+      setShowPricing(true);
+      alert(language === 'zh'
+        ? `批量生成需要 ${targets.length} 积分，当前只有 ${user.credits}。`
+        : `Batch generation needs ${targets.length} credits, but you only have ${user.credits}.`);
+      return;
+    }
+
+    setBatchBackState({ running: true, done: 0, total: targets.length });
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const target of targets) {
+      setRewritingState({ id: target.id, field: 'back' });
+      try {
+        const generatedBackImage = await generateAiBackImageForDraft(target);
+        const img = await loadImage(target.imgUrl || '');
+        const backMode = getBackMode(target.settings);
+        const useWatermark = target.watermark === true || (target.settings.backBrandingEnabled !== false && backMode !== 'none');
+        const newBack = backMode === 'none'
+          ? ''
+          : await generateBack(
+              img,
+              target.draftMessage || target.message || '',
+              target.draftLocation || target.location || '',
+              target.postmark || '',
+              target.theme || 'standard',
+              target.settings,
+              target.draftBackStyle || target.backStyle,
+              target.draftAuthor || target.author,
+              target.draftDate || target.date,
+              target.decorativeIcons,
+              generatedBackImage,
+              useWatermark
+            );
+        const updated = {
+          ...target,
+          generatedBackImage,
+          backDataUrl: newBack,
+          backUrl: newBack || target.backUrl,
+        };
+        setHistory(prev => prev.map(item => item.id === target.id ? updated : item));
+        setEditingDraft(prev => prev?.id === target.id ? { ...prev, ...updated } : prev);
+
+        if (user.id && isSupabaseConnected) {
+          const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
+            referenceId: target.id,
+            notes: 'Batch generate AI back decorative image',
+            operator: 'system',
+            bucket: null,
+          });
+          if (creditRes.ok && creditRes.data) {
+            setUser(prev => ({
+              ...prev,
+              credits: creditRes.data!.total_credits,
+              promo_credits: creditRes.data!.promo_credits,
+              paid_credits: creditRes.data!.paid_credits,
+            }));
+          } else {
+            setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+          }
+        } else {
+          setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+        }
+        successCount += 1;
+      } catch (e) {
+        failedCount += 1;
+        console.error('Batch AI back generation failed', target.id, e);
+      } finally {
+        setBatchBackState(prev => ({ ...prev, done: prev.done + 1 }));
+      }
+    }
+
+    setRewritingState(null);
+    setBatchBackState(prev => ({ ...prev, running: false }));
+    if (failedCount > 0) {
+      alert(language === 'zh'
+        ? `批量生成完成：成功 ${successCount} 张，失败 ${failedCount} 张。`
+        : `Batch finished: ${successCount} succeeded, ${failedCount} failed.`);
     }
   };
 
@@ -2949,6 +3045,18 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
               {user.level === 'vip' ? t.vip : t.free}
             </span>
           </div>
+          {displayedHistory.some(r => r.selected && getBackMode(r.settings) === 'ai' && !r.generatedBackImage) && (
+            <button
+              onClick={handleBatchGenerateBackImages}
+              disabled={batchBackState.running}
+              className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {batchBackState.running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+              {batchBackState.running
+                ? `${batchBackState.done}/${batchBackState.total}`
+                : (language === 'zh' ? '批量 AI 背面' : 'Batch AI Back')}
+            </button>
+          )}
           <button
             onClick={handleDownloadAll}
             disabled={displayedHistory.filter(r => r.selected).length === 0}
