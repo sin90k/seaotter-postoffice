@@ -504,6 +504,7 @@ export default function Step5Process({
               let theme = "elegant";
               let postmark = "";
               let artisticIcons: string[] = [];
+              let backImagePrompt = "";
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
               const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
@@ -648,6 +649,9 @@ Output JSON strictly in this format:
                     if (analysisData.theme) theme = analysisData.theme;
                     if (analysisData.postmark) postmark = analysisData.postmark;
                     if (analysisData.artistic_icons) artisticIcons = analysisData.artistic_icons;
+                    if (analysisData.back_image_prompt) {
+                      backImagePrompt = String(analysisData.back_image_prompt || '').trim();
+                    }
                     if (
                       analysisData.text_position &&
                       ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].includes(analysisData.text_position)
@@ -751,6 +755,7 @@ Output JSON strictly in this format:
                 theme,
                 iconEmoji: '',
                 decorativeIcons: artisticIcons,
+                backImagePrompt,
                 postmark,
                 author: authorStr,
                 date: displayDate,
@@ -2798,15 +2803,22 @@ Output JSON strictly in this format:
     settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
 
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
-    const prompt = `Design only the decorative artwork layer for the BACK SIDE of a postcard.
+    const publishedBackPrompt = (await getPublishedPromptContent('back_image_default')).trim();
+    const cursorEraPrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
+    const prompt = `${publishedBackPrompt || 'Create a complementary pencil sketch for the back of an elegant postcard.'}
+
+Use this photo-specific prompt from the postcard analysis as the primary creative direction:
+${cursorEraPrompt || 'No saved photo-specific back_image_prompt is available for this older postcard, so infer a complementary pencil sketch from the title, message, location, mood and visible photo.'}
+
+Generate only the decorative artwork layer for the BACK SIDE of a postcard.
 
 This must feel like premium printed stationery, not a photo remake. Keep the card mostly blank so the app can place message text, stamp, address lines, logo and QR code later.
 
-Use the uploaded/front-photo context only as inspiration:
-- choose 1 or 2 poetic visual clues from the scene, mood, season, place, subject or light
-- turn them into a small corner vignette, faint margin ornament, postal texture, simple line drawing, stamp-like mark, map-like trace, or soft paper wash
-- preserve at least 80% clean off-white negative space
-- the center and right address area must remain quiet and readable
+Rules:
+- Preserve the intent of the photo-specific prompt above.
+- Convert it into a small complementary pencil sketch, corner vignette, faint margin ornament, postal texture, map-like trace, or soft paper wash.
+- Preserve at least 80% clean off-white negative space.
+- The center and right address area must remain quiet and readable.
 
 Style direction:
 - refined pencil sketch, quiet watercolor, light risograph grain, Japanese travel stationery, warm off-white paper

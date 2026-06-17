@@ -168,6 +168,8 @@ export type ProcessedPostcard = {
   selected?: boolean;
   postmark?: any;
   decorativeIcons?: any[];
+  backImagePrompt?: string;
+  back_image_prompt?: string;
   generatedBackImage?: string;
   message?: string;
   author?: string;

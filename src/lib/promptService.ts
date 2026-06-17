@@ -35,7 +35,10 @@ const STORAGE_PREFIX = 'admin_prompt_';
 const RUNTIME_CACHE_PREFIX = 'published_prompt_';
 
 const DEFAULT_BACK_IMAGE =
-  'Create a subtle postcard-back decorative motif inspired by the photo. Use refined pencil lines, soft pastel accents, airy negative space, and symbolic details. Do not make a literal redraw, do not add readable text, logo, or watermark.';
+  `Write a prompt for a complementary pencil sketch for the back of an elegant postcard.
+The sketch should match the same place, subject, mood, color palette, and poetic tone identified from the photo.
+It should feel like a quiet printed postcard ornament: refined pencil lines, soft pastel accents, delicate paper texture, symbolic travel details, and generous negative space.
+Avoid literal photo redraws, photorealistic backgrounds, full-bleed scenes, readable text, logos, QR codes, and watermarks.`;
 const DEFAULT_POSTCARD_LAYOUT =
   'Generate a postcard front layout. Keep the photo readable, reserve balanced space for title, location, author, and date, and make the result suitable for print.';
 const DEFAULT_TRANSLATION =
