@@ -16,6 +16,7 @@ import { getShareBranding } from '../lib/shareBranding';
 import { getPublishedPromptContent } from '../lib/promptService';
 import { resolveLocationSource } from '../lib/locationSource';
 import { captionGenerationPrompt, renderCaptionGenerationPrompt } from '../config/prompts/captionGeneration';
+import { hasUserBrandingEntitlement } from '../lib/userBranding';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -1063,13 +1064,19 @@ export default function Step5Process({
       locale?: 'zh' | 'en';
     }
   ) => {
-    const brandName = brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
-    const domain = brandConfig.domain();
-    const logoUrl = brandConfig.logoUrl();
-    if (!brandName && !logoUrl) return;
+    const personalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled
+      ? user.personalBranding
+      : null;
+    const brandName = personalBrand?.brandName
+      || brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
+    const domain = personalBrand?.qrTargetUrl || brandConfig.domain();
+    const logoUrl = personalBrand?.logoUrl || brandConfig.logoUrl();
+    if (!brandName && !logoUrl && !domain) return;
 
     const shortSide = Math.min(cw, ch);
-    const profile = brandConfig.signatureProfile(cw, ch);
+    const profile = personalBrand
+      ? { position: personalBrand.position, qrScale: personalBrand.qrScale, logoScale: personalBrand.logoScale }
+      : brandConfig.signatureProfile(cw, ch);
     const qrSize = Math.max(shortSide * 0.06, Math.min(shortSide * 0.28, shortSide * 0.12 * profile.qrScale));
     const logoSize = Math.max(shortSide * 0.03, Math.min(shortSide * 0.3, qrSize * 0.56 * profile.logoScale));
     const contentHeight = Math.max(qrSize, logoSize);
@@ -1077,7 +1084,7 @@ export default function Step5Process({
     const fontSize1 = Math.max(14, Math.min(shortSide * 0.055, shortSide * 0.026 * profile.qrScale));
     const fontSize2 = Math.max(10, Math.min(shortSide * 0.032, shortSide * 0.016 * profile.qrScale));
     const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
-    const opacity = brandConfig.watermarkOpacity();
+    const opacity = personalBrand?.opacity ?? brandConfig.watermarkOpacity();
     const shortDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const position = profile.position;
 
@@ -1107,13 +1114,10 @@ export default function Step5Process({
     const brandBaseline = contentTop + contentHeight * 0.46;
 
     ctx.globalAlpha = Math.min(0.92, 0.48 + opacity * 0.44);
-    ctx.fillStyle = 'rgba(255,255,255,0.86)';
-    ctx.strokeStyle = 'rgba(120,113,108,0.24)';
-    ctx.lineWidth = Math.max(1, shortSide * 0.0012);
+    ctx.fillStyle = 'rgba(255,255,255,0.68)';
     ctx.beginPath();
     ctx.roundRect(panelX, panelY, panelW, panelH, Math.min(18, panelH * 0.15));
     ctx.fill();
-    ctx.stroke();
 
     const drawFallbackQr = () => {
       const modules = 21;
@@ -1153,9 +1157,6 @@ export default function Step5Process({
           }
         }
       }
-      ctx.strokeStyle = 'rgba(120,113,108,0.55)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
       ctx.restore();
     };
 
@@ -1169,9 +1170,6 @@ export default function Step5Process({
       ctx.fillRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(qrImg, x, y, qrSize, qrSize);
-      ctx.strokeStyle = 'rgba(120,113,108,0.55)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
       ctx.restore();
     } catch (_) {
       drawFallbackQr();

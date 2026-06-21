@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Address } from '../App';
-import { X, Crown, Zap, LogOut, MapPin, Plus, Trash2, Edit2 } from 'lucide-react';
+import { X, Crown, Zap, LogOut, MapPin, Plus, Trash2, Edit2, QrCode, ImageUp, Save, LockKeyhole } from 'lucide-react';
+import {
+  DEFAULT_USER_BRAND_SETTINGS,
+  hasUserBrandingEntitlement,
+  saveUserBrandSettings,
+  type UserBrandSettings,
+} from '../lib/userBranding';
 
 interface Props {
   user: User;
@@ -40,6 +46,28 @@ const translations: Record<string, any> = {
     setDefault: 'Set Default',
     default: 'Default',
     logoutConfirm: 'Are you sure you want to log out?',
+    personalBrand: 'Personal Brand',
+    personalBrandHint: 'Use your own logo and QR code on postcard backs.',
+    personalBrandLocked: 'Available after purchasing credits. Your access remains active after the credits are used.',
+    enablePersonalBrand: 'Use my brand',
+    brandName: 'Brand name',
+    brandNamePlaceholder: 'Your studio or shop name',
+    logo: 'Logo',
+    uploadLogo: 'Upload logo',
+    qrTarget: 'QR destination',
+    qrTargetPlaceholder: 'https://your-site.com',
+    position: 'Position',
+    qrSize: 'QR size',
+    logoSize: 'Logo size',
+    opacity: 'Opacity',
+    saveBrand: 'Save personal brand',
+    brandSaved: 'Personal brand saved.',
+    brandSaveFailed: 'Could not save: ',
+    buyToUnlock: 'Buy credits to unlock',
+    positions: {
+      'top-left': 'Top left', 'top-center': 'Top center', 'top-right': 'Top right',
+      'bottom-left': 'Bottom left', 'bottom-center': 'Bottom center', 'bottom-right': 'Bottom right',
+    },
   },
   zh: {
     vip: 'VIP 会员',
@@ -67,6 +95,28 @@ const translations: Record<string, any> = {
     setDefault: '设为默认',
     default: '默认',
     logoutConfirm: '确定要退出登录吗？',
+    personalBrand: '个人品牌',
+    personalBrandHint: '在明信片背面使用你自己的 Logo 和二维码。',
+    personalBrandLocked: '购买过积分即可使用；积分用完后，个人品牌权限仍会保留。',
+    enablePersonalBrand: '使用我的品牌',
+    brandName: '品牌名称',
+    brandNamePlaceholder: '工作室、店铺或个人名称',
+    logo: 'Logo',
+    uploadLogo: '上传 Logo',
+    qrTarget: '二维码跳转网址',
+    qrTargetPlaceholder: 'https://你的网址.com',
+    position: '显示位置',
+    qrSize: '二维码大小',
+    logoSize: 'Logo 大小',
+    opacity: '透明度',
+    saveBrand: '保存个人品牌',
+    brandSaved: '个人品牌已保存。',
+    brandSaveFailed: '保存失败：',
+    buyToUnlock: '购买积分后解锁',
+    positions: {
+      'top-left': '左上', 'top-center': '顶部居中', 'top-right': '右上',
+      'bottom-left': '左下', 'bottom-center': '底部居中', 'bottom-right': '右下',
+    },
   },
 };
 
@@ -76,6 +126,16 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Address>>({});
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [brandSettings, setBrandSettings] = useState<UserBrandSettings>(() => ({
+    ...DEFAULT_USER_BRAND_SETTINGS,
+    qrTargetUrl: typeof window !== 'undefined' ? window.location.origin : '',
+    ...(user.personalBranding || {}),
+  }));
+  const [brandLogoFile, setBrandLogoFile] = useState<File | null>(null);
+  const [brandLogoPreview, setBrandLogoPreview] = useState(user.personalBranding?.logoUrl || '');
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandMessage, setBrandMessage] = useState('');
+  const canUsePersonalBrand = hasUserBrandingEntitlement(user);
 
   const getLevelDetails = () => {
     switch (user.level) {
@@ -140,6 +200,32 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
     setIsEditingAddress(false);
   };
 
+  const handleBrandLogoChange = (file: File | null) => {
+    setBrandLogoFile(file);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setBrandLogoPreview(typeof reader.result === 'string' ? reader.result : '');
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveBrand = async () => {
+    if (!user.id || !canUsePersonalBrand) return;
+    setBrandSaving(true);
+    setBrandMessage('');
+    try {
+      const saved = await saveUserBrandSettings(user.id, brandSettings, brandLogoFile);
+      setBrandSettings(saved);
+      setBrandLogoPreview(saved.logoUrl);
+      setBrandLogoFile(null);
+      setUser({ ...user, personalBranding: saved });
+      setBrandMessage(t.brandSaved);
+    } catch (error) {
+      setBrandMessage(`${t.brandSaveFailed}${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBrandSaving(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -151,7 +237,7 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative my-8"
+        className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl relative my-8"
       >
         <button
           onClick={onClose}
@@ -231,6 +317,142 @@ export default function UserProfileModal({ user, setUser, onClose, onLogout, onU
                 </button>
               </div>
             )}
+
+            <section className="border-t border-stone-100 pt-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <QrCode className="w-5 h-5 text-stone-700 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-base font-bold text-stone-900">{t.personalBrand}</h3>
+                    <p className="text-xs leading-relaxed text-stone-500 mt-1">
+                      {canUsePersonalBrand ? t.personalBrandHint : t.personalBrandLocked}
+                    </p>
+                  </div>
+                </div>
+                {canUsePersonalBrand && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={brandSettings.enabled}
+                    onClick={() => setBrandSettings(current => ({ ...current, enabled: !current.enabled }))}
+                    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${brandSettings.enabled ? 'bg-stone-900' : 'bg-stone-300'}`}
+                    title={t.enablePersonalBrand}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${brandSettings.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                )}
+              </div>
+
+              {!canUsePersonalBrand ? (
+                <button
+                  type="button"
+                  onClick={onUpgrade}
+                  className="mt-4 w-full py-2.5 text-sm font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  <LockKeyhole className="w-4 h-4" />
+                  {t.buyToUnlock}
+                </button>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-end">
+                    <label className="block">
+                      <span className="block text-xs font-medium text-stone-600 mb-1.5">{t.brandName}</span>
+                      <input
+                        type="text"
+                        maxLength={48}
+                        value={brandSettings.brandName}
+                        onChange={event => setBrandSettings(current => ({ ...current, brandName: event.target.value }))}
+                        placeholder={t.brandNamePlaceholder}
+                        className="w-full h-10 px-3 rounded-lg border border-stone-200 focus:border-stone-700 outline-none text-sm"
+                      />
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {brandLogoPreview ? (
+                        <img src={brandLogoPreview} alt="" className="w-10 h-10 object-contain" />
+                      ) : (
+                        <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center">
+                          <ImageUp className="w-4 h-4 text-stone-400" />
+                        </div>
+                      )}
+                      <label className="h-10 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-sm font-medium text-stone-700 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap">
+                        <ImageUp className="w-4 h-4" />
+                        {t.uploadLogo}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="sr-only"
+                          onChange={event => handleBrandLogoChange(event.target.files?.[0] || null)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-[1fr_160px] gap-4">
+                    <label className="block">
+                      <span className="block text-xs font-medium text-stone-600 mb-1.5">{t.qrTarget}</span>
+                      <input
+                        type="url"
+                        value={brandSettings.qrTargetUrl}
+                        onChange={event => setBrandSettings(current => ({ ...current, qrTargetUrl: event.target.value }))}
+                        placeholder={t.qrTargetPlaceholder}
+                        className="w-full h-10 px-3 rounded-lg border border-stone-200 focus:border-stone-700 outline-none text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="block text-xs font-medium text-stone-600 mb-1.5">{t.position}</span>
+                      <select
+                        value={brandSettings.position}
+                        onChange={event => setBrandSettings(current => ({ ...current, position: event.target.value as UserBrandSettings['position'] }))}
+                        className="w-full h-10 px-3 rounded-lg border border-stone-200 bg-white focus:border-stone-700 outline-none text-sm"
+                      >
+                        {Object.entries(t.positions as Record<string, string>).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    {([
+                      ['qrScale', t.qrSize, 0.5, 2.5],
+                      ['logoScale', t.logoSize, 0.5, 2.5],
+                      ['opacity', t.opacity, 0.35, 1],
+                    ] as const).map(([key, label, min, max]) => (
+                      <label key={key} className="block">
+                        <span className="flex justify-between text-xs font-medium text-stone-600 mb-1.5">
+                          <span>{label}</span>
+                          <span>{Math.round(brandSettings[key] * 100)}%</span>
+                        </span>
+                        <input
+                          type="range"
+                          min={min}
+                          max={max}
+                          step={0.05}
+                          value={brandSettings[key]}
+                          onChange={event => setBrandSettings(current => ({ ...current, [key]: Number(event.target.value) }))}
+                          className="w-full accent-stone-900"
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <p className={`text-xs ${brandMessage.startsWith(t.brandSaveFailed) ? 'text-red-600' : 'text-emerald-700'}`}>
+                      {brandMessage}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSaveBrand}
+                      disabled={brandSaving}
+                      className="h-10 px-4 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-800 disabled:opacity-50 flex items-center gap-2 shrink-0"
+                    >
+                      <Save className="w-4 h-4" />
+                      {brandSaving ? '...' : t.saveBrand}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
 
             {/* Addresses Section */}
             <div className="border-t border-stone-100 pt-6">

@@ -20,6 +20,7 @@ import { isSupabaseConnected, supabase } from './lib/supabaseClient';
 import { logEvent } from './lib/events';
 import { APP_VERSION } from './version';
 import { loadBrandSettings } from './lib/brandSettings';
+import { loadUserBrandSettings, type UserBrandSettings } from './lib/userBranding';
 
 
 export type UserLevel = 'free' | 'vip';
@@ -51,6 +52,8 @@ export type User = {
   paid_credits: number;
   /** Cumulative paid credits the user has ever purchased */
   totalPaidCredits?: number;
+  /** Paid-user branding loaded from Supabase. */
+  personalBranding?: UserBrandSettings | null;
   password?: string;
   createdAt?: number;
   /** Last active timestamp (login or postcard generation), ms */
@@ -597,7 +600,7 @@ export default function App() {
     const sUser = session.user;
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
-      .select('credits, promo_credits, paid_credits, nickname, role')
+      .select('credits, promo_credits, paid_credits, total_paid_credits, nickname, role')
       .eq('id', sUser.id)
       .single();
     const defaultPromo = (() => {
@@ -634,6 +637,13 @@ export default function App() {
     const paid = typeof (profile as { paid_credits?: number })?.paid_credits === 'number'
       ? (profile as { paid_credits: number }).paid_credits
       : 0;
+    const totalPaidCredits = typeof (profile as { total_paid_credits?: number })?.total_paid_credits === 'number'
+      ? (profile as { total_paid_credits: number }).total_paid_credits
+      : 0;
+    const personalBranding = await loadUserBrandSettings(sUser.id).catch(error => {
+      console.warn('[App] load personal branding failed:', error);
+      return null;
+    });
     const total = hasSplitCredits || typeof profile?.credits === 'number' ? (promo + paid) : null;
     const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string)?.trim().toLowerCase();
     const emailMatchesAdmin = adminEmail && (sUser.email?.toLowerCase() === adminEmail);
@@ -661,6 +671,8 @@ export default function App() {
         credits: finalCredits,
         promo_credits: finalPromo,
         paid_credits: finalPaid,
+        totalPaidCredits,
+        personalBranding,
         addresses: prev.addresses || [],
         createdAt: prev.createdAt || Date.now(),
         role: effectiveRole,
