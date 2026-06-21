@@ -2108,37 +2108,48 @@ export default function Step5Process({
       ctx.restore();
     }
 
-    // 1. AI Illustration (subtle decorative layer)
+    // 1. AI Illustration (full-bleed background with local readability washes)
     if (generatedBackImage) {
       try {
         const backImg = await loadImage(generatedBackImage);
         ctx.save();
-        const motifBoxW = Math.max(cw * 0.34, dividerX - padding * 2.2);
-        const motifBoxH = ch * 0.48;
-        const motifX = padding * 1.05;
-        const motifY = ch - motifBoxH - padding * 1.05;
-        const scale = Math.min(motifBoxW / backImg.width, motifBoxH / backImg.height);
-        const motifW = backImg.width * scale;
-        const motifH = backImg.height * scale;
-        const drawX = motifX + (motifBoxW - motifW) / 2;
-        const drawY = motifY + (motifBoxH - motifH) / 2;
+        const coverScale = Math.max(cw / backImg.width, ch / backImg.height);
+        const coverW = backImg.width * coverScale;
+        const coverH = backImg.height * coverScale;
+        const coverX = (cw - coverW) / 2;
+        const coverY = (ch - coverH) / 2;
 
-        ctx.globalAlpha = 0.6;
-        ctx.filter = 'saturate(0.96) contrast(1.05) brightness(1.02)';
-        ctx.drawImage(backImg, drawX, drawY, motifW, motifH);
+        ctx.globalAlpha = 0.88;
+        ctx.filter = 'saturate(0.94) contrast(1.04) brightness(1.03)';
+        ctx.drawImage(backImg, coverX, coverY, coverW, coverH);
         ctx.filter = 'none';
 
-        ctx.globalAlpha = 0.64;
-        const textWash = ctx.createLinearGradient(0, padding * 0.4, 0, ch * 0.38);
-        textWash.addColorStop(0, 'rgba(255,255,255,0.94)');
+        ctx.globalAlpha = 1;
+        const paperVeil = ctx.createLinearGradient(0, 0, cw, ch);
+        paperVeil.addColorStop(0, 'rgba(253,251,247,0.08)');
+        paperVeil.addColorStop(0.55, 'rgba(255,255,255,0.03)');
+        paperVeil.addColorStop(1, 'rgba(253,251,247,0.12)');
+        ctx.fillStyle = paperVeil;
+        ctx.fillRect(0, 0, cw, ch);
+
+        const textWash = ctx.createRadialGradient(
+          padding * 1.4,
+          padding * 1.4,
+          padding * 0.2,
+          padding * 1.4,
+          padding * 1.4,
+          Math.max(dividerX, ch * 0.62)
+        );
+        textWash.addColorStop(0, 'rgba(255,255,255,0.9)');
+        textWash.addColorStop(0.58, 'rgba(255,255,255,0.68)');
         textWash.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = textWash;
-        ctx.fillRect(0, 0, dividerX, ch * 0.46);
+        ctx.fillRect(0, 0, dividerX + padding, ch * 0.56);
 
-        ctx.globalAlpha = 0.34;
         const addressWash = ctx.createLinearGradient(dividerX, 0, cw, 0);
-        addressWash.addColorStop(0, 'rgba(255,255,255,0.16)');
-        addressWash.addColorStop(1, 'rgba(255,255,255,0.76)');
+        addressWash.addColorStop(0, 'rgba(255,255,255,0.28)');
+        addressWash.addColorStop(0.32, 'rgba(255,255,255,0.58)');
+        addressWash.addColorStop(1, 'rgba(255,255,255,0.78)');
         ctx.fillStyle = addressWash;
         ctx.fillRect(dividerX, 0, cw - dividerX, ch);
         ctx.restore();
