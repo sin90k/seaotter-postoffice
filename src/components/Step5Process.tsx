@@ -2119,16 +2119,16 @@ export default function Step5Process({
         const coverX = (cw - coverW) / 2;
         const coverY = (ch - coverH) / 2;
 
-        ctx.globalAlpha = 0.88;
-        ctx.filter = 'saturate(0.94) contrast(1.04) brightness(1.03)';
+        ctx.globalAlpha = 0.72;
+        ctx.filter = 'saturate(0.74) contrast(0.96) brightness(1.07)';
         ctx.drawImage(backImg, coverX, coverY, coverW, coverH);
         ctx.filter = 'none';
 
         ctx.globalAlpha = 1;
         const paperVeil = ctx.createLinearGradient(0, 0, cw, ch);
-        paperVeil.addColorStop(0, 'rgba(253,251,247,0.08)');
-        paperVeil.addColorStop(0.55, 'rgba(255,255,255,0.03)');
-        paperVeil.addColorStop(1, 'rgba(253,251,247,0.12)');
+        paperVeil.addColorStop(0, 'rgba(253,251,247,0.18)');
+        paperVeil.addColorStop(0.55, 'rgba(255,255,255,0.1)');
+        paperVeil.addColorStop(1, 'rgba(253,251,247,0.22)');
         ctx.fillStyle = paperVeil;
         ctx.fillRect(0, 0, cw, ch);
 
@@ -2858,8 +2858,16 @@ export default function Step5Process({
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
     const publishedBackPrompt = (await getPublishedPromptContent('back_image_default')).trim();
     const imageAwarePrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
-    const prompt = imageAwarePrompt || publishedBackPrompt;
-    if (!prompt) throw new Error('AI analysis did not return a back image prompt.');
+    const subjectPrompt = imageAwarePrompt || publishedBackPrompt;
+    if (!subjectPrompt) throw new Error('AI analysis did not return a back image prompt.');
+    const prompt = `${subjectPrompt}
+
+ART DIRECTION FOR THE POSTCARD BACK:
+- Reinterpret the subject instead of reproducing the photo. Simplify buildings, people and scenery into suggestive shapes, lines, rhythm, light and atmosphere.
+- Automatically choose the medium that best suits the scene: luminous Impressionist color and broken brushwork associated with Monet; expressive Post-Impressionist movement and tactile strokes associated with Van Gogh; or refined graphite and colored-pencil texture.
+- Use a restrained, low-saturation palette with visible paper texture and calm tonal transitions across the full canvas.
+- Keep the result poetic, abstract and handmade. It must read as an artwork or sketch, never as a photograph or a highly accurate architectural rendering.
+- Avoid large flat color blocks, hard digital edges, excessive detail, strong contrast, photorealism, readable text, logos, QR codes and watermarks.`;
 
     const response = await withTimeout(
       invokePostcardAi('image', {
@@ -2867,6 +2875,7 @@ export default function Step5Process({
         prompt,
         n: 1,
         size: "1024x1024",
+        quality: "low",
         response_format: "b64_json"
       }),
       90000,
