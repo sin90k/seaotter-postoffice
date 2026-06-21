@@ -29,6 +29,8 @@ const selectMasterCaptionPrompt = (publishedPrompt: string) => {
   return candidate.includes('back_image_prompt') ? candidate : captionGenerationPrompt;
 };
 
+const AI_BACK_BATCH_CONCURRENCY = 5;
+
 interface Props {
   photos: Photo[];
   setPhotos: (photos: Photo[]) => void;
@@ -312,6 +314,7 @@ export default function Step5Process({
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [batchBackState, setBatchBackState] = useState<{ running: boolean; done: number; total: number }>({ running: false, done: 0, total: 0 });
   const isDraggingFrontText = useRef(false);
+  const activeBackTasksRef = useRef<Map<string, Promise<ProcessedPostcard>>>(new Map());
 
   const invokePostcardAi = async (action: 'chat' | 'image', payload: Record<string, unknown>) => {
     const { data, error: functionError } = await supabase.functions.invoke('postcard-ai', {
@@ -2887,45 +2890,62 @@ ART DIRECTION FOR THE POSTCARD BACK:
     return generatedImage;
   };
 
-  const ensureAiBackImage = async (result: ProcessedPostcard, force = false) => {
-    if (getBackMode(result.settings) !== 'ai') return result;
-    if (!force && result.generatedBackImage) return result;
-    if (user.credits < 1) {
-      setShowPricing(true);
-      throw new Error(language === 'zh' ? '积分不足，无法生成 AI 背面图。' : 'Not enough credits to generate AI back image.');
-    }
+  const ensureAiBackImage = (
+    result: ProcessedPostcard,
+    options: { forceImage?: boolean; refreshPrompt?: boolean } = {}
+  ): Promise<ProcessedPostcard> => {
+    if (getBackMode(result.settings) !== 'ai') return Promise.resolve(result);
+    if (!options.forceImage && result.generatedBackImage) return Promise.resolve(result);
 
-    setRewritingState({ id: result.id, field: 'back' });
-    try {
-      const recoveredPrompt = await createImageAwareBackPrompt(result, force);
-      const promptReadyResult = recoveredPrompt ? { ...result, backImagePrompt: recoveredPrompt } : result;
-      const generatedBackImage = await generateAiBackImageForDraft(promptReadyResult);
-      const nextDraft = { ...promptReadyResult, generatedBackImage };
-      setEditingDraft(nextDraft);
-      if (user.id && isSupabaseConnected) {
-        const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
-          referenceId: result.id,
-          notes: 'Generate AI back decorative image',
-          operator: 'system',
-          bucket: null,
-        });
-        if (creditRes.ok && creditRes.data) {
-          setUser(prev => ({
-            ...prev,
-            credits: creditRes.data!.total_credits,
-            promo_credits: creditRes.data!.promo_credits,
-            paid_credits: creditRes.data!.paid_credits,
-          }));
+    const taskKey = result.id;
+    const activeTask = activeBackTasksRef.current.get(taskKey);
+    if (activeTask) return activeTask;
+
+    const task = (async () => {
+      if (user.credits < 1) {
+        setShowPricing(true);
+        throw new Error(language === 'zh' ? '积分不足，无法生成 AI 背面图。' : 'Not enough credits to generate AI back image.');
+      }
+
+      setRewritingState({ id: result.id, field: 'back' });
+      try {
+        const recoveredPrompt = await createImageAwareBackPrompt(result, options.refreshPrompt === true);
+        const promptReadyResult = recoveredPrompt ? { ...result, backImagePrompt: recoveredPrompt } : result;
+        const generatedBackImage = await generateAiBackImageForDraft(promptReadyResult);
+        const nextDraft = { ...promptReadyResult, generatedBackImage };
+        setEditingDraft(nextDraft);
+        if (user.id && isSupabaseConnected) {
+          const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
+            referenceId: result.id,
+            notes: options.refreshPrompt ? 'Reanalyze photo and generate AI back' : 'Regenerate AI back from cached analysis',
+            operator: 'system',
+            bucket: null,
+          });
+          if (creditRes.ok && creditRes.data) {
+            setUser(prev => ({
+              ...prev,
+              credits: creditRes.data!.total_credits,
+              promo_credits: creditRes.data!.promo_credits,
+              paid_credits: creditRes.data!.paid_credits,
+            }));
+          } else {
+            setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+          }
         } else {
           setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
         }
-      } else {
-        setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
+        return nextDraft;
+      } finally {
+        setRewritingState(null);
       }
-      return nextDraft;
-    } finally {
-      setRewritingState(null);
-    }
+    })();
+
+    activeBackTasksRef.current.set(taskKey, task);
+    task.then(
+      () => activeBackTasksRef.current.delete(taskKey),
+      () => activeBackTasksRef.current.delete(taskKey)
+    );
+    return task;
   };
 
   const handleUpdatePreview = async (
@@ -2970,7 +2990,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
     }
   };
 
-  const handleRegenerateBackImage = async (photoId: string) => {
+  const handleRegenerateBackImage = async (photoId: string, refreshPrompt = false) => {
     const result = editingDraft && editingDraft.id === photoId ? editingDraft : history.find(r => r.id === photoId);
     if (!result) return;
     const backMode = getBackMode(result.settings);
@@ -2984,7 +3004,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
     }
 
     try {
-      const nextDraft = await ensureAiBackImage(result, true);
+      const nextDraft = await ensureAiBackImage(result, { forceImage: true, refreshPrompt });
       await handleUpdatePreview(nextDraft);
     } catch (e: any) {
       console.error('Failed to redraw back image', e);
@@ -3020,8 +3040,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
     let successCount = 0;
     let failedCount = 0;
 
-    for (const target of targets) {
-      setRewritingState({ id: target.id, field: 'back' });
+    const processTarget = async (target: ProcessedPostcard) => {
       try {
         const recoveredPrompt = await createImageAwareBackPrompt(target, false);
         const promptReadyTarget = recoveredPrompt ? { ...target, backImagePrompt: recoveredPrompt } : target;
@@ -3053,33 +3072,46 @@ ART DIRECTION FOR THE POSTCARD BACK:
         };
         setHistory(prev => prev.map(item => item.id === target.id ? updated : item));
         setEditingDraft(prev => prev?.id === target.id ? { ...prev, ...updated } : prev);
-
-        if (user.id && isSupabaseConnected) {
-          const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
-            referenceId: target.id,
-            notes: 'Batch generate AI back decorative image',
-            operator: 'system',
-            bucket: null,
-          });
-          if (creditRes.ok && creditRes.data) {
-            setUser(prev => ({
-              ...prev,
-              credits: creditRes.data!.total_credits,
-              promo_credits: creditRes.data!.promo_credits,
-              paid_credits: creditRes.data!.paid_credits,
-            }));
-          } else {
-            setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
-          }
-        } else {
-          setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - 1) }));
-        }
         successCount += 1;
       } catch (e) {
         failedCount += 1;
         console.error('Batch AI back generation failed', target.id, e);
       } finally {
         setBatchBackState(prev => ({ ...prev, done: prev.done + 1 }));
+      }
+    };
+
+    let nextTargetIndex = 0;
+    const workerCount = Math.min(AI_BACK_BATCH_CONCURRENCY, targets.length);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (nextTargetIndex < targets.length) {
+        const target = targets[nextTargetIndex];
+        nextTargetIndex += 1;
+        await processTarget(target);
+      }
+    });
+    await Promise.all(workers);
+
+    if (successCount > 0) {
+      if (user.id && isSupabaseConnected) {
+        const creditRes = await updateUserCredits(user.id, -successCount, 'generation_cost', {
+          referenceId: `batch-ai-back-${Date.now()}`,
+          notes: `Batch generated ${successCount} AI postcard backs`,
+          operator: 'system',
+          bucket: null,
+        });
+        if (creditRes.ok && creditRes.data) {
+          setUser(prev => ({
+            ...prev,
+            credits: creditRes.data!.total_credits,
+            promo_credits: creditRes.data!.promo_credits,
+            paid_credits: creditRes.data!.paid_credits,
+          }));
+        } else {
+          setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - successCount) }));
+        }
+      } else {
+        setUser(prev => ({ ...prev, credits: Math.max(0, prev.credits - successCount) }));
       }
     }
 
@@ -3463,19 +3495,36 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                               {t.backSide}
                             </div>
                             {getBackMode(result.settings) === 'ai' && (
-                              <button
-                                type="button"
-                                onClick={() => handleRegenerateBackImage(result.id)}
-                                disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
-                                className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                              >
-                                {rewritingState?.id === result.id && rewritingState?.field === 'back'
-                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : <Wand2 className="h-3.5 w-3.5" />}
-                                {result.generatedBackImage
-                                  ? (language === 'zh' ? '重新生成' : 'Regenerate')
-                                  : (language === 'zh' ? '生成 AI 背面图（1积分）' : 'Generate AI Back (1 credit)')}
-                              </button>
+                              <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+                                {result.generatedBackImage && (
+                                  <button
+                                    type="button"
+                                    title={language === 'zh' ? '重新分析照片并生成' : 'Reanalyze photo and generate'}
+                                    aria-label={language === 'zh' ? '重新分析照片并生成背面' : 'Reanalyze photo and generate back'}
+                                    onClick={() => handleRegenerateBackImage(result.id, true)}
+                                    disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-stone-700 shadow-sm backdrop-blur-sm hover:bg-white disabled:opacity-60"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  title={result.generatedBackImage
+                                    ? (language === 'zh' ? '复用照片分析，快速重新生成' : 'Reuse analysis and regenerate')
+                                    : undefined}
+                                  onClick={() => handleRegenerateBackImage(result.id, false)}
+                                  disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                                >
+                                  {rewritingState?.id === result.id && rewritingState?.field === 'back'
+                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    : <Wand2 className="h-3.5 w-3.5" />}
+                                  {result.generatedBackImage
+                                    ? (language === 'zh' ? '重新生成' : 'Regenerate')
+                                    : (language === 'zh' ? '生成 AI 背面图（1积分）' : 'Generate AI Back (1 credit)')}
+                                </button>
+                              </div>
                             )}
                             {(livePreview?.back || result.backDataUrl || result.backUrl) ? (
                               <img src={livePreview?.back || result.backDataUrl || result.backUrl} alt="Back" className="w-full aspect-[3/2] object-contain" />
