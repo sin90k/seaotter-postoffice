@@ -15,12 +15,18 @@ import { buildShareCardBlob, type ShareType } from '../lib/shareCard';
 import { getShareBranding } from '../lib/shareBranding';
 import { getPublishedPromptContent } from '../lib/promptService';
 import { resolveLocationSource } from '../lib/locationSource';
+import { captionGenerationPrompt, renderCaptionGenerationPrompt } from '../config/prompts/captionGeneration';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms))
   ]);
+};
+
+const selectMasterCaptionPrompt = (publishedPrompt: string) => {
+  const candidate = publishedPrompt.trim();
+  return candidate.includes('back_image_prompt') ? candidate : captionGenerationPrompt;
 };
 
 interface Props {
@@ -530,70 +536,34 @@ export default function Step5Process({
                   };
                   const currentStyle = styleInstructions[settings.copywritingStyle] || styleInstructions.auto;
 
-                  // 2. Build Analysis Prompt
-                  let analysisPrompt = `You are an expert graphic designer, a master photographer, and a world-class poet. Your task is to analyze this photo to create a breathtaking, elegant postcard.
-
-1. Visual Analysis: Identify the primary subject, the context/location, and the overall mood.
-2. Spatial Composition: Find the largest "negative space" for text placement.
-3. Literary Creation: Write a title and message that STRICTLY follows the ${settings.copywritingStyle} style.
-4. Back Template Direction: Choose a theme that also controls the postcard-back template: modern=clean right sidebar, vintage=gallery/memo layout, handwritten=soft personal note, classic=traditional split postcard.
-5. Back Image Prompt: Write a prompt for a subtle decorative postcard-back motif, not a literal redraw.
-
-MANDATORY STYLE: ${currentStyle}`;
-
-                  if (captionPromptGuidance.trim()) {
-                    analysisPrompt += `\n\nADMIN PUBLISHED PROMPT GUIDANCE:\n${captionPromptGuidance.trim()}`;
-                  }
-
-                  // EXIF 地点与日期：要求模型在标题与背面文案中优先参考 EXIF，而不是随意猜城市
-                  let exifLocationLabel = "";
+                  let exifLocationLabel = '';
+                  const photoMetadata: string[] = [];
                   if (photo.exif) {
                     const loc = getExifLocationName(photo.exif);
                     if (loc) {
                       exifLocationLabel = loc;
-                      analysisPrompt += `\nPhoto EXIF location (most reliable real-world place): ${exifLocationLabel}.`;
+                      photoMetadata.push(`Photo EXIF location: ${exifLocationLabel}.`);
                     }
                     if (photo.exif.location) {
-                      analysisPrompt += `\nGPS Coordinates: Latitude ${photo.exif.location.lat}, Longitude ${photo.exif.location.lng}. Use these only to refine the same real-world place, do NOT guess a different city or country.`;
+                      photoMetadata.push(`GPS Coordinates: Latitude ${photo.exif.location.lat}, Longitude ${photo.exif.location.lng}. Use these to identify the real location.`);
                     }
                     if (photo.exif.date) {
-                      analysisPrompt += `\nPhoto EXIF date: ${photo.exif.date}. You may subtly reflect the season or time of year, but do not explicitly print the full date unless it feels natural.`;
+                      photoMetadata.push(`Photo EXIF date: ${photo.exif.date}.`);
                     }
                   }
-
-                  analysisPrompt += `
-IMPORTANT: All generated text MUST be strictly in ${settings.aiLanguage} language. 
-If the target language is Chinese:
-- Do NOT include any English characters.
-- The 'title' (front) MUST be a short phrase (max 12 chars) in ${settings.copywritingStyle} style.
-- The 'message' (back) MUST be a natural observation (max 25 words) in ${settings.copywritingStyle} style, tightly connected to the title.
-- AVOID clichés like "愿你...", "在这个喧嚣的世界里". 
-- ONLY describe what is ACTUALLY visible in the photo, and keep it consistent with the EXIF location if provided.
-- For 'location_name': If EXIF location exists, base it on that real-world place (city / region / country). Only when EXIF has no location, you may use a poetic generic one (e.g., "街角", "海边").
-- If there is no EXIF/GPS location and no recognizable public place, return an empty string for 'location_name'. Never use private/vague guesses such as "家中", "家里", "室内", "房间", "home", or "indoors" as a location.
-- THE OVERALL TONE MUST BE FORCEFULLY ${settings.copywritingStyle.toUpperCase()}.
-
-Output JSON strictly in this format:
-{
-  "thought_process": "Brainstorm 3 options in ${settings.copywritingStyle} style, then pick the best one.",
-  "subject": "Main subject",
-  "context": "Context/location",
-  "general_elements": "Key visual elements",
-  "location_name": "Specific location name",
-  "mood": "Atmosphere",
-  "color_palette": ["#hex1", "#hex2"],
-  "title": "Title in ${settings.copywritingStyle} style",
-  "message": "Message in ${settings.copywritingStyle} style",
-  "theme": "One of: 'classic', 'modern', 'vintage', 'handwritten'. Choose based on the image and desired back template.",
-  "postmark": "Short postmark text",
-  "artistic_icons": ["icon1", "icon2"],
-  "text_position": "One of: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'",
-  "back_image_prompt": "Prompt for a subtle decorative postcard-back motif"
-}`;
+                  const analysisPrompt = renderCaptionGenerationPrompt(
+                    selectMasterCaptionPrompt(captionPromptGuidance),
+                    {
+                      copywritingStyle: settings.copywritingStyle,
+                      styleInstruction: currentStyle,
+                      aiLanguage: settings.aiLanguage,
+                      photoMetadata: photoMetadata.join('\n'),
+                    }
+                  );
 
                   const analysisResponse = await withTimeout(
                     invokePostcardAi('chat', {
-                      model: "gpt-4o-mini",
+                      model: "gpt-4o",
                       temperature: 0.7,
                       messages: [
                         {
@@ -2834,36 +2804,23 @@ Output JSON strictly in this format:
       };
       const copywritingStyle = result.settings.copywritingStyle || 'auto';
       const currentStyle = styleInstructions[copywritingStyle] || styleInstructions.auto;
-      const prompt = `${masterPrompt || `You are an expert graphic designer, a master photographer, and a world-class poet. Your task is to analyze this photo to create a breathtaking, elegant postcard.
-
-1. Visual Analysis: Identify the primary subject, the context/location, and the overall mood.
-2. Spatial Composition: Find the largest "negative space" for text placement.
-3. Literary Creation: Write a title and message that STRICTLY follows the selected style.
-4. Back Image Prompt: Write a prompt for a complementary pencil sketch.`}
-
-MANDATORY STYLE: ${currentStyle}
-
-For this regeneration, use the same master prompt workflow as normal postcard creation. Analyze the image content and output a back_image_prompt that changes with the image subject, place, light, mood and composition.
-
-Existing title: ${result.draftTitle || result.title || ''}
-Existing location: ${result.draftLocation || result.location || ''}
-Existing date: ${result.draftDate || result.date || ''}
-Existing back message: ${result.draftMessage || result.message || ''}
-
-IMPORTANT: Return JSON only. The key we need most is "back_image_prompt". This is not a saved per-photo user prompt; it is the master prompt's image-aware output for the current photo.
-If the target language is Chinese, do not include English in user-facing copy, but the image prompt may be in concise English for the image model.
-
-Output JSON strictly in this format:
-{
-  "subject": "Main subject",
-  "context": "Context/location",
-  "mood": "Atmosphere",
-  "back_image_prompt": "Prompt for pencil sketch"
-}`;
+      const metadata = [
+        result.draftLocation || result.location ? `Known location: ${result.draftLocation || result.location}.` : '',
+        result.latitude != null && result.longitude != null
+          ? `GPS Coordinates: Latitude ${result.latitude}, Longitude ${result.longitude}. Use these to identify the real location.`
+          : '',
+        result.draftDate || result.date ? `Photo date: ${result.draftDate || result.date}.` : '',
+      ].filter(Boolean).join('\n');
+      const prompt = renderCaptionGenerationPrompt(selectMasterCaptionPrompt(masterPrompt), {
+        copywritingStyle,
+        styleInstruction: currentStyle,
+        aiLanguage: result.settings.aiLanguage || 'Chinese',
+        photoMetadata: metadata,
+      });
 
       const analysisResponse = await withTimeout(
         invokePostcardAi('chat', {
-          model: "gpt-4o-mini",
+          model: "gpt-4o",
           temperature: 0.7,
           messages: [
             {
@@ -2890,36 +2847,12 @@ Output JSON strictly in this format:
   const generateAiBackImageForDraft = async (result: ProcessedPostcard) => {
     const publishedBackPrompt = (await getPublishedPromptContent('back_image_default')).trim();
     const imageAwarePrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
-    const prompt = `${publishedBackPrompt || 'Create a complementary pencil sketch for the back of an elegant postcard.'}
-
-Use this image-aware back_image_prompt generated by the master postcard analysis workflow as the primary creative direction:
-${imageAwarePrompt || 'No image-aware back_image_prompt is available, so infer a complementary pencil sketch from the title, message, location, mood and visible photo.'}
-
-Generate only the decorative artwork layer for the BACK SIDE of a postcard.
-
-This must feel like premium printed stationery, not a photo remake. Keep the card mostly blank so the app can place message text, stamp, address lines, logo and QR code later.
-
-Rules:
-- Preserve the intent of the image-aware direction from the master workflow above.
-- Convert it into a small complementary pencil sketch, corner vignette, faint margin ornament, postal texture, map-like trace, or soft paper wash.
-- Make the motif clearly visible at postcard preview size; avoid ultra-faint marks that disappear on a white card.
-- Preserve roughly 60-70% clean off-white negative space.
-- The center and right address area must remain quiet and readable.
-
-Style direction:
-- refined pencil sketch, quiet watercolor, light risograph grain, Japanese travel stationery, warm off-white paper
-- gentle but visible contrast, delicate edges, elegant and restrained
-- no photorealistic background, no full-bleed scene, no literal redraw of the photo, no large faded photo, no text, no readable words, no logo, no QR code, no watermark
-
-Context language: ${result.settings.aiLanguage || 'Chinese'}
-Title: ${result.draftTitle || result.title || ''}
-Location: ${result.draftLocation || result.location || ''}
-Date: ${result.draftDate || result.date || ''}
-Message mood: ${result.draftMessage || result.message || ''}`;
+    const prompt = imageAwarePrompt || publishedBackPrompt;
+    if (!prompt) throw new Error('AI analysis did not return a back image prompt.');
 
     const response = await withTimeout(
       invokePostcardAi('image', {
-        model: "gpt-image-1",
+        model: "gpt-image-2",
         prompt,
         n: 1,
         size: "1024x1024",
