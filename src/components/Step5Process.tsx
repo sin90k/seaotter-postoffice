@@ -1059,7 +1059,6 @@ export default function Step5Process({
     cw: number,
     ch: number,
     options: {
-      anchor: 'left' | 'right';
       padding: number;
       locale?: 'zh' | 'en';
     }
@@ -1070,14 +1069,16 @@ export default function Step5Process({
     if (!brandName && !logoUrl) return;
 
     const shortSide = Math.min(cw, ch);
-    const qrSize = Math.max(58, Math.min(92, shortSide * 0.088 * brandConfig.watermarkSize()));
-    const logoSize = Math.max(28, Math.min(44, qrSize * 0.58));
-    const gap = Math.max(10, qrSize * 0.2);
-    const fontSize1 = Math.max(13, Math.min(20, shortSide * 0.022));
-    const fontSize2 = Math.max(9, Math.min(13, shortSide * 0.013));
+    const scale = brandConfig.watermarkSize();
+    const qrSize = Math.max(shortSide * 0.075, Math.min(shortSide * 0.24, shortSide * 0.12 * scale));
+    const logoSize = Math.max(shortSide * 0.04, qrSize * 0.72);
+    const gap = Math.max(12, qrSize * 0.2);
+    const fontSize1 = Math.max(14, Math.min(shortSide * 0.055, shortSide * 0.026 * scale));
+    const fontSize2 = Math.max(10, Math.min(shortSide * 0.032, shortSide * 0.016 * scale));
     const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
-    const opacity = Math.min(0.74, Math.max(0.52, brandConfig.watermarkOpacity() * 0.95));
+    const opacity = brandConfig.watermarkOpacity();
     const shortDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const position = brandConfig.watermarkPosition();
 
     ctx.save();
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
@@ -1085,11 +1086,30 @@ export default function Step5Process({
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
     const domainWidth = ctx.measureText(shortDomain).width;
     const contentW = qrSize + gap + Math.max((logoUrl ? logoSize + gap : 0) + brandWidth, domainWidth);
-    const x = options.anchor === 'right'
-      ? Math.max(options.padding, cw - options.padding - contentW)
-      : options.padding;
-    const y = ch - options.padding - qrSize;
+    const panelPad = Math.max(10, qrSize * 0.1);
+    const labelHeight = Math.max(fontSize2 * 1.35, 12);
+    const panelW = Math.min(cw - options.padding * 2, contentW + panelPad * 2);
+    const panelH = qrSize + labelHeight + panelPad * 2.5;
+    const panelX = position.includes('right')
+      ? cw - options.padding - panelW
+      : position.includes('center')
+        ? (cw - panelW) / 2
+        : options.padding;
+    const panelY = position.includes('top')
+      ? options.padding
+      : ch - options.padding - panelH;
+    const x = panelX + panelPad;
+    const y = panelY + panelPad + labelHeight;
     const textX = x + qrSize + gap;
+
+    ctx.globalAlpha = Math.min(0.92, 0.48 + opacity * 0.44);
+    ctx.fillStyle = 'rgba(255,255,255,0.86)';
+    ctx.strokeStyle = 'rgba(120,113,108,0.24)';
+    ctx.lineWidth = Math.max(1, shortSide * 0.0012);
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, Math.min(18, panelH * 0.15));
+    ctx.fill();
+    ctx.stroke();
 
     const drawFallbackQr = () => {
       const modules = 21;
@@ -1135,12 +1155,12 @@ export default function Step5Process({
       ctx.restore();
     };
 
-    ctx.globalAlpha = opacity;
+    ctx.globalAlpha = Math.max(0.78, opacity);
     try {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=${encodeURIComponent(urlText)}`;
       const qrImg = await loadImage(qrUrl);
       ctx.save();
-      ctx.globalAlpha = Math.min(0.9, opacity + 0.16);
+      ctx.globalAlpha = Math.max(0.82, opacity);
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.fillRect(x - 5, y - 5, qrSize + 10, qrSize + 10);
       ctx.imageSmoothingEnabled = false;
@@ -1175,8 +1195,8 @@ export default function Step5Process({
     ctx.fillText(shortDomain, textX, y + qrSize * 0.1 + logoSize * 0.62 + fontSize2 * 1.5);
     ctx.font = `600 ${Math.max(8, fontSize2 * 0.82)}px "Inter", sans-serif`;
     ctx.fillStyle = '#57534e';
-    ctx.globalAlpha = opacity * 0.78;
-    ctx.fillText(options.locale === 'zh' ? '扫码访问' : 'Scan to visit', x, y - Math.max(8, fontSize2 * 0.7));
+    ctx.globalAlpha = Math.max(0.5, opacity);
+    ctx.fillText(options.locale === 'zh' ? '扫码访问' : 'Scan to visit', x, panelY + panelPad + fontSize2);
     ctx.restore();
   };
 
@@ -2490,7 +2510,6 @@ export default function Step5Process({
     if (watermark) {
       const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
       await drawBackBrandSignature(ctx, cw, ch, {
-        anchor: 'right',
         padding: padding * 1.1,
         locale,
       });
