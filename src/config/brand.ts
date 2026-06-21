@@ -2,6 +2,7 @@
  * Brand configuration for watermark and display.
  * 优先从启动时同步到本地缓存的 Supabase 品牌配置读取，否则使用环境变量。
  */
+import { readLocalBrandSettings, type BrandSignatureLayout, type BrandSignatureProfile } from '../lib/brandSettings';
 
 const env = import.meta.env as Record<string, unknown>;
 
@@ -52,5 +53,14 @@ export const brandConfig = {
     if (v == null || v === '') return 1;
     const n = parseFloat(v);
     return Number.isFinite(n) ? Math.max(0.1, Math.min(2, n)) : 1;
+  },
+  signatureProfile: (width: number, height: number): BrandSignatureProfile => {
+    const ratio = width / Math.max(1, height);
+    const layout: BrandSignatureLayout = Math.abs(ratio - 1) < 0.08
+      ? 'square'
+      : ratio > 1
+        ? 'landscape'
+        : 'portrait';
+    return readLocalBrandSettings().signatureProfiles[layout];
   },
 };

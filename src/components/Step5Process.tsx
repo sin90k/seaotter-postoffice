@@ -1069,16 +1069,17 @@ export default function Step5Process({
     if (!brandName && !logoUrl) return;
 
     const shortSide = Math.min(cw, ch);
-    const scale = brandConfig.watermarkSize();
-    const qrSize = Math.max(shortSide * 0.075, Math.min(shortSide * 0.24, shortSide * 0.12 * scale));
-    const logoSize = Math.max(shortSide * 0.04, qrSize * 0.72);
+    const profile = brandConfig.signatureProfile(cw, ch);
+    const qrSize = Math.max(shortSide * 0.06, Math.min(shortSide * 0.28, shortSide * 0.12 * profile.qrScale));
+    const logoSize = Math.max(shortSide * 0.03, Math.min(shortSide * 0.3, qrSize * 0.56 * profile.logoScale));
+    const contentHeight = Math.max(qrSize, logoSize);
     const gap = Math.max(12, qrSize * 0.2);
-    const fontSize1 = Math.max(14, Math.min(shortSide * 0.055, shortSide * 0.026 * scale));
-    const fontSize2 = Math.max(10, Math.min(shortSide * 0.032, shortSide * 0.016 * scale));
+    const fontSize1 = Math.max(14, Math.min(shortSide * 0.055, shortSide * 0.026 * profile.qrScale));
+    const fontSize2 = Math.max(10, Math.min(shortSide * 0.032, shortSide * 0.016 * profile.qrScale));
     const urlText = domain.startsWith('http') ? domain : `https://${domain}/`;
     const opacity = brandConfig.watermarkOpacity();
     const shortDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const position = brandConfig.watermarkPosition();
+    const position = profile.position;
 
     ctx.save();
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
@@ -1089,7 +1090,7 @@ export default function Step5Process({
     const panelPad = Math.max(10, qrSize * 0.1);
     const labelHeight = Math.max(fontSize2 * 1.35, 12);
     const panelW = Math.min(cw - options.padding * 2, contentW + panelPad * 2);
-    const panelH = qrSize + labelHeight + panelPad * 2.5;
+    const panelH = contentHeight + labelHeight + panelPad * 2.5;
     const panelX = position.includes('right')
       ? cw - options.padding - panelW
       : position.includes('center')
@@ -1098,9 +1099,12 @@ export default function Step5Process({
     const panelY = position.includes('top')
       ? options.padding
       : ch - options.padding - panelH;
+    const contentTop = panelY + panelPad + labelHeight;
     const x = panelX + panelPad;
-    const y = panelY + panelPad + labelHeight;
+    const y = contentTop + (contentHeight - qrSize) / 2;
     const textX = x + qrSize + gap;
+    const logoY = contentTop + (contentHeight - logoSize) / 2;
+    const brandBaseline = contentTop + contentHeight * 0.46;
 
     ctx.globalAlpha = Math.min(0.92, 0.48 + opacity * 0.44);
     ctx.fillStyle = 'rgba(255,255,255,0.86)';
@@ -1177,7 +1181,7 @@ export default function Step5Process({
     if (logoUrl) {
       try {
         const logoImg = await loadImage(logoUrl);
-        ctx.drawImage(logoImg, textX, y + qrSize * 0.1, logoSize, logoSize);
+        ctx.drawImage(logoImg, textX, logoY, logoSize, logoSize);
         nameX = textX + logoSize + gap * 0.75;
       } catch (_) {
         // Text fallback below.
@@ -1188,11 +1192,11 @@ export default function Step5Process({
     ctx.textBaseline = 'alphabetic';
     ctx.font = `600 ${fontSize1}px "Inter", sans-serif`;
     ctx.fillStyle = '#57534e';
-    if (brandName) ctx.fillText(brandName, nameX, y + qrSize * 0.1 + logoSize * 0.62);
+    if (brandName) ctx.fillText(brandName, nameX, brandBaseline);
     ctx.font = `${fontSize2}px "Inter", sans-serif`;
     ctx.fillStyle = '#78716c';
     ctx.globalAlpha = opacity * 0.86;
-    ctx.fillText(shortDomain, textX, y + qrSize * 0.1 + logoSize * 0.62 + fontSize2 * 1.5);
+    ctx.fillText(shortDomain, textX, brandBaseline + fontSize2 * 1.5);
     ctx.font = `600 ${Math.max(8, fontSize2 * 0.82)}px "Inter", sans-serif`;
     ctx.fillStyle = '#57534e';
     ctx.globalAlpha = Math.max(0.5, opacity);

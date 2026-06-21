@@ -9,17 +9,25 @@ import {
   readLocalBrandSettings,
   saveBrandSettings,
   type BrandSettings,
+  type BrandSignatureLayout,
+  type BrandSignatureProfiles,
 } from '../../lib/brandSettings';
 
 const DEFAULT_LOGO_URL = '/seaotter-logo.svg';
 
 const POSITIONS = [
-  { value: 'bottom-center', label: 'Bottom center' },
-  { value: 'bottom-left', label: 'Bottom left' },
-  { value: 'bottom-right', label: 'Bottom right' },
-  { value: 'top-center', label: 'Top center' },
-  { value: 'top-left', label: 'Top left' },
-  { value: 'top-right', label: 'Top right' },
+  { value: 'bottom-center', label: '底部居中' },
+  { value: 'bottom-left', label: '左下角' },
+  { value: 'bottom-right', label: '右下角' },
+  { value: 'top-center', label: '顶部居中' },
+  { value: 'top-left', label: '左上角' },
+  { value: 'top-right', label: '右上角' },
+];
+
+const LAYOUTS: Array<{ value: BrandSignatureLayout; label: string }> = [
+  { value: 'landscape', label: '横版' },
+  { value: 'portrait', label: '竖版' },
+  { value: 'square', label: '方形' },
 ];
 
 export default function AdminBrand() {
@@ -29,9 +37,9 @@ export default function AdminBrand() {
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
-  const [watermarkPosition, setWatermarkPosition] = useState('bottom-center');
   const [watermarkOpacity, setWatermarkOpacity] = useState('0.62');
-  const [watermarkSize, setWatermarkSize] = useState('1');
+  const [signatureProfiles, setSignatureProfiles] = useState<BrandSignatureProfiles>(DEFAULT_BRAND_SETTINGS.signatureProfiles);
+  const [activeLayout, setActiveLayout] = useState<BrandSignatureLayout>('landscape');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -41,9 +49,8 @@ export default function AdminBrand() {
     setBrandDomain(settings.brandDomain);
     setLogoUrl(settings.logoUrl);
     setLogoPreview(settings.logoUrl);
-    setWatermarkPosition(settings.watermarkPosition);
     setWatermarkOpacity(String(settings.watermarkOpacity));
-    setWatermarkSize(String(settings.watermarkSize));
+    setSignatureProfiles(settings.signatureProfiles);
   };
 
   useEffect(() => {
@@ -90,9 +97,10 @@ export default function AdminBrand() {
         brandNameZh,
         brandDomain,
         logoUrl: finalLogoUrl,
-        watermarkPosition,
+        watermarkPosition: signatureProfiles.landscape.position,
         watermarkOpacity: Number(watermarkOpacity),
-        watermarkSize: Number(watermarkSize),
+        watermarkSize: signatureProfiles.landscape.qrScale,
+        signatureProfiles,
       });
       applyToForm(saved);
       setLogoFile(null);
@@ -109,6 +117,27 @@ export default function AdminBrand() {
     const next = { ...readLocalBrandSettings(), logoUrl: DEFAULT_BRAND_SETTINGS.logoUrl };
     applyBrandSettingsToLocalCache(next);
     applyToForm(next);
+  };
+
+  const activeProfile = signatureProfiles[activeLayout];
+  const updateActiveProfile = (patch: Partial<typeof activeProfile>) => {
+    setSignatureProfiles((current) => ({
+      ...current,
+      [activeLayout]: { ...current[activeLayout], ...patch },
+    }));
+  };
+
+  const previewAnchorStyle = () => {
+    const style: Record<string, string> = {};
+    if (activeProfile.position.includes('top')) style.top = '10px';
+    else style.bottom = '10px';
+    if (activeProfile.position.includes('left')) style.left = '10px';
+    else if (activeProfile.position.includes('right')) style.right = '10px';
+    else {
+      style.left = '50%';
+      style.transform = 'translateX(-50%)';
+    }
+    return style;
   };
 
   return (
@@ -204,41 +233,121 @@ export default function AdminBrand() {
               )}
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印位置</label>
-            <select
-              value={watermarkPosition}
-              onChange={(e) => setWatermarkPosition(e.target.value)}
-              className="w-full border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-white"
-            >
-              {POSITIONS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印透明度（0–1）</label>
+          <div className="md:col-span-2 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">品牌区域透明度</label>
+              <span className="text-sm font-semibold tabular-nums text-stone-700">{Number(watermarkOpacity).toFixed(2)}</span>
+            </div>
             <input
-              type="number"
+              type="range"
+              aria-label="品牌区域透明度"
               min="0"
               max="1"
               step="0.05"
               value={watermarkOpacity}
               onChange={(e) => setWatermarkOpacity(e.target.value)}
-              className="w-full border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
+              className="w-full accent-stone-900"
             />
           </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">水印尺寸（相对值，例如 1）</label>
-            <input
-              type="number"
-              min="0.1"
-              max="2"
-              step="0.05"
-              value={watermarkSize}
-              onChange={(e) => setWatermarkSize(e.target.value)}
-              className="w-full border border-stone-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-stone-50/50"
-            />
+
+          <div className="md:col-span-2 space-y-4 border-t border-stone-200 pt-6">
+            <div>
+              <h2 className="text-base font-semibold text-stone-900">Logo 与二维码布局</h2>
+              <p className="mt-1 text-sm text-stone-500">系统会根据最终画布自动使用横版、竖版或方形配置。</p>
+            </div>
+
+            <div className="inline-flex rounded-lg bg-stone-100 p-1" role="tablist" aria-label="品牌布局版式">
+              {LAYOUTS.map((layout) => (
+                <button
+                  key={layout.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeLayout === layout.value}
+                  onClick={() => setActiveLayout(layout.value)}
+                  className={`min-w-20 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeLayout === layout.value ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}
+                >
+                  {layout.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">位置</label>
+                  <select
+                    aria-label={`${LAYOUTS.find((layout) => layout.value === activeLayout)?.label || ''}品牌位置`}
+                    value={activeProfile.position}
+                    onChange={(e) => updateActiveProfile({ position: e.target.value })}
+                    className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/10"
+                  >
+                    {POSITIONS.map((position) => (
+                      <option key={position.value} value={position.value}>{position.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">二维码大小</label>
+                    <span className="text-sm font-semibold tabular-nums text-stone-700">{activeProfile.qrScale.toFixed(2)}×</span>
+                  </div>
+                  <input
+                    type="range"
+                    aria-label={`${LAYOUTS.find((layout) => layout.value === activeLayout)?.label || ''}二维码大小`}
+                    min="0.5"
+                    max="2.5"
+                    step="0.05"
+                    value={activeProfile.qrScale}
+                    onChange={(e) => updateActiveProfile({ qrScale: Number(e.target.value) })}
+                    className="w-full accent-stone-900"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest">Logo 大小</label>
+                    <span className="text-sm font-semibold tabular-nums text-stone-700">{activeProfile.logoScale.toFixed(2)}×</span>
+                  </div>
+                  <input
+                    type="range"
+                    aria-label={`${LAYOUTS.find((layout) => layout.value === activeLayout)?.label || ''}Logo 大小`}
+                    min="0.5"
+                    max="2.5"
+                    step="0.05"
+                    value={activeProfile.logoScale}
+                    onChange={(e) => updateActiveProfile({ logoScale: Number(e.target.value) })}
+                    className="w-full accent-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-h-64 items-center justify-center rounded-lg border border-stone-200 bg-stone-100 p-4">
+                <div
+                  className={`relative overflow-hidden border border-stone-300 bg-[#f8f6f1] shadow-sm ${activeLayout === 'landscape' ? 'aspect-[3/2] w-full' : activeLayout === 'portrait' ? 'aspect-[2/3] h-56' : 'aspect-square h-52'}`}
+                >
+                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(135deg, transparent 45%, #cbd5c0 46%, transparent 54%)' }} />
+                  <div
+                    className="absolute flex items-center gap-2 rounded-md border border-stone-200 bg-white/90 p-2 shadow-sm"
+                    style={{ ...previewAnchorStyle(), opacity: Math.max(0.35, Number(watermarkOpacity)) }}
+                  >
+                    <div
+                      className="shrink-0 border-2 border-stone-700 bg-white"
+                      style={{ width: `${26 * activeProfile.qrScale}px`, height: `${26 * activeProfile.qrScale}px`, backgroundImage: 'repeating-conic-gradient(#444 0 25%, #fff 0 50%)', backgroundSize: '6px 6px' }}
+                    />
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Logo layout preview"
+                        className="shrink-0 object-contain"
+                        style={{ width: `${24 * activeProfile.logoScale}px`, height: `${24 * activeProfile.logoScale}px` }}
+                      />
+                    ) : null}
+                    <div className="whitespace-nowrap text-[9px] font-semibold text-stone-700">{brandNameZh || '海獭邮局'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <button
