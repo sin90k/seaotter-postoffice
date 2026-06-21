@@ -600,7 +600,7 @@ export default function App() {
     const sUser = session.user;
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
-      .select('credits, promo_credits, paid_credits, total_paid_credits, nickname, role')
+      .select('credits, promo_credits, paid_credits, total_paid_credits, generated_count, nickname, role')
       .eq('id', sUser.id)
       .single();
     const defaultPromo = (() => {
@@ -673,6 +673,9 @@ export default function App() {
         paid_credits: finalPaid,
         totalPaidCredits,
         personalBranding,
+        generatedCount: typeof (profile as { generated_count?: number })?.generated_count === 'number'
+          ? (profile as { generated_count: number }).generated_count
+          : prev.generatedCount,
         addresses: prev.addresses || [],
         createdAt: prev.createdAt || Date.now(),
         role: effectiveRole,
@@ -1357,7 +1360,10 @@ export default function App() {
               setShowProfile(false);
               setShowPricing(true);
             }}
-            onAdminEnter={() => setIsAdmin(true)}
+            onAdminEnter={() => {
+              setShowProfile(false);
+              setIsAdmin(true);
+            }}
             language={language}
           />
         )}
