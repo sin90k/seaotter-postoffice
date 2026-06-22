@@ -551,7 +551,7 @@ export default function Step5Process({
             try {
               // 1. Load image
               const img = await loadImage(photo.url);
-              const imgBase64 = getCompressedBase64(img, 1200, 0.85);
+              const imgBase64 = getCompressedBase64(img, 1400, 0.78);
               
               // 2. AI Analysis
               let title = "";
@@ -574,7 +574,7 @@ export default function Step5Process({
               const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
               if (runAi) {
                 updateProcessingItem(photo.id, 'analyzing');
-                const base64Data = getCompressedBase64(img);
+                const base64Data = getCompressedBase64(img, 768, 0.68);
                 
                 try {
                   // 1. Define Style Instructions
@@ -2935,7 +2935,7 @@ export default function Step5Process({
 
     try {
       const img = await loadImage(result.imgUrl);
-      const base64Data = getCompressedBase64(img);
+      const base64Data = getCompressedBase64(img, 768, 0.68);
       const masterPrompt = await getPublishedPromptContent('caption_generation_default').catch(() => '');
       const styleInstructions: Record<string, string> = {
         auto: "Automatically determine the best style from the image. For scenery or landmarks, prioritize a useful introduction to the verified place and its visible geographic or cultural features. Never invent a location.",

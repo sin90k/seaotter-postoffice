@@ -25,11 +25,13 @@ const resilientSupabaseFetch: typeof fetch = async (input, init) => {
   const isFunctionCall = target.includes('/functions/v1/');
   const canUseRelay = /\/(auth|rest|functions)\/v1\//.test((() => { try { return new URL(target).pathname; } catch { return ''; } })());
   const relayInput = input instanceof Request ? input.clone() : input;
-  if (preferSameOriginRelay && canUseRelay) {
+  // Edge Functions can run for much longer than auth/data calls. Always try them
+  // directly first instead of inheriting a sticky relay preference from login.
+  if (preferSameOriginRelay && canUseRelay && !isFunctionCall) {
     return relaySupabaseRequest(target, relayInput, init);
   }
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), isFunctionCall ? 85_000 : 6_000);
+  const timeout = window.setTimeout(() => controller.abort(), isFunctionCall ? 100_000 : 6_000);
 
   try {
     return await nativeFetch(input, { ...init, signal: controller.signal });

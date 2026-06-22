@@ -150,6 +150,12 @@ export type Photo = {
     region?: string;
     country?: string;
   };
+  processing?: {
+    width: number;
+    height: number;
+    originalBytes: number;
+    compressedBytes: number;
+  };
 };
 
 export type ProcessedPostcard = {

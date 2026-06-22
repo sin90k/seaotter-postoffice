@@ -6,6 +6,7 @@ import heic2any from 'heic2any';
 import { Photo } from '../App';
 import { cn } from '../lib/utils';
 import { extractExifFromBlob } from '../services/exifService';
+import { compressImageForProcessing } from '../lib/imageUtils';
 
 interface Props {
   photos: Photo[];
@@ -20,7 +21,7 @@ const translations: Record<string, any> = {
     title: 'Upload Photos',
     desc: 'Upload photos from your device.',
     dropzone: 'Click or drag photos here',
-    processing: 'Processing...',
+    processing: 'Reading metadata and optimizing photos...',
     supports: 'Supports JPG, PNG, LIVP, ZIP, Folders',
     added: 'Added Photos',
     clearAll: 'Clear All',
@@ -33,7 +34,7 @@ const translations: Record<string, any> = {
     title: '上传照片',
     desc: '从您的设备上传照片。',
     dropzone: '点击或拖拽照片到这里',
-    processing: '处理中...',
+    processing: '正在读取拍摄信息并压缩照片...',
     supports: '支持 JPG, PNG, LIVP, ZIP, 文件夹',
     added: '已添加照片',
     clearAll: '一键清除',
@@ -143,7 +144,29 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           }
         }
 
-        // Create preview URL
+        // EXIF must be read before compression because canvas output intentionally strips metadata.
+        let dateStr: string | undefined;
+        let locationData: { lat: number; lng: number } | undefined;
+        let city: string | undefined;
+        let region: string | undefined;
+        let country: string | undefined;
+
+        const exifParsed = await extractExifFromBlob(finalBlob);
+        if (exifParsed) {
+          if (exifParsed.date) dateStr = exifParsed.date;
+          if (exifParsed.latitude != null && exifParsed.longitude != null) {
+            locationData = { lat: exifParsed.latitude, lng: exifParsed.longitude };
+          }
+          if (typeof exifParsed.city === 'string') city = exifParsed.city;
+          if (typeof exifParsed.region === 'string') region = exifParsed.region;
+          if (typeof exifParsed.country === 'string') country = exifParsed.country;
+        }
+
+        const compressed = await compressImageForProcessing(finalBlob);
+        finalBlob = compressed.blob;
+        finalName = finalName.replace(/\.[^.]+$/, '') + '.jpg';
+
+        // Preview and all later processing use the compressed copy, never the original upload.
         let url = '';
         try {
           // Try createObjectURL first for performance with large images
@@ -162,25 +185,6 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           });
         }
         
-        let dateStr: string | undefined;
-        let locationData: { lat: number; lng: number } | undefined;
-        let city: string | undefined;
-        let region: string | undefined;
-        let country: string | undefined;
-
-        const exifParsed = await extractExifFromBlob(finalBlob);
-        if (exifParsed) {
-          if (exifParsed.date) {
-            dateStr = exifParsed.date;
-          }
-          if (exifParsed.latitude != null && exifParsed.longitude != null) {
-            locationData = { lat: exifParsed.latitude, lng: exifParsed.longitude };
-          }
-          if (typeof exifParsed.city === 'string') city = exifParsed.city;
-          if (typeof exifParsed.region === 'string') region = exifParsed.region;
-          if (typeof exifParsed.country === 'string') country = exifParsed.country;
-        }
-
         // 如果 EXIF 只有 GPS 没有城市，尝试反查得到更具体的城市信息
         if (locationData && !city) {
           const geo = await reverseGeocodeCity(locationData.lat, locationData.lng);
@@ -214,7 +218,13 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
             city,
             region,
             country,
-          }
+          },
+          processing: {
+            width: compressed.width,
+            height: compressed.height,
+            originalBytes: compressed.originalBytes,
+            compressedBytes: compressed.compressedBytes,
+          },
         };
       } catch (e) {
         console.error("Failed to process image", name, e);
@@ -255,12 +265,24 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
     return results;
   };
 
+  const processFiles = async (files: File[]): Promise<Photo[]> => {
+    const results: Photo[][] = new Array(files.length);
+    let nextIndex = 0;
+    const worker = async () => {
+      while (nextIndex < files.length) {
+        const index = nextIndex++;
+        results[index] = await processFile(files[index]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, files.length) }, worker));
+    return results.flat();
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: async (acceptedFiles: File[]) => {
       setUploadError(null);
       setIsProcessingFiles(true);
-      const allProcessed = await Promise.all(acceptedFiles.map(processFile));
-      const validPhotos = allProcessed.flat();
+      const validPhotos = await processFiles(acceptedFiles);
       setPhotos((prev) => [...prev, ...validPhotos]);
       setIsProcessingFiles(false);
       if (acceptedFiles.length > 0 && validPhotos.length === 0) {
@@ -280,7 +302,11 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
   } as any);
 
   const removePhoto = (id: string) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
+    setPhotos((prev) => {
+      const removed = prev.find(photo => photo.id === id);
+      if (removed?.url.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+      return prev.filter((photo) => photo.id !== id);
+    });
   };
 
   return (
@@ -343,8 +369,7 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
                 const files = Array.from(target.files || []) as File[];
                 if (files.length > 0) {
                   setIsProcessingFiles(true);
-                  const allProcessed = await Promise.all(files.map(processFile));
-                  const validPhotos = allProcessed.flat();
+                  const validPhotos = await processFiles(files);
                   setPhotos((prev) => [...prev, ...validPhotos]);
                   setIsProcessingFiles(false);
                   if (validPhotos.length === 0) setUploadError(t.parseError || 'Could not read the selected files.');
@@ -377,6 +402,9 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
             <h3 className="font-medium">{t.added} ({photos.length})</h3>
             <button
               onClick={() => {
+                photos.forEach(photo => {
+                  if (photo.url.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+                });
                 setPhotos([]);
               }}
               className="px-3 py-1.5 rounded-lg border border-red-100 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-all flex items-center gap-1.5 shadow-sm"
