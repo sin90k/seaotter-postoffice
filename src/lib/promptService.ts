@@ -33,6 +33,13 @@ export type PromptVersion = {
 
 const STORAGE_PREFIX = 'admin_prompt_';
 const RUNTIME_CACHE_PREFIX = 'published_prompt_';
+const PROMPT_READ_TIMEOUT_MS = 4_000;
+
+const withPromptReadTimeout = <T,>(operation: PromiseLike<T>): Promise<T> =>
+  Promise.race([
+    Promise.resolve(operation),
+    new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('prompt_read_timeout')), PROMPT_READ_TIMEOUT_MS)),
+  ]);
 
 const DEFAULT_BACK_IMAGE =
   'A finely detailed pencil sketch with soft pastel colors, delicate lines, white background, high quality, artistic, elegant, subtle shading, watermark style.';
@@ -146,11 +153,13 @@ export function getCaptionGenerationPrompt(): string {
 export async function getPublishedPromptContent(promptId: string): Promise<string> {
   const fallback = getDefault(promptId)?.published_content || getLocalDraft(promptId) || '';
   try {
-    const { data, error } = await supabase
-      .from('ai_prompt_published')
-      .select('content')
-      .eq('prompt_id', promptId)
-      .maybeSingle();
+    const { data, error } = await withPromptReadTimeout<any>(
+      supabase
+        .from('ai_prompt_published')
+        .select('content')
+        .eq('prompt_id', promptId)
+        .maybeSingle()
+    );
     if (error) throw error;
     const content = String(data?.content || '').trim();
     if (content) {

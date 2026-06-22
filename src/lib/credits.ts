@@ -19,6 +19,7 @@ export type UpdateUserCreditsResult = {
 };
 
 let creditsPerPostcardCache: number | null = null;
+const CREDIT_CONFIG_TIMEOUT_MS = 4_000;
 
 /**
  * 统一的积分变更入口。所有加/减积分都应通过此函数，内部调用 Supabase RPC（Postgres 函数 update_user_credits）。
@@ -95,11 +96,18 @@ export async function getCreditsPerPostcard(): Promise<number> {
   if (creditsPerPostcardCache != null) return creditsPerPostcardCache;
 
   if (isSupabaseConnected) {
-    const { data, error } = await supabase.from('payment_config').select('credits_per_postcard').eq('id', 1).single();
-    if (!error && data && typeof (data as { credits_per_postcard?: number }).credits_per_postcard === 'number') {
-      const v = normalize((data as { credits_per_postcard: number }).credits_per_postcard);
-      creditsPerPostcardCache = v;
-      return v;
+    try {
+      const { data, error } = await Promise.race([
+        Promise.resolve(supabase.from('payment_config').select('credits_per_postcard').eq('id', 1).single()),
+        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('credit_config_timeout')), CREDIT_CONFIG_TIMEOUT_MS)),
+      ]);
+      if (!error && data && typeof (data as { credits_per_postcard?: number }).credits_per_postcard === 'number') {
+        const v = normalize((data as { credits_per_postcard: number }).credits_per_postcard);
+        creditsPerPostcardCache = v;
+        return v;
+      }
+    } catch {
+      console.warn('[credits] Cloud price config unavailable; using the local safe value.');
     }
   }
   const ls = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_credits_per_postcard') : null;
@@ -108,4 +116,3 @@ export async function getCreditsPerPostcard(): Promise<number> {
   creditsPerPostcardCache = fallback;
   return fallback;
 }
-

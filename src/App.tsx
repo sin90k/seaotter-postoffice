@@ -22,6 +22,11 @@ import { APP_VERSION } from './version';
 import { loadBrandSettings } from './lib/brandSettings';
 import { loadUserBrandSettings, type UserBrandSettings } from './lib/userBranding';
 
+const withAuthTimeout = <T,>(operation: PromiseLike<T>): Promise<T> =>
+  Promise.race([
+    Promise.resolve(operation),
+    new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('auth_timeout')), 25_000)),
+  ]);
 
 export type UserLevel = 'free' | 'vip';
 
@@ -830,11 +835,11 @@ export default function App() {
       }
       try {
         if (isSignUp) {
-          const { error } = await supabase.auth.signUp({
+          const { error } = await withAuthTimeout<any>(supabase.auth.signUp({
             email: identifier,
             password,
             options: { data: { nickname: name || identifier.split('@')[0] } },
-          });
+          }));
           if (error) {
             const msg = error.message || JSON.stringify(error);
             console.error('[Supabase signUp]', error);
@@ -843,7 +848,9 @@ export default function App() {
           logEvent('sign_up', { email: identifier });
           alert(t.signUpSuccess ?? 'Registration successful! Please log in.');
         } else {
-          const { error } = await supabase.auth.signInWithPassword({ email: identifier, password });
+          const { error } = await withAuthTimeout<any>(
+            supabase.auth.signInWithPassword({ email: identifier, password })
+          );
           if (error) {
             return language === 'zh' ? `登录失败：${error.message}` : error.message;
           }
@@ -854,7 +861,13 @@ export default function App() {
         setShowLanding(false);
       } catch (e: unknown) {
         console.error('Supabase auth error', e);
-        return e instanceof Error ? e.message : (t.tryAgainLater ?? 'Please try again later.');
+        const message = e instanceof Error ? e.message : '';
+        if (message === 'auth_timeout' || /failed to fetch|network|abort/i.test(message)) {
+          return language === 'zh'
+            ? '登录服务连接不稳定，已尝试备用线路，请稍后重试。'
+            : 'The authentication service is temporarily unreachable. Please try again.';
+        }
+        return message || (t.tryAgainLater ?? 'Please try again later.');
       }
       return;
     }

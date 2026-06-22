@@ -151,6 +151,75 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Same-origin fallback for networks that cannot reach the Supabase project domain directly.
+  // It only forwards requests to this project's public Supabase APIs and never adds service credentials.
+  app.all("/api/supabase-proxy", async (req, res) => {
+    if (!supabaseUrl) return res.status(503).json({ error: "Supabase is not configured." });
+    try {
+      const requestOrigin = String(req.headers.origin || "");
+      if (requestOrigin) {
+        const originHost = new URL(requestOrigin).host;
+        if (originHost !== req.headers.host) {
+          return res.status(403).json({ error: "Supabase relay is restricted to this site." });
+        }
+      }
+      const target = String(req.query.target || "");
+      const targetUrl = new URL(target);
+      const projectUrl = new URL(supabaseUrl);
+      const allowedPath = /^\/(auth|rest|functions)\/v1\//.test(targetUrl.pathname);
+      if (targetUrl.origin !== projectUrl.origin || !allowedPath) {
+        return res.status(400).json({ error: "Invalid Supabase proxy target." });
+      }
+
+      const upstreamHeaders = new Headers();
+      for (const name of [
+        "accept", "accept-profile", "apikey", "authorization", "content-profile",
+        "content-type", "prefer", "range", "x-client-info",
+      ]) {
+        const value = req.headers[name];
+        if (typeof value === "string") upstreamHeaders.set(name, value);
+      }
+
+      const method = req.method.toUpperCase();
+      const hasBody = method !== "GET" && method !== "HEAD";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 95_000);
+      try {
+        const upstream = await fetch(targetUrl, {
+          method,
+          headers: upstreamHeaders,
+          body: hasBody ? JSON.stringify((req as any).body ?? {}) : undefined,
+          signal: controller.signal,
+        });
+        const upstreamContentType = upstream.headers.get("content-type") || "";
+        if (!upstream.ok && !upstreamContentType.includes("json")) {
+          console.error("[server] Supabase upstream returned a non-JSON error", {
+            status: upstream.status,
+            path: targetUrl.pathname,
+          });
+          return res.status(502).json({
+            error: {
+              code: "supabase_upstream_unavailable",
+              message: "Supabase is temporarily unreachable from the relay.",
+            },
+          });
+        }
+        for (const name of ["content-type", "content-range", "range-unit", "x-supabase-api-version"]) {
+          const value = upstream.headers.get(name);
+          if (value) res.setHeader(name, value);
+        }
+        const body = Buffer.from(await upstream.arrayBuffer());
+        res.status(upstream.status).send(body);
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Supabase proxy failed";
+      console.error("[server] Supabase proxy failed", { message });
+      res.status(/abort/i.test(message) ? 504 : 502).json({ error: { code: "supabase_proxy_failed", message } });
+    }
+  });
+
   // Save share card image and record
   app.post("/api/share-card/save", async (req, res) => {
     try {

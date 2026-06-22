@@ -44,6 +44,7 @@ const translations: Record<string, any> = {
     paypal: "PayPal",
     alipay: "Alipay",
     wechat: "WeChat Pay",
+    unavailable: "Not available",
     backToPlans: "Back to plans",
     purchasingCredits: "Purchasing {count} Credits",
     purchasingPlan: "Purchasing {plan}",
@@ -85,6 +86,7 @@ const translations: Record<string, any> = {
     paypal: "PayPal 支付",
     alipay: "支付宝",
     wechat: "微信支付",
+    unavailable: "暂未开通",
     backToPlans: "返回方案",
     purchasingCredits: "购买 {count} 张额度",
     purchasingPlan: "购买 {plan}",
@@ -600,6 +602,13 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
     return <Wallet className="w-5 h-5" />;
   };
 
+  const isPaymentProviderAvailable = (provider: string) => {
+    if (provider === 'Alipay') return !!alipayQr;
+    if (provider === 'WeChat Pay') return !!wechatQr;
+    // PayPal, cards and wallet methods must not create manual orders until a verified gateway is connected.
+    return false;
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <motion.div
@@ -772,6 +781,7 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                     <button
                       key={provider}
                       onClick={() => {
+                        if (!isPaymentProviderAvailable(provider)) return;
                         setHasChosenProvider(true);
                         if (provider === 'Alipay') {
                           if (!alipayQr) {
@@ -792,8 +802,8 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                         setQrProvider(null);
                         confirmPurchase(provider);
                       }}
-                      disabled={isProcessing}
-                      className="w-full p-4 rounded-2xl border border-stone-100 hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-between group"
+                      disabled={isProcessing || !isPaymentProviderAvailable(provider)}
+                      className="w-full p-4 rounded-2xl border border-stone-100 hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-between group disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:border-stone-100"
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-stone-100 flex items-center justify-center">
@@ -810,6 +820,9 @@ export default function PricingModal({ onClose, onBuyCredits, isLoggedIn, onRequ
                             ? (t.paypal ?? 'PayPal')
                             : provider}
                         </span>
+                        {!isPaymentProviderAvailable(provider) && (
+                          <span className="text-xs text-stone-400">{t.unavailable ?? 'Not available'}</span>
+                        )}
                       </div>
                       <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-stone-900 transition-colors" />
                     </button>
