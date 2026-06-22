@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useRef, useState } from 'react';
 import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
-import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2, Move } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2, Move, ImageIcon, MapPinned, PenLine, Layers3, AlertTriangle } from 'lucide-react';
 import JSZip from 'jszip';
 import { cn } from '../lib/utils';
 import { loadImage } from '../lib/imageUtils';
@@ -15,7 +15,7 @@ import { buildShareCardBlob, type ShareType } from '../lib/shareCard';
 import { getShareBranding } from '../lib/shareBranding';
 import { getPublishedPromptContent } from '../lib/promptService';
 import { resolveLocationSource } from '../lib/locationSource';
-import { captionGenerationPrompt, renderCaptionGenerationPrompt } from '../config/prompts/captionGeneration';
+import { captionGenerationPrompt, renderCaptionGenerationPrompt, sceneryLocationGuidance } from '../config/prompts/captionGeneration';
 import { hasUserBrandingEntitlement } from '../lib/userBranding';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
@@ -27,11 +27,21 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Prom
 
 const selectMasterCaptionPrompt = (publishedPrompt: string) => {
   const candidate = publishedPrompt.trim();
-  return candidate.includes('back_image_prompt') ? candidate : captionGenerationPrompt;
+  const masterPrompt = candidate.includes('back_image_prompt') ? candidate : captionGenerationPrompt;
+  return masterPrompt.includes('LOCATION AND SCENERY RULES')
+    ? masterPrompt
+    : `${masterPrompt}\n\n${sceneryLocationGuidance}`;
 };
 
 const AI_BACK_BATCH_CONCURRENCY = 5;
 type BrandingMode = NonNullable<SettingsType['backBrandingMode']>;
+type ProcessingItemStatus = 'queued' | 'preparing' | 'analyzing' | 'designing' | 'complete' | 'fallback' | 'failed';
+type ProcessingItem = {
+  id: string;
+  name: string;
+  previewUrl: string;
+  status: ProcessingItemStatus;
+};
 
 interface Props {
   photos: Photo[];
@@ -315,6 +325,9 @@ export default function Step5Process({
   };
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [processingItems, setProcessingItems] = useState<ProcessingItem[]>([]);
+  const [processingWarnings, setProcessingWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [freeRetentionDays, setFreeRetentionDays] = useState(7);
   const [vipRetentionDays, setVipRetentionDays] = useState(0); // 0 表示永久
@@ -328,6 +341,17 @@ export default function Step5Process({
   const [batchBackState, setBatchBackState] = useState<{ running: boolean; done: number; total: number }>({ running: false, done: 0, total: 0 });
   const isDraggingFrontText = useRef(false);
   const activeBackTasksRef = useRef<Map<string, Promise<ProcessedPostcard>>>(new Map());
+
+  const updateProcessingItem = (id: string, status: ProcessingItemStatus) => {
+    setProcessingItems(items => items.map(item => item.id === id ? { ...item, status } : item));
+  };
+
+  useEffect(() => {
+    if (!isProcessing) return;
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => setElapsedSeconds(value => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [isProcessing]);
 
   const invokePostcardAi = async (action: 'chat' | 'image', payload: Record<string, unknown>) => {
     const { data, error: functionError } = await supabase.functions.invoke('postcard-ai', {
@@ -410,6 +434,15 @@ export default function Step5Process({
         setIsProcessing(false);
         return;
       }
+
+      setProcessingWarnings([]);
+      setProgress(2);
+      setProcessingItems(configuredPhotos.map((photo, index) => ({
+        id: photo.id,
+        name: photo.file?.name || `${language === 'zh' ? '照片' : 'Photo'} ${index + 1}`,
+        previewUrl: photo.url,
+        status: 'queued',
+      })));
 
       // Strict check: Must be logged in to process
       if (!user.isLoggedIn) {
@@ -497,21 +530,23 @@ export default function Step5Process({
       try {
         const newResults: ProcessedPostcard[] = [];
         const concurrencyLimit = 3;
-        let activeCount = 0;
         let currentIndex = 0;
         let completedCount = 0;
+        let aiSuccessCount = 0;
+        let failedPhotoCount = 0;
 
         const processNext = async () => {
           if (currentIndex >= configuredPhotos.length || !isMounted) return;
           const i = currentIndex++;
-          activeCount++;
           
           const photo = configuredPhotos[i];
           const group = configGroups.find(g => g.id === photo.groupId);
+          updateProcessingItem(photo.id, 'preparing');
           
           if (group) {
             // 确保与 defaultSettings 合并，避免 aiTitle/aiBackTemplate 等关键项丢失（如仅修改滤镜时）
             const settings = { ...defaultSettings, ...(group.settings || {}) };
+            let aiCallSucceededForPhoto = false;
 
             try {
               // 1. Load image
@@ -528,6 +563,7 @@ export default function Step5Process({
               let backImagePrompt = "";
               let generatedBackImageBase64: string | null = null;
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
+              let usedFallback = false;
               const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
               const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
               const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
@@ -537,12 +573,13 @@ export default function Step5Process({
               // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
               const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
               if (runAi) {
+                updateProcessingItem(photo.id, 'analyzing');
                 const base64Data = getCompressedBase64(img);
                 
                 try {
                   // 1. Define Style Instructions
                   const styleInstructions: Record<string, string> = {
-                    auto: "Automatically determine the best style based on the image content. If landscape, be poetic. If street/urban, be modern.",
+                    auto: "Automatically determine the best style from the image. For scenery or landmarks, prioritize a useful introduction to the verified place and its visible geographic or cultural features. Never invent a location.",
                     poetic: "STYLE: Poetic & Lyrical. Use metaphors, classical imagery, or rhythmic prose. Tone: Elegant, deep, artistic. Example: '山海入怀，万物皆诗' (Mountains and seas in my heart, all things are poetry).",
                     modern: "STYLE: Modern & Direct. Use contemporary, straightforward language. Tone: Fresh, urban, direct. Example: '在东京街头，遇见一场不期而至的雨' (Meeting an unexpected rain on the streets of Tokyo).",
                     witty: "STYLE: Witty & Humorous. Use a clever, slightly ironic, or playful tone. Tone: Wry, funny, personal. Example: '这里的猫比人还多，而且它们看起来都比我有钱' (More cats than people here, and they all look richer than me).",
@@ -596,11 +633,13 @@ export default function Step5Process({
                       ],
                       response_format: { type: "json_object" },
                     }),
-                    60000,
+                    95000,
                     "AI Analysis timed out."
                   );
 
                   const analysisData = JSON.parse(analysisResponse.choices?.[0]?.message?.content || "{}");
+                  aiSuccessCount++;
+                  aiCallSucceededForPhoto = true;
 
                   // 3. 根据开关和 EXIF 更新文字与位置
                   if (needFrontTitle && analysisData.title) {
@@ -650,11 +689,29 @@ export default function Step5Process({
                   }
                 } catch (aiErr) {
                   console.error("AI Analysis failed", aiErr);
-                  throw new Error(
-                    language === 'zh'
-                      ? `AI 生成失败：${aiErr instanceof Error ? aiErr.message : '服务暂不可用'}`
-                      : `AI generation failed: ${aiErr instanceof Error ? aiErr.message : 'service unavailable'}`
-                  );
+                  usedFallback = true;
+                  const fallbackLocation = getExifLocationName(photo.exif);
+                  if (needFrontTitle) {
+                    title = fallbackLocation
+                      ? (language === 'zh' ? `${cleanLocationPart(fallbackLocation)}印象` : `A View of ${cleanLocationDisplay(fallbackLocation)}`)
+                      : (language === 'zh' ? '旅途一页' : 'A Travel Moment');
+                  }
+                  if (needFrontLocation) location = fallbackLocation;
+                  if (backMode === 'ai') {
+                    message = fallbackLocation
+                      ? (language === 'zh'
+                          ? `${fallbackLocation}的风景沿着光线慢慢展开，地貌与天色共同留下了这一刻。`
+                          : `At ${fallbackLocation}, the landscape unfolds through light, terrain, and sky.`)
+                      : (language === 'zh'
+                          ? '光线穿过眼前的风景，留下旅途中安静而清晰的一页。'
+                          : 'Light moves through the view, preserving a quiet page of the journey.');
+                    theme = 'classic';
+                    artisticIcons = ['compass', 'mountain'];
+                  }
+                  setProcessingWarnings(prev => [
+                    ...prev,
+                    `${photo.file?.name || `Image ${i + 1}`}: ${language === 'zh' ? 'AI 未及时返回，已使用照片信息完成' : 'AI did not respond in time; photo metadata was used instead'}`,
+                  ]);
                 }
               }
 
@@ -709,6 +766,7 @@ export default function Step5Process({
               
               const brandingMode = brandingModeByPhotoId.get(photo.id) || 'site';
               const useWatermark = brandingMode !== 'none';
+              updateProcessingItem(photo.id, 'designing');
               const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
               const backDataUrl = backMode === 'none'
                 ? ''
@@ -772,15 +830,28 @@ export default function Step5Process({
                 mapEligible: locationMeta.mapEligible,
                 rejectedLocationReason: locationMeta.rejectedLocationReason,
               });
+              updateProcessingItem(photo.id, usedFallback ? 'fallback' : 'complete');
             } catch (e: any) {
               console.error("AI Generation failed for image", i, e);
-              throw new Error(`AI Processing failed for Image ${i + 1}: ${e.message || e}`);
+              if (aiCallSucceededForPhoto) aiSuccessCount--;
+              failedPhotoCount++;
+              updateProcessingItem(photo.id, 'failed');
+              setProcessingWarnings(prev => [
+                ...prev,
+                `${photo.file?.name || `Image ${i + 1}`}: ${language === 'zh' ? '处理失败，可返回后单独重试' : 'Processing failed; retry this photo separately'}`,
+              ]);
             }
+          } else {
+            failedPhotoCount++;
+            updateProcessingItem(photo.id, 'failed');
+            setProcessingWarnings(prev => [
+              ...prev,
+              `${photo.file?.name || `Image ${i + 1}`}: ${language === 'zh' ? '未找到照片配置，请返回后重试' : 'Photo settings were not found; please retry'}`,
+            ]);
           }
 
           completedCount++;
           setProgress(Math.round((completedCount / configuredPhotos.length) * 100));
-          activeCount--;
           await processNext();
         };
 
@@ -789,6 +860,10 @@ export default function Step5Process({
           workers.push(processNext());
         }
         await Promise.all(workers);
+
+        if (newResults.length === 0) {
+          throw new Error(language === 'zh' ? '照片处理未能完成，请稍后重试。' : 'No photos could be processed. Please try again.');
+        }
 
         if (isMounted) {
           setHistory(prev => [...newResults, ...prev]);
@@ -801,23 +876,26 @@ export default function Step5Process({
           logEvent('generation_completed', {
             total_photos: configuredPhotos.length,
             ai_photos: aiPhotosCount,
+            ai_success_photos: aiSuccessCount,
+            fallback_photos: aiPhotosCount - aiSuccessCount,
+            failed_photos: failedPhotoCount,
             duration_ms: durationMs,
           }).catch(() => {});
 
-          const totalUse = totalNeed;
+          const totalUse = creditsPerCard * aiSuccessCount;
 
           // 调用统一积分函数，扣减本次生成消耗
           const uid = user.id;
           if (uid && isSupabaseConnected && totalUse > 0) {
             updateUserCredits(uid, -totalUse, 'generation_cost', {
               referenceId: newResults[0]?.id,
-              notes: `Generate ${configuredPhotos.length} postcards`,
+              notes: `Generate ${newResults.length} postcards (${aiSuccessCount} AI calls succeeded)`,
               operator: 'system',
               bucket: null,
             })
               .then((res) => {
                 if (!res.ok || !res.data) return;
-                const newCount = (user.generatedCount ?? 0) + configuredPhotos.length;
+                const newCount = (user.generatedCount ?? 0) + newResults.length;
                 syncGeneratedCount(uid, newCount, { lastActiveAt: new Date() }).catch(() => {});
                 setUser((prev) => ({
                   ...prev,
@@ -837,7 +915,7 @@ export default function Step5Process({
               return {
                 ...prev,
                 credits: newCredits,
-                generatedCount: (prev.generatedCount || 0) + configuredPhotos.length,
+                generatedCount: (prev.generatedCount || 0) + newResults.length,
               };
             });
           }
@@ -2860,7 +2938,7 @@ export default function Step5Process({
       const base64Data = getCompressedBase64(img);
       const masterPrompt = await getPublishedPromptContent('caption_generation_default').catch(() => '');
       const styleInstructions: Record<string, string> = {
-        auto: "Automatically determine the best style based on the image content. If landscape, be poetic. If street/urban, be modern.",
+        auto: "Automatically determine the best style from the image. For scenery or landmarks, prioritize a useful introduction to the verified place and its visible geographic or cultural features. Never invent a location.",
         poetic: "STYLE: Poetic & Lyrical. Use metaphors, classical imagery, or rhythmic prose. Tone: Elegant, deep, artistic. Example: '山海入怀，万物皆诗' (Mountains and seas in my heart, all things are poetry).",
         modern: "STYLE: Modern & Direct. Use contemporary, straightforward language. Tone: Fresh, urban, direct. Example: '在东京街头，遇见一场不期而至的雨' (Meeting an unexpected rain on the streets of Tokyo).",
         witty: "STYLE: Witty & Humorous. Use a clever, slightly ironic, or playful tone. Tone: Wry, funny, personal. Example: '这里的猫比人还多，而且它们看起来都比我有钱' (More cats than people here, and they all look richer than me).",
@@ -3269,32 +3347,89 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
   };
 
   if (isProcessing) {
+    const finishedCount = processingItems.filter(item => ['complete', 'fallback', 'failed'].includes(item.status)).length;
+    const activeItem = processingItems.find(item => ['preparing', 'analyzing', 'designing'].includes(item.status));
+    const statusLabels: Record<ProcessingItemStatus, string> = language === 'zh'
+      ? { queued: '等待中', preparing: '读取照片', analyzing: '识别场景', designing: '排版中', complete: '已完成', fallback: '已降级完成', failed: '需重试' }
+      : { queued: 'Queued', preparing: 'Reading photo', analyzing: 'Analyzing scene', designing: 'Designing', complete: 'Complete', fallback: 'Fallback complete', failed: 'Retry needed' };
+    const elapsedText = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:${String(elapsedSeconds % 60).padStart(2, '0')}`;
+    const waitingTip = elapsedSeconds < 15
+      ? (language === 'zh' ? '正在读取拍摄时间、地点与画面构图。' : 'Reading capture time, location, and composition.')
+      : elapsedSeconds < 45
+        ? (language === 'zh' ? '正在识别画面主题，并核对可信地点。' : 'Identifying the subject and checking reliable location data.')
+        : (language === 'zh' ? '复杂画面可能需要更久，超时后系统会自动重试或使用照片信息完成。' : 'Complex scenes can take longer. The system will retry or finish from photo metadata.');
+
     return (
-      <div className="flex flex-col items-center justify-center h-full py-20 text-center">
-        <div className="relative mb-12">
-          <div className="w-32 h-32 border-4 border-stone-100 rounded-full"></div>
-          <div 
-            className="absolute inset-0 border-4 border-stone-900 rounded-full border-t-transparent animate-spin"
-            style={{ clipPath: `conic-gradient(from 0deg, transparent ${progress}%, black ${progress}%)` }}
-          ></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-stone-900">{progress}%</span>
-          </div>
-        </div>
-        <h2 className="text-[clamp(1.5rem,5vw,2rem)] font-bold text-stone-900 mb-4 tracking-tight">{t.processing}</h2>
-        <p className="text-stone-500 max-w-md mx-auto leading-relaxed text-[clamp(0.875rem,2vw,1rem)]">
-          {t.wait}
-        </p>
-        <div className="mt-12 flex items-center gap-8 text-stone-400">
-          <div className="flex flex-col items-center gap-2">
-            <ShieldCheck className="w-6 h-6" />
-            <span className="text-[10px] uppercase tracking-widest font-bold">{t.encrypted}</span>
-          </div>
-          <div className="w-px h-8 bg-stone-100"></div>
-          <div className="flex flex-col items-center gap-2">
-            <Clock className="w-6 h-6" />
-            <span className="text-[10px] uppercase tracking-widest font-bold">{t.retention}: {getRetentionText()}</span>
-          </div>
+      <div className="mx-auto flex h-full w-full max-w-5xl items-center px-4 py-8 sm:px-6">
+        <div className="grid w-full overflow-hidden rounded-lg border border-stone-200 bg-white lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="flex flex-col justify-between border-b border-stone-200 p-6 text-left lg:border-b-0 lg:border-r lg:p-8">
+            <div>
+              <div className="mb-7 flex items-center gap-5">
+                <div className="relative h-24 w-24 shrink-0">
+                  <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                    <circle cx="50" cy="50" r="43" fill="none" stroke="#f5f5f4" strokeWidth="7" />
+                    <circle cx="50" cy="50" r="43" fill="none" stroke="#1c1917" strokeWidth="7" strokeLinecap="round" pathLength="100" strokeDasharray={`${progress} 100`} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-xl font-semibold text-stone-900">{progress}%</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs font-medium text-stone-500">{finishedCount}/{processingItems.length} {language === 'zh' ? '张完成' : 'finished'}</p>
+                  <h2 className="text-xl font-semibold text-stone-900">{activeItem ? statusLabels[activeItem.status] : t.processing}</h2>
+                  <p className="mt-1 truncate text-sm text-stone-500">{activeItem?.name || t.wait}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 border-y border-stone-100 py-5">
+                {[
+                  { icon: ImageIcon, label: language === 'zh' ? '读取照片' : 'Read photos', threshold: 5 },
+                  { icon: MapPinned, label: language === 'zh' ? '识别地点与场景' : 'Identify place and scene', threshold: 25 },
+                  { icon: PenLine, label: language === 'zh' ? '生成标题与文案' : 'Write title and copy', threshold: 55 },
+                  { icon: Layers3, label: language === 'zh' ? '排版明信片' : 'Compose postcard', threshold: 80 },
+                ].map(({ icon: Icon, label, threshold }) => {
+                  const done = progress >= threshold;
+                  return (
+                    <div key={label} className="flex items-center gap-3 text-sm">
+                      <span className={cn('flex h-7 w-7 items-center justify-center rounded-full', done ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-400')}>
+                        {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                      </span>
+                      <span className={done ? 'font-medium text-stone-900' : 'text-stone-500'}>{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <p className="min-h-10 text-sm leading-5 text-stone-600">{waitingTip}</p>
+              <div className="mt-4 flex items-center gap-5 text-xs text-stone-400">
+                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" />{elapsedText}</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{t.encrypted}</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="p-6 text-left lg:p-8">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-stone-900">{language === 'zh' ? '处理队列' : 'Processing queue'}</h3>
+              <span className="text-xs text-stone-400">{t.retention}: {getRetentionText()}</span>
+            </div>
+            <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
+              {processingItems.map(item => {
+                const isActive = ['preparing', 'analyzing', 'designing'].includes(item.status);
+                const isWarning = item.status === 'fallback' || item.status === 'failed';
+                return (
+                  <div key={item.id} className="flex min-h-16 items-center gap-3 rounded-md border border-stone-100 px-3 py-2.5">
+                    <img src={item.previewUrl} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-stone-800">{item.name}</p>
+                      <p className={cn('mt-0.5 text-xs', isWarning ? 'text-amber-700' : 'text-stone-400')}>{statusLabels[item.status]}</p>
+                    </div>
+                    {isActive ? <Loader2 className="h-4 w-4 animate-spin text-stone-700" /> : isWarning ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : item.status === 'complete' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <span className="h-2 w-2 rounded-full bg-stone-200" />}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </div>
     );
@@ -3320,6 +3455,15 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
   return (
     <div className="flex flex-col h-full">
+      {processingWarnings.length > 0 && (
+        <div className="mb-5 flex items-start gap-3 border-l-2 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">{language === 'zh' ? '部分照片已使用备用方式完成' : 'Some photos used the fallback flow'}</p>
+            <p className="mt-1 text-amber-800">{language === 'zh' ? 'AI 未及时返回的调用不会扣积分；失败的照片可以返回后单独重试。' : 'Timed-out AI calls are not charged. Failed photos can be retried separately.'}</p>
+          </div>
+        </div>
+      )}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-[clamp(1.25rem,4vw,1.5rem)] font-semibold tracking-tight mb-2 flex items-center gap-2">

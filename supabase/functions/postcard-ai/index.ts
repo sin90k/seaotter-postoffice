@@ -14,17 +14,51 @@ const json = (body: unknown, status = 200) =>
 const readOpenAiJson = async (response: Response) =>
   response.json().catch(() => ({ error: { message: "Invalid OpenAI response" } }));
 
+const retryableStatuses = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const callOpenAi = async (baseUrl: string, apiKey: string, endpoint: string, payload: Record<string, unknown>) => {
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const data = await readOpenAiJson(response);
-  return { response, data };
+  const isChat = endpoint === "/chat/completions";
+  const maxAttempts = isChat ? 2 : 1;
+  const timeoutMs = isChat ? 40_000 : 110_000;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = await readOpenAiJson(response);
+      if (attempt < maxAttempts && retryableStatuses.has(response.status)) {
+        console.warn("[postcard-ai] Retrying transient OpenAI response", { endpoint, status: response.status, attempt });
+        await sleep(700 * attempt);
+        continue;
+      }
+      return { response, data, attempts: attempt };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) break;
+      console.warn("[postcard-ai] Retrying interrupted OpenAI request", {
+        endpoint,
+        attempt,
+        message: error instanceof Error ? error.message : "request interrupted",
+      });
+      await sleep(700 * attempt);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const timedOut = lastError instanceof DOMException && lastError.name === "AbortError";
+  throw new Error(timedOut ? "OpenAI analysis timed out after automatic retry." : (lastError instanceof Error ? lastError.message : "OpenAI request failed"));
 };
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
