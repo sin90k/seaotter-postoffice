@@ -3,6 +3,7 @@ import { ConfigGroup, SettingsType, User, defaultSettings } from '../App';
 import { ArrowLeft, CheckCircle2, LayoutTemplate, BoxSelect, Wand2, Languages, HelpCircle, Smile, Minus, PenTool, History, Type, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
 import FilterPreviewCanvas from './FilterPreviewCanvas';
+import { hasUserBrandingEntitlement } from '../lib/userBranding';
 
 /** Filter list: same order as config, do not change. */
 const FILTER_OPTIONS: { id: SettingsType['filter']; labelKey: string }[] = [
@@ -72,8 +73,12 @@ const translations: Record<string, any> = {
     backTemplate: 'Fixed Template',
     backAi: 'AI Back (Fast)',
     backBranding: 'Add Site Branding on Back',
-    backBrandingDesc: 'Show logo, site name, and domain on the back side.',
+    backBrandingDesc: 'Choose which logo and QR code appear on the back.',
     backBrandingForcePromo: 'Promo-only credits: branding is required and cannot be disabled.',
+    brandSite: 'Sea Otter brand',
+    brandPersonal: 'My brand',
+    brandNone: 'No brand',
+    brandPersonalUnavailable: 'Enable and save your personal brand in Account Settings first.',
     outputLang: 'Output Language',
     copyStyle: 'Copywriting Style',
     cardStoryLabel: 'Story for this postcard',
@@ -142,8 +147,12 @@ const translations: Record<string, any> = {
     backTemplate: '固定模板背面',
     backAi: 'AI 背面（快速）',
     backBranding: '背面添加本站信息',
-    backBrandingDesc: '在背面显示本站 logo、站名和域名。',
+    backBrandingDesc: '选择背面使用本站 Logo、个人 Logo，或不显示品牌。',
     backBrandingForcePromo: '仅有赠送积分时，本站信息强制开启且不可关闭。',
+    brandSite: '本站品牌',
+    brandPersonal: '我的品牌',
+    brandNone: '不显示',
+    brandPersonalUnavailable: '请先在用户中心的账户设置中启用并保存个人品牌。',
     outputLang: '输出语言',
     copyStyle: '文案风格',
     cardStoryLabel: '明信片故事',
@@ -359,6 +368,7 @@ export default function Step3Configure({ editingGroupId, configGroups, user, onS
       frontAiMode: normalizedFrontMode,
       aiTitle: normalizedFrontMode !== 'none',
       backBrandingEnabled: base.backBrandingEnabled ?? true,
+      backBrandingMode: base.backBrandingMode ?? (base.backBrandingEnabled === false ? 'none' : 'site'),
     };
     if (!existingGroup && langMap[language]) {
       return { ...normalized, aiLanguage: langMap[language] };
@@ -371,9 +381,18 @@ export default function Step3Configure({ editingGroupId, configGroups, user, onS
   };
 
   const handleSave = () => {
+    const canChooseBrand = hasUserBrandingEntitlement(user);
+    const hasPersonalBrand = canChooseBrand && user.personalBranding?.enabled === true;
+    const selectedBrand = settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site');
+    const brandingMode: SettingsType['backBrandingMode'] = selectedBrand === 'personal' && !hasPersonalBrand
+      ? 'site'
+      : selectedBrand === 'none' && !canChooseBrand
+        ? 'site'
+        : selectedBrand;
     const normalizedSettings: SettingsType = {
       ...settings,
-      backBrandingEnabled: (user.paid_credits ?? 0) <= 0 ? true : (settings.backBrandingEnabled !== false),
+      backBrandingMode: brandingMode,
+      backBrandingEnabled: brandingMode !== 'none',
     };
     onSave({
       id: 'default',
@@ -730,22 +749,35 @@ export default function Step3Configure({ editingGroupId, configGroups, user, onS
                 <div className="text-sm text-stone-500 mt-2">{t.aiBackDesc}</div>
               </div>
 
-              <label className="flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={settings.backBrandingEnabled !== false}
-                  disabled={(user.paid_credits ?? 0) <= 0}
-                  onChange={(e) => updateSetting('backBrandingEnabled', e.target.checked)}
-                  className="mt-1 w-5 h-5 rounded border-stone-300 text-stone-900 focus:ring-stone-900 disabled:opacity-50"
-                />
-                <div>
-                  <div className="font-medium text-stone-900 mb-1">{t.backBranding || 'Add Site Branding on Back'}</div>
-                  <div className="text-sm text-stone-500">{t.backBrandingDesc || 'Show logo, site name, and domain on the back side.'}</div>
-                  {(user.paid_credits ?? 0) <= 0 && (
-                    <div className="text-xs text-amber-700 mt-1">{t.backBrandingForcePromo || 'Promo-only credits: branding is required and cannot be disabled.'}</div>
-                  )}
+              <div className="p-4 border border-stone-200 rounded-xl">
+                <div className="font-medium text-stone-900 mb-1">{t.backBranding}</div>
+                <div className="text-sm text-stone-500 mb-3">{t.backBrandingDesc}</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: 'site', label: t.brandSite, disabled: false },
+                    { id: 'personal', label: t.brandPersonal, disabled: !(hasUserBrandingEntitlement(user) && user.personalBranding?.enabled) },
+                    { id: 'none', label: t.brandNone, disabled: !hasUserBrandingEntitlement(user) },
+                  ] as const).map(option => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={option.disabled}
+                      onClick={() => setSettings(prev => ({ ...prev, backBrandingMode: option.id, backBrandingEnabled: option.id !== 'none' }))}
+                      className={cn(
+                        'h-10 px-3 rounded-lg border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                        (settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site')) === option.id
+                          ? 'border-stone-900 bg-stone-900 text-white'
+                          : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-              </label>
+                {!(hasUserBrandingEntitlement(user) && user.personalBranding?.enabled) && (
+                  <div className="text-xs text-amber-700 mt-2">{t.brandPersonalUnavailable}</div>
+                )}
+              </div>
             </div>
           </section>
 

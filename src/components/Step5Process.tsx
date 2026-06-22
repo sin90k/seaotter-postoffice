@@ -31,6 +31,7 @@ const selectMasterCaptionPrompt = (publishedPrompt: string) => {
 };
 
 const AI_BACK_BATCH_CONCURRENCY = 5;
+type BrandingMode = NonNullable<SettingsType['backBrandingMode']>;
 
 interface Props {
   photos: Photo[];
@@ -248,6 +249,17 @@ export default function Step5Process({
   onFeedback
 }: Props) {
   const t = translations[language] || translations.en;
+  const hasPersonalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled === true;
+  const resolveBrandingMode = (settings: SettingsType): BrandingMode => {
+    const requested = settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site');
+    return requested === 'personal' && !hasPersonalBrand ? 'site' : requested;
+  };
+  const resolveResultBrandingMode = (result: ProcessedPostcard): BrandingMode => {
+    const requested = result.brandingMode ?? resolveBrandingMode(result.settings);
+    if (requested === 'personal' && !hasPersonalBrand) return 'site';
+    if (requested === 'none' && result.watermark === true) return 'site';
+    return requested;
+  };
   const cleanLocationPart = (raw?: string) => {
     if (!raw) return '';
     const first = raw
@@ -445,17 +457,15 @@ export default function Step5Process({
         return;
       }
 
-      // 预计算每张图是否必须加本站信息：
-      // - 勾选开启时：全部背面都加
-      // - 勾选关闭且有付费积分时：先消耗付费积分；付费用尽后，消耗到赠送积分的图片强制加
-      const watermarkByPhotoId = new Map<string, boolean>();
+      // 预计算每张图实际使用的品牌。旧的 watermark 字段只保留兼容历史记录。
+      const brandingModeByPhotoId = new Map<string, BrandingMode>();
       let remainPaid = Math.max(0, user.paid_credits ?? 0);
       let remainPromo = Math.max(0, user.promo_credits ?? 0);
       for (const photo of configuredPhotos) {
         const group = configGroups.find(g => g.id === photo.groupId);
         const settings = { ...defaultSettings, ...(group?.settings || {}) };
         const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
-        const brandingEnabled = settings.backBrandingEnabled !== false;
+        const requestedBrandingMode = resolveBrandingMode(settings);
         const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
         const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
         const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
@@ -463,22 +473,23 @@ export default function Step5Process({
         const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
         const cost = usesAi ? creditsPerCard : 0;
 
-        if (backMode !== 'none' && brandingEnabled) {
-          watermarkByPhotoId.set(photo.id, true);
-        } else {
-          let promoUsed = false;
-          if (cost > 0) {
-            const paidUsed = Math.min(remainPaid, cost);
-            remainPaid -= paidUsed;
-            const left = cost - paidUsed;
-            if (left > 0) {
-              const usePromo = Math.min(remainPromo, left);
-              remainPromo -= usePromo;
-              promoUsed = usePromo > 0;
-            }
+        let promoUsed = false;
+        if (cost > 0) {
+          const paidUsed = Math.min(remainPaid, cost);
+          remainPaid -= paidUsed;
+          const left = cost - paidUsed;
+          if (left > 0) {
+            const usePromo = Math.min(remainPromo, left);
+            remainPromo -= usePromo;
+            promoUsed = usePromo > 0;
           }
-          watermarkByPhotoId.set(photo.id, promoUsed);
         }
+        const effectiveMode: BrandingMode = requestedBrandingMode !== 'none'
+          ? requestedBrandingMode
+          : promoUsed
+            ? 'site'
+            : 'none';
+        brandingModeByPhotoId.set(photo.id, effectiveMode);
       }
 
       const captionPromptGuidance = await getPublishedPromptContent('caption_generation_default').catch(() => '');
@@ -696,7 +707,8 @@ export default function Step5Process({
               const authorStr = settings.authorName || '';
               const displayDate = settings.showDate === false ? '' : dateStr;
               
-              const useWatermark = watermarkByPhotoId.get(photo.id) === true;
+              const brandingMode = brandingModeByPhotoId.get(photo.id) || 'site';
+              const useWatermark = brandingMode !== 'none';
               const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
               const backDataUrl = backMode === 'none'
                 ? ''
@@ -712,7 +724,7 @@ export default function Step5Process({
                     dateStr,
                     artisticIcons,
                     generatedBackImageBase64 || undefined,
-                    useWatermark
+                    brandingMode
                   );
 
               newResults.push({
@@ -748,6 +760,7 @@ export default function Step5Process({
                 draftBackStyle: defaultBackStyle,
                 generatedBackImage: generatedBackImageBase64 || undefined,
                 watermark: useWatermark,
+                brandingMode,
                 city: photo.exif?.city || undefined,
                 country: photo.exif?.country || undefined,
                 latitude,
@@ -1062,15 +1075,17 @@ export default function Step5Process({
     options: {
       padding: number;
       locale?: 'zh' | 'en';
+      brandingMode: BrandingMode;
     }
   ) => {
-    const personalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled
+    const personalBrand = options.brandingMode === 'personal' && hasPersonalBrand
       ? user.personalBranding
       : null;
-    const brandName = personalBrand?.brandName
-      || brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
-    const domain = personalBrand?.qrTargetUrl || brandConfig.domain();
-    const logoUrl = personalBrand?.logoUrl || brandConfig.logoUrl();
+    const brandName = personalBrand
+      ? personalBrand.brandName
+      : brandConfig.brandName(options.locale || (language.startsWith('zh') ? 'zh' : 'en'));
+    const domain = personalBrand ? personalBrand.qrTargetUrl : brandConfig.domain();
+    const logoUrl = personalBrand ? personalBrand.logoUrl : brandConfig.logoUrl();
     if (!brandName && !logoUrl && !domain) return;
 
     const shortSide = Math.min(cw, ch);
@@ -2078,7 +2093,7 @@ export default function Step5Process({
     ctx.restore();
   };
 
-  const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, useWatermark?: boolean) => {
+  const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, brandingMode: BrandingMode = 'none') => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
@@ -2508,12 +2523,13 @@ export default function Step5Process({
     }
 
     // 9. Watermark (Logo + 服务名 + 网址) - 使用 promo 积分或后台开启品牌信息时显示
-    const watermark = useWatermark && (brandConfig.logoUrl() || brandConfig.brandName('zh'));
+    const watermark = brandingMode !== 'none';
     if (watermark) {
       const locale = language.startsWith('zh') ? 'zh' : (isChinese ? 'zh' : 'en');
       await drawBackBrandSignature(ctx, cw, ch, {
         padding: padding * 1.1,
         locale,
+        brandingMode,
       });
     }
 
@@ -2686,6 +2702,20 @@ export default function Step5Process({
     });
   };
 
+  const updateDraftBrandingMode = (brandingMode: BrandingMode) => {
+    if (brandingMode === 'personal' && !hasPersonalBrand) return;
+    setEditingDraft(prev => prev ? {
+      ...prev,
+      brandingMode,
+      watermark: brandingMode !== 'none',
+      settings: {
+        ...prev.settings,
+        backBrandingMode: brandingMode,
+        backBrandingEnabled: brandingMode !== 'none',
+      },
+    } : prev);
+  };
+
   const updateFrontPositionPreset = (position: string) => {
     setEditingDraft((prev) => prev ? {
       ...prev,
@@ -2758,7 +2788,7 @@ export default function Step5Process({
 
     try {
       const img = await loadImage(result.imgUrl || '');
-      const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
+      const brandingMode = resolveResultBrandingMode(result);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
       const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
@@ -2775,7 +2805,7 @@ export default function Step5Process({
             result.draftDate,
             result.decorativeIcons,
             result.generatedBackImage,
-            useWatermark
+            brandingMode
           );
 
       const updatedPostcard = { 
@@ -2984,7 +3014,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
         result = await ensureAiBackImage(result);
       }
       const img = await loadImage(sourceImageUrl);
-      const useWatermark = result.watermark === true || (result.settings.backBrandingEnabled !== false && result.settings.backDesignMode !== 'none');
+      const brandingMode = resolveResultBrandingMode(result);
       const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
         ? ''
@@ -3000,7 +3030,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
             result.draftDate,
             result.decorativeIcons,
             result.generatedBackImage,
-            useWatermark
+            brandingMode
           );
       setLivePreview({ front: newFront, back: newBack });
     } catch (e) {
@@ -3068,7 +3098,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
         const generatedBackImage = await generateAiBackImageForDraft(promptReadyTarget);
         const img = await loadImage(target.imgUrl || '');
         const backMode = getBackMode(promptReadyTarget.settings);
-        const useWatermark = promptReadyTarget.watermark === true || (promptReadyTarget.settings.backBrandingEnabled !== false && backMode !== 'none');
+        const brandingMode = resolveResultBrandingMode(promptReadyTarget);
         const newBack = backMode === 'none'
           ? ''
           : await generateBack(
@@ -3083,7 +3113,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
               promptReadyTarget.draftDate || promptReadyTarget.date,
               promptReadyTarget.decorativeIcons,
               generatedBackImage,
-              useWatermark
+              brandingMode
             );
         const updated = {
           ...promptReadyTarget,
@@ -3722,6 +3752,38 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
                             <div className="space-y-4">
                               <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.backSide} {t.style}</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-stone-700 mb-2">
+                                  {language === 'zh' ? '背面品牌' : 'Back branding'}
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {([
+                                    { id: 'site', label: language === 'zh' ? '本站品牌' : 'Site' },
+                                    { id: 'personal', label: language === 'zh' ? '我的品牌' : 'Mine' },
+                                    { id: 'none', label: language === 'zh' ? '不显示' : 'None' },
+                                  ] as const).map(option => (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      disabled={option.id === 'personal' && !hasPersonalBrand}
+                                      onClick={() => updateDraftBrandingMode(option.id)}
+                                      className={cn(
+                                        'h-10 rounded-lg border px-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                                        resolveResultBrandingMode(result) === option.id
+                                          ? 'border-stone-900 bg-stone-900 text-white'
+                                          : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                      )}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                {!hasPersonalBrand && (
+                                  <p className="mt-2 text-xs text-amber-700">
+                                    {language === 'zh' ? '请先在用户中心启用并保存个人品牌。' : 'Enable and save your personal brand in Account Settings first.'}
+                                  </p>
+                                )}
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => handleRegenerateBackImage(result.id)}

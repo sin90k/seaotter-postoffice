@@ -105,6 +105,8 @@ export type SettingsType = {
   backDesignMode?: 'none' | 'template' | 'ai';
   /** 背面是否添加本站信息（logo/站名/域名） */
   backBrandingEnabled?: boolean;
+  /** 背面品牌来源；保留 backBrandingEnabled 兼容旧记录。 */
+  backBrandingMode?: 'site' | 'personal' | 'none';
   aiLanguage: string;
   copywritingStyle: 'auto' | 'poetic' | 'modern' | 'witty' | 'nostalgic' | 'minimalist';
   cardStory?: string;
@@ -180,6 +182,8 @@ export type ProcessedPostcard = {
   iconEmoji?: string; // Added
   /** True when this postcard was generated using promo_credits (watermark on back) */
   watermark?: boolean;
+  /** Actual brand rendered for this postcard. */
+  brandingMode?: 'site' | 'personal' | 'none';
   /** Generation record fields (for storage/analytics) */
   user_id?: string;
   original_image_url?: string;
@@ -238,6 +242,7 @@ export const defaultSettings: SettingsType = { // Exported
   aiBackTemplate: true,
   backDesignMode: 'ai',
   backBrandingEnabled: true,
+  backBrandingMode: 'site',
   aiLanguage: 'Chinese',
   copywritingStyle: 'auto',
   cardStory: '',
