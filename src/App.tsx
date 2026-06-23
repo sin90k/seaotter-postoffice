@@ -868,7 +868,10 @@ export default function App() {
       } catch (e: unknown) {
         console.error('Supabase auth error', e);
         const message = e instanceof Error ? e.message : '';
-        if (message === 'auth_timeout' || /failed to fetch|network|abort/i.test(message)) {
+        if (
+          message === 'auth_timeout' ||
+          /failed to fetch|network|abort|unexpected token|not valid json|server error|temporarily unavailable|service_unavailable/i.test(message)
+        ) {
           return language === 'zh'
             ? '登录服务连接不稳定，已尝试备用线路，请稍后重试。'
             : 'The authentication service is temporarily unreachable. Please try again.';

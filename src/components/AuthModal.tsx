@@ -53,7 +53,8 @@ const translations: Record<string, any> = {
     nicknameOptional: 'Optional display name',
     phoneDemoHint: 'Demo: use code 123456',
     phoneSmsHint: 'Code will be sent via SMS',
-    socialDemo: 'Demo only',
+    socialDemo: 'Coming soon',
+    socialUnavailable: 'login is not available yet. No account has been created.',
     continueWithGoogle: 'Continue with Google',
     sendCodeFailed: 'Failed to send code. Please try again.',
     invalidCode: 'Invalid or expired code.',
@@ -98,7 +99,8 @@ const translations: Record<string, any> = {
     nicknameOptional: '选填，用于显示',
     phoneDemoHint: '演示验证码：123456',
     phoneSmsHint: '验证码将发送至您的手机',
-    socialDemo: '仅演示',
+    socialDemo: '暂未开放',
+    socialUnavailable: '登录暂未开放，本次操作不会创建账号。',
     continueWithGoogle: '使用 Google 继续',
     sendCodeFailed: '发送验证码失败，请稍后重试。',
     invalidCode: '验证码错误或已过期。',
@@ -560,15 +562,7 @@ export default function AuthModal({ onClose, onLogin, onOAuthLogin: _onOAuthLogi
       handleGoogleLogin();
       return;
     }
-    // 演示：用手机号分支在本地创建用户，避免走 Supabase 邮箱
-    setIsLoading(true);
-    setError(null);
-    const demoPhone = `+86999${String(Date.now()).slice(-8)}`;
-    const demoName = language === 'zh' ? `${provider} 用户` : `${provider} User`;
-    onLogin(demoPhone, undefined, true, demoName, 'phone').then((err) => {
-      setIsLoading(false);
-      if (err) setError(err);
-    });
+    setError(`${provider} ${t.socialUnavailable ?? 'login is not available yet.'}`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -887,7 +881,9 @@ export default function AuthModal({ onClose, onLogin, onOAuthLogin: _onOAuthLogi
               )}
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-px bg-stone-100" />
-                <span className="text-[10px] uppercase tracking-wider text-stone-400 font-medium">{t.socialDemo}</span>
+                <span className="text-[10px] uppercase tracking-wider text-stone-400 font-medium">
+                  {language === 'zh' ? '暂未开放' : 'Coming soon'}
+                </span>
                 <div className="flex-1 h-px bg-stone-100" />
               </div>
             <div className="grid grid-cols-3 gap-3">

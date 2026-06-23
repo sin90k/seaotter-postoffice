@@ -5,6 +5,38 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undef
 const nativeFetch = globalThis.fetch.bind(globalThis);
 let preferSameOriginRelay = false;
 
+const normalizeSupabaseResponse = async (response: Response, target: string): Promise<Response> => {
+  if (response.status === 204) return response;
+  const isAuthRequest = target.includes('/auth/v1/');
+  const contentType = response.headers.get('content-type') || '';
+  if (!isAuthRequest && (response.ok || contentType.includes('json'))) return response;
+
+  const raw = await response.clone().text().catch(() => '');
+  if (raw) {
+    try {
+      JSON.parse(raw);
+      return response;
+    } catch {
+      // Supabase clients expect JSON errors; Vercel/network gateways sometimes return plain text.
+    }
+  } else if (response.ok) {
+    return response;
+  }
+
+  const message = isAuthRequest
+    ? 'Authentication service is temporarily unavailable. Please try again.'
+    : 'Supabase service is temporarily unavailable. Please try again.';
+  return new Response(JSON.stringify({
+    error: 'service_unavailable',
+    error_description: message,
+    message,
+  }), {
+    status: response.ok ? 502 : response.status,
+    statusText: response.statusText,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+};
+
 const relaySupabaseRequest = async (target: string, input: RequestInfo | URL, init?: RequestInit) => {
   const request = input instanceof Request ? input.clone() : null;
   const method = String(init?.method || request?.method || 'GET').toUpperCase();
@@ -12,12 +44,13 @@ const relaySupabaseRequest = async (target: string, input: RequestInfo | URL, in
   const body = method === 'GET' || method === 'HEAD'
     ? undefined
     : init?.body ?? (request ? await request.arrayBuffer() : undefined);
-  return nativeFetch(`/api/supabase-proxy?target=${encodeURIComponent(target)}`, {
+  const response = await nativeFetch(`/api/supabase-proxy?target=${encodeURIComponent(target)}`, {
     method,
     headers,
     body,
     signal: init?.signal ?? undefined,
   });
+  return normalizeSupabaseResponse(response, target);
 };
 
 const resilientSupabaseFetch: typeof fetch = async (input, init) => {
@@ -31,10 +64,11 @@ const resilientSupabaseFetch: typeof fetch = async (input, init) => {
     return relaySupabaseRequest(target, relayInput, init);
   }
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), isFunctionCall ? 100_000 : 6_000);
+  const timeout = window.setTimeout(() => controller.abort(), isFunctionCall ? 100_000 : 15_000);
 
   try {
-    return await nativeFetch(input, { ...init, signal: controller.signal });
+    const response = await nativeFetch(input, { ...init, signal: controller.signal });
+    return normalizeSupabaseResponse(response, target);
   } catch (error) {
     if (typeof window === 'undefined' || !canUseRelay) throw error;
     preferSameOriginRelay = true;
