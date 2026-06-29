@@ -1,5 +1,5 @@
 import express from "express";
-import { createServer as createViteServer, loadEnv } from "vite";
+import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -11,16 +11,11 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
-  const fileEnv = process.env.VERCEL === "1"
-    ? {}
-    : loadEnv(process.env.NODE_ENV || "development", __dirname, "");
   const defaultSupabaseUrl = "https://nhddbpctroojcaywzmxy.supabase.co";
   const supabaseUrl = process.env.SUPABASE_URL
     || process.env.VITE_SUPABASE_URL
-    || fileEnv.SUPABASE_URL
-    || fileEnv.VITE_SUPABASE_URL
     || defaultSupabaseUrl;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || fileEnv.SUPABASE_SERVICE_ROLE_KEY || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const canUseServiceSupabase = !!(supabaseUrl && serviceRoleKey);
   const supabaseAdmin = canUseServiceSupabase ? createClient(supabaseUrl, serviceRoleKey) : null;
 
