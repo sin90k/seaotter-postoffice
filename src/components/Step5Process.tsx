@@ -325,7 +325,7 @@ export default function Step5Process({
   };
   const needsSpecializedAi = (settings: SettingsType) =>
     (settings.designType === 'diveLog' && (settings.diveLogConfig.aiSpecies === true || settings.diveLogConfig.aiStory !== false))
-    || (settings.designType === 'ticket' && (settings.ticketConfig.aiTitle !== false || settings.ticketConfig.aiLocation !== false))
+    || (settings.designType === 'ticket' && (settings.ticketConfig.aiTitle !== false || settings.ticketConfig.aiLocation !== false || settings.ticketConfig.designMode === 'ai'))
     || (settings.designType === 'polaroid' && settings.polaroidConfig.captionMode === 'ai');
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -566,6 +566,8 @@ export default function Step5Process({
               let artisticIcons: string[] = [];
               let backImagePrompt = "";
               let generatedBackImageBase64: string | null = null;
+              let ticketImagePrompt = '';
+              let generatedTicketArtwork: string | null = null;
               let detectedSpecies = '';
               let generatedDiveStory = '';
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
@@ -612,7 +614,7 @@ export default function Step5Process({
                   const specializedGuidance = settings.designType === 'diveLog'
                     ? '\nThis is a dive log card. Also return JSON keys "marine_species" (a concise comma-separated list only when visually identifiable) and "dive_story" (a short factual dive-memory paragraph; do not invent measurements).'
                     : settings.designType === 'ticket'
-                      ? '\nThis is a commemorative ticket. Make the title concise and location suitable for a printed ticket.'
+                      ? '\nThis is a commemorative ticket. Make the title concise and location suitable for a printed ticket. Also return a JSON key "ticket_art_prompt": a short visual description for abstract ticket-stock ornament, colors and texture inspired by the photo. It must contain no readable text, logos, barcode or QR code.'
                       : settings.designType === 'polaroid'
                         ? '\nThis is a Polaroid caption. Keep the title intimate and concise enough for the bottom white margin.'
                         : '';
@@ -656,6 +658,9 @@ export default function Step5Process({
                   if (settings.designType === 'diveLog') {
                     detectedSpecies = String(analysisData.marine_species || '').trim();
                     generatedDiveStory = String(analysisData.dive_story || analysisData.message || '').trim();
+                  }
+                  if (settings.designType === 'ticket') {
+                    ticketImagePrompt = String(analysisData.ticket_art_prompt || analysisData.back_image_prompt || '').trim();
                   }
 
                   // 3. 根据开关和 EXIF 更新文字与位置
@@ -703,6 +708,30 @@ export default function Step5Process({
                     // 首轮批量生成不再等待 DALL·E 背面图。
                     // 背面先使用 AI 文案 + 自动模板，用户需要时可在编辑页按需生成装饰图。
                     generatedBackImageBase64 = null;
+                  }
+
+                  if (settings.designType === 'ticket' && settings.ticketConfig.designMode === 'ai' && ticketImagePrompt) {
+                    try {
+                      const ticketArtResponse = await withTimeout(
+                        invokePostcardAi('image', {
+                          model: 'gpt-image-2',
+                          prompt: `${ticketImagePrompt}\n\nCreate an abstract, print-ready ticket ornament and paper texture. Use graphic shapes, fine linework, subtle grain and a restrained palette derived from the scene. No readable text, letters, numbers, logos, watermark, barcode, QR code, people or photorealistic reproduction. The artwork will be clipped into a narrow ticket stub and small information panel, so keep strong decorative detail near the edges and generous quiet space.`,
+                          n: 1,
+                          size: '1024x1024',
+                          quality: 'low',
+                          response_format: 'b64_json',
+                        }),
+                        90000,
+                        'AI ticket design timed out.'
+                      );
+                      generatedTicketArtwork = getGeneratedImageSource(ticketArtResponse);
+                    } catch (ticketArtError) {
+                      console.warn('AI ticket artwork failed; using selected template', ticketArtError);
+                      setProcessingWarnings(previous => [
+                        ...previous,
+                        `${photo.file?.name || `Image ${i + 1}`}: ${language === 'zh' ? 'AI 票面未及时返回，已使用所选模板' : 'AI ticket art timed out; selected template was used'}`,
+                      ]);
+                    }
                   }
                 } catch (aiErr) {
                   console.error("AI Analysis failed", aiErr);
@@ -805,7 +834,7 @@ export default function Step5Process({
               const brandingMode = brandingModeByPhotoId.get(photo.id) || 'site';
               const useWatermark = brandingMode !== 'none';
               updateProcessingItem(photo.id, 'designing');
-              const frontDataUrl = await renderCard(img, title, location, theme, effectiveSettings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
+              const frontDataUrl = await renderCard(img, title, location, theme, effectiveSettings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none', generatedTicketArtwork || undefined);
               const backDataUrl = backMode === 'none'
                 ? ''
                 : await renderBack(
@@ -855,6 +884,8 @@ export default function Step5Process({
                 draftFrontStyle: defaultFrontStyle,
                 draftBackStyle: defaultBackStyle,
                 generatedBackImage: generatedBackImageBase64 || undefined,
+                generatedTicketArtwork: generatedTicketArtwork || undefined,
+                ticketImagePrompt: ticketImagePrompt || undefined,
                 watermark: useWatermark,
                 brandingMode,
                 city: photo.exif?.city || undefined,
@@ -2006,6 +2037,7 @@ export default function Step5Process({
     settings: SettingsType,
     date?: string,
     useFrontWatermark?: boolean,
+    ticketArtwork?: string,
   ) => {
     const safeSettings = normalizeSettings(settings);
     const canvas = document.createElement('canvas');
@@ -2016,32 +2048,94 @@ export default function Step5Process({
     const cw = canvas.width;
     const ch = canvas.height;
     const cfg = safeSettings.ticketConfig;
-    const stubWidth = cw * 0.27;
+    const stubWidth = cw * 0.245;
     const stubX = cfg.stubPosition === 'left' ? 0 : cw - stubWidth;
     const mainX = cfg.stubPosition === 'left' ? stubWidth : 0;
     const mainWidth = cw - stubWidth;
-    const palette = cfg.template === 'cinema'
+    const templatePalette = cfg.template === 'cinema'
       ? { paper: '#171717', ink: '#fafaf9', accent: '#e11d48' }
       : cfg.template === 'train'
         ? { paper: '#eee6d3', ink: '#3f3528', accent: '#9a3412' }
         : cfg.template === 'event'
           ? { paper: '#f5f3ff', ink: '#27203f', accent: '#6d5dfc' }
           : { paper: '#f7f6f2', ink: '#1c1917', accent: '#2563eb' };
+    const colorPalettes = {
+      blue: { paper: '#f3f7fa', ink: '#17324d', accent: '#1f6f9f' },
+      red: { paper: '#faf4f1', ink: '#44231d', accent: '#b83a2f' },
+      forest: { paper: '#f3f6f0', ink: '#26372d', accent: '#3f7457' },
+      mono: { paper: '#f5f5f4', ink: '#1c1917', accent: '#292524' },
+    } as const;
+    const palette = cfg.colorStyle && cfg.colorStyle !== 'auto'
+      ? colorPalettes[cfg.colorStyle]
+      : templatePalette;
 
     ctx.fillStyle = palette.paper;
     ctx.fillRect(0, 0, cw, ch);
     const imageArea = cfg.imageArea || 'large';
-    const imageWidth = imageArea === 'medium' ? mainWidth * 0.55 : mainWidth;
-    const imageHeight = imageArea === 'background' ? ch : ch * 0.66;
-    const imageX = mainX + (cfg.stubPosition === 'left' && imageArea === 'medium' ? mainWidth - imageWidth : 0);
+    const imageWidth = imageArea === 'medium' ? mainWidth * 0.62 : mainWidth;
+    const imageHeight = imageArea === 'background' ? ch : imageArea === 'medium' ? ch : ch * 0.68;
+    const imageX = imageArea === 'medium' && cfg.stubPosition === 'right' ? mainX + mainWidth - imageWidth : mainX;
     drawCoverImage(ctx, img, imageX, 0, imageWidth, imageHeight, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+
+    const infoPanel = imageArea === 'background'
+      ? {
+          x: mainX + mainWidth * 0.055,
+          y: cfg.textPlacement === 'top' ? ch * 0.08 : cfg.textPlacement === 'center' ? ch * 0.36 : ch * 0.66,
+          w: mainWidth * 0.84,
+          h: ch * 0.25,
+        }
+      : imageArea === 'medium'
+        ? {
+            x: cfg.stubPosition === 'right' ? mainX + mainWidth * 0.05 : mainX + mainWidth * 0.67,
+            y: ch * 0.11,
+            w: mainWidth * 0.28,
+            h: ch * 0.7,
+          }
+        : { x: mainX, y: imageHeight, w: mainWidth, h: ch - imageHeight };
+
     if (imageArea === 'background') {
-      ctx.fillStyle = 'rgba(0,0,0,0.44)';
-      ctx.fillRect(mainX, 0, mainWidth, ch);
+      ctx.save();
+      ctx.shadowColor = 'rgba(28,25,23,0.18)';
+      ctx.shadowBlur = Math.max(18, cw * 0.015);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.roundRect(infoPanel.x, infoPanel.y, infoPanel.w, infoPanel.h, Math.min(24, ch * 0.025));
+      ctx.fill();
+      ctx.restore();
+    } else if (imageArea === 'medium') {
+      ctx.fillStyle = palette.paper;
+      ctx.fillRect(infoPanel.x - mainWidth * 0.025, 0, infoPanel.w + mainWidth * 0.05, ch);
+    } else {
+      ctx.fillStyle = palette.paper;
+      ctx.fillRect(mainX, imageHeight, mainWidth, ch - imageHeight);
     }
 
     ctx.fillStyle = palette.accent;
     ctx.fillRect(stubX, 0, stubWidth, ch);
+
+    if (ticketArtwork) {
+      try {
+        const artwork = await loadImage(ticketArtwork);
+        const drawArtwork = (x: number, y: number, width: number, height: number, alpha: number) => {
+          const scale = Math.max(width / artwork.width, height / artwork.height);
+          const drawWidth = artwork.width * scale;
+          const drawHeight = artwork.height * scale;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, width, height);
+          ctx.clip();
+          ctx.globalAlpha = alpha;
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.drawImage(artwork, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+          ctx.restore();
+        };
+        drawArtwork(stubX, 0, stubWidth, ch, 0.48);
+        if (imageArea !== 'background') drawArtwork(infoPanel.x, infoPanel.y, infoPanel.w, infoPanel.h, 0.18);
+      } catch (error) {
+        console.warn('Failed to load AI ticket artwork', error);
+      }
+    }
+
     const perforationX = cfg.stubPosition === 'left' ? stubWidth : cw - stubWidth;
     if (cfg.showPerforation) {
       ctx.save();
@@ -2053,22 +2147,41 @@ export default function Step5Process({
       ctx.lineTo(perforationX, ch * 0.96);
       ctx.stroke();
       ctx.restore();
+      ctx.fillStyle = '#ffffff';
+      for (const notchY of [0, ch]) {
+        ctx.beginPath();
+        ctx.arc(perforationX, notchY, Math.max(10, ch * 0.025), 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     const displayTitle = cfg.ticketTitle || title || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
     const displayLocation = cfg.location || location;
     const displayDate = cfg.date || date || '';
     const serial = cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`;
-    const infoX = mainX + mainWidth * 0.055;
-    const infoY = imageArea === 'background' ? ch * 0.64 : imageHeight + ch * 0.09;
-    ctx.fillStyle = imageArea === 'background' ? '#ffffff' : palette.ink;
-    fitCanvasText(ctx, displayTitle.toUpperCase(), mainWidth * 0.88, Math.max(34, ch * 0.072), 22, '"Inter", sans-serif');
-    ctx.font = `800 ${ctx.font}`;
-    ctx.fillText(displayTitle.toUpperCase(), infoX, infoY);
-    ctx.font = `500 ${Math.max(18, ch * 0.028)}px "Inter", sans-serif`;
-    ctx.globalAlpha = 0.82;
-    ctx.fillText([cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  /  '), infoX, infoY + ch * 0.065);
+    const infoX = infoPanel.x + infoPanel.w * 0.07;
+    const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? 0.25 : 0.48);
+    const textMaxWidth = infoPanel.w * 0.86;
+    ctx.fillStyle = palette.accent;
+    ctx.font = `700 ${Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
+    ctx.letterSpacing = '0px';
+    ctx.fillText(cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'SEA OTTER PASS', infoX, infoPanel.y + infoPanel.h * 0.2);
+    ctx.fillStyle = palette.ink;
+    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)), 18, '"Inter", sans-serif');
+    const fittedTitleFont = ctx.font;
+    ctx.font = `800 ${fittedTitleFont}`;
+    ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
+    const ticketMeta = [cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  ·  ');
+    fitCanvasText(ctx, ticketMeta, textMaxWidth, Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
+    ctx.globalAlpha = 0.76;
+    ctx.fillText(ticketMeta.slice(0, 64), infoX, titleY + infoPanel.h * 0.22);
     ctx.globalAlpha = 1;
+
+    ctx.save();
+    ctx.strokeStyle = imageArea === 'background' ? 'rgba(255,255,255,0.7)' : `${palette.accent}66`;
+    ctx.lineWidth = Math.max(2, cw * 0.0015);
+    ctx.strokeRect(mainX + mainWidth * 0.018, ch * 0.025, mainWidth * 0.964, ch * 0.95);
+    ctx.restore();
 
     ctx.save();
     ctx.translate(stubX + stubWidth * 0.5, ch * 0.5);
@@ -2076,7 +2189,7 @@ export default function Step5Process({
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
     ctx.font = `800 ${Math.max(24, stubWidth * 0.15)}px "Inter", sans-serif`;
-    ctx.fillText(displayLocation || 'SEA OTTER POST OFFICE', 0, -stubWidth * 0.08);
+    ctx.fillText(displayLocation || 'SEA OTTER POST OFFICE', 0, -stubWidth * 0.09);
     ctx.font = `600 ${Math.max(15, stubWidth * 0.075)}px "Inter", sans-serif`;
     ctx.fillText(`${displayDate}   ${serial}`, 0, stubWidth * 0.18);
     ctx.restore();
@@ -2225,10 +2338,11 @@ export default function Step5Process({
     author?: string,
     date?: string,
     useFrontWatermark?: boolean,
+    ticketArtwork?: string,
   ) => {
     const safeSettings = normalizeSettings(settings);
     if (safeSettings.designType === 'polaroid') return renderPolaroid(img, title, location, theme, safeSettings, frontStyle, author, date, useFrontWatermark);
-    if (safeSettings.designType === 'ticket') return renderTicket(img, title, location, safeSettings, date, useFrontWatermark);
+    if (safeSettings.designType === 'ticket') return renderTicket(img, title, location, safeSettings, date, useFrontWatermark, ticketArtwork);
     if (safeSettings.designType === 'diveLog') return renderDiveLog(img, title, location, safeSettings, date, useFrontWatermark);
     return renderPostcard(img, title, location, theme, safeSettings, frontStyle, author, date, useFrontWatermark);
   };
@@ -3330,7 +3444,7 @@ export default function Step5Process({
       const img = await loadImage(result.imgUrl || '');
       const brandingMode = resolveResultBrandingMode(result);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
-      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
+      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none', result.generatedTicketArtwork);
       const newBack = backMode === 'none'
         ? ''
         : await renderBack(
@@ -3389,6 +3503,98 @@ export default function Step5Process({
 
   const getBackMode = (settings: SettingsType) =>
     settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
+
+  const createTicketArtworkPrompt = async (result: ProcessedPostcard): Promise<string> => {
+    const existing = String(result.ticketImagePrompt || '').trim();
+    if (existing) return existing;
+    if (!result.imgUrl) {
+      return `Abstract printed ticket ornament inspired by ${result.draftLocation || result.draftTitle || 'a travel memory'}.`;
+    }
+    const img = await loadImage(result.imgUrl);
+    const base64Data = getCompressedBase64(img, 768, 0.68);
+    const response = await withTimeout(
+      invokePostcardAi('chat', {
+        model: 'gpt-4o',
+        temperature: 0.5,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this photo for a commemorative ticket design. Return JSON with one key "ticket_art_prompt" describing an abstract printed ornament, paper texture and restrained color palette inspired by the visible scene. Do not request text, letters, numbers, logos, people, barcode or QR code.' },
+            { type: 'image_url', image_url: { url: base64Data } },
+          ],
+        }],
+        response_format: { type: 'json_object' },
+      }),
+      60000,
+      'AI ticket analysis timed out.'
+    );
+    const data = JSON.parse(response.choices?.[0]?.message?.content || '{}');
+    return String(data.ticket_art_prompt || '').trim();
+  };
+
+  const handleRegenerateTicketArtwork = async (id: string) => {
+    const result = editingDraft;
+    if (!result || result.id !== id || result.settings.designType !== 'ticket') return;
+    if (user.credits < 1) {
+      setShowPricing(true);
+      return;
+    }
+    setRewritingState({ id, field: 'ticket' });
+    try {
+      const ticketImagePrompt = await createTicketArtworkPrompt(result);
+      if (!ticketImagePrompt) throw new Error('AI did not return a ticket design prompt.');
+      const response = await withTimeout(
+        invokePostcardAi('image', {
+          model: 'gpt-image-2',
+          prompt: `${ticketImagePrompt}\n\nCreate an abstract, print-ready ticket ornament and paper texture. Use graphic shapes, fine linework, subtle grain and a restrained palette. No readable text, letters, numbers, logos, watermark, barcode, QR code, people or photorealistic reproduction. It will be clipped into a narrow ticket stub and a small information panel.`,
+          n: 1,
+          size: '1024x1024',
+          quality: 'low',
+          response_format: 'b64_json',
+        }),
+        90000,
+        'AI ticket redraw timed out.'
+      );
+      const generatedTicketArtwork = getGeneratedImageSource(response);
+      if (!generatedTicketArtwork) throw new Error('AI did not return ticket artwork.');
+      const nextDraft: ProcessedPostcard = {
+        ...result,
+        ticketImagePrompt,
+        generatedTicketArtwork,
+        settings: normalizeSettings({
+          ...result.settings,
+          ticketConfig: { ...result.settings.ticketConfig, designMode: 'ai' },
+        }),
+      };
+      setEditingDraft(nextDraft);
+      await handleUpdatePreview(nextDraft, { generateMissingAiBack: false });
+      if (user.id && isSupabaseConnected) {
+        const creditRes = await updateUserCredits(user.id, -1, 'generation_cost', {
+          referenceId: result.id,
+          notes: 'Generate AI ticket artwork',
+          operator: 'system',
+          bucket: null,
+        });
+        if (creditRes.ok && creditRes.data) {
+          setUser(previous => ({
+            ...previous,
+            credits: creditRes.data!.total_credits,
+            promo_credits: creditRes.data!.promo_credits,
+            paid_credits: creditRes.data!.paid_credits,
+          }));
+        } else {
+          setUser(previous => ({ ...previous, credits: Math.max(0, previous.credits - 1) }));
+        }
+      } else {
+        setUser(previous => ({ ...previous, credits: Math.max(0, previous.credits - 1) }));
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '';
+      alert(language === 'zh' ? `AI 票面重绘失败：${message || '请稍后再试'}` : `AI ticket redraw failed: ${message || 'Please try again'}`);
+    } finally {
+      setRewritingState(null);
+    }
+  };
 
   const createImageAwareBackPrompt = async (result: ProcessedPostcard, forceRefresh = false): Promise<string> => {
     const existingPrompt = String(result.backImagePrompt || result.back_image_prompt || '').trim();
@@ -3555,7 +3761,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
       }
       const img = await loadImage(sourceImageUrl);
       const brandingMode = resolveResultBrandingMode(result);
-      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
+      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none', result.generatedTicketArtwork);
       const newBack = backMode === 'none'
         ? ''
         : await renderBack(
@@ -4079,6 +4285,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                 (originalResult.message || '') !== (result.draftMessage || '') ||
                 (originalResult.author || '') !== (result.draftAuthor || '') ||
                 (originalResult.date || '') !== (result.draftDate || '') ||
+                (originalResult.generatedTicketArtwork || '') !== (result.generatedTicketArtwork || '') ||
+                (originalResult.generatedBackImage || '') !== (result.generatedBackImage || '') ||
                 JSON.stringify(originalResult.frontStyle) !== JSON.stringify(result.draftFrontStyle) ||
                 JSON.stringify(originalResult.backStyle) !== JSON.stringify(result.draftBackStyle)
               );
@@ -4124,7 +4332,22 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                               {t.front}
                             </div>
                             <img src={livePreview?.front || result.frontDataUrl} alt="Front" className="w-full aspect-[3/2] object-contain" />
-                            {(result.draftTitle || result.draftLocation || result.draftAuthor || result.draftDate) && (() => {
+                            {result.settings.designType === 'ticket' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRegenerateTicketArtwork(result.id)}
+                                disabled={rewritingState?.id === result.id && rewritingState?.field === 'ticket'}
+                                className="absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                              >
+                                {rewritingState?.id === result.id && rewritingState?.field === 'ticket'
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Wand2 className="h-3.5 w-3.5" />}
+                                {result.generatedTicketArtwork
+                                  ? (language === 'zh' ? '重新设计票面（1积分）' : 'Redesign ticket (1 credit)')
+                                  : (language === 'zh' ? 'AI 设计票面（1积分）' : 'AI ticket design (1 credit)')}
+                              </button>
+                            )}
+                            {(result.settings.designType === 'postcard' || result.settings.designType === 'polaroid') && (result.draftTitle || result.draftLocation || result.draftAuthor || result.draftDate) && (() => {
                               const pos = getFrontTextPosition(result.draftFrontStyle);
                               return (
                                 <button

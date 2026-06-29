@@ -411,9 +411,31 @@ export default function Step3DesignConfigure({ editingGroupId, configGroups, use
               {settings.designType === 'ticket' && (
                 <>
                   <div>
-                    <div className="mb-2 text-sm font-medium text-stone-700">票根模板</div>
+                    <div className="mb-2 text-sm font-medium text-stone-700">设计方式</div>
+                    <SegmentedOptions
+                      value={settings.ticketConfig.designMode || 'template'}
+                      options={[
+                        { id: 'template', label: '模板设计', description: '快速生成，可随时切换' },
+                        { id: 'ai', label: 'AI 票面设计', description: '生成专属纹理与配色，文字仍清晰可编辑' },
+                      ]}
+                      onChange={designMode => patchTicket({ designMode })}
+                      columns={2}
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium text-stone-700">基础模板</div>
                     <SegmentedOptions value={settings.ticketConfig.template || 'travel'} options={[{ id: 'classic', label: '经典票根' }, { id: 'train', label: '复古车票' }, { id: 'cinema', label: '电影票' }, { id: 'travel', label: '旅行票' }, { id: 'event', label: '活动票' }]} onChange={template => patchTicket({ template })} columns={5} />
                   </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium text-stone-700">配色</div>
+                    <SegmentedOptions value={settings.ticketConfig.colorStyle || 'auto'} options={[{ id: 'auto', label: '跟随模板' }, { id: 'blue', label: '旅行蓝' }, { id: 'red', label: '票务红' }, { id: 'forest', label: '森林绿' }, { id: 'mono', label: '黑白' }]} onChange={colorStyle => patchTicket({ colorStyle })} columns={5} />
+                  </div>
+                  {settings.ticketConfig.imageArea === 'background' && (
+                    <div>
+                      <div className="mb-2 text-sm font-medium text-stone-700">文字位置</div>
+                      <SegmentedOptions value={settings.ticketConfig.textPlacement || 'bottom'} options={[{ id: 'top', label: '顶部' }, { id: 'center', label: '中央' }, { id: 'bottom', label: '底部' }]} onChange={textPlacement => patchTicket({ textPlacement })} />
+                    </div>
+                  )}
                   <Toggle label="显示撕边" checked={settings.ticketConfig.showPerforation} onChange={showPerforation => patchTicket({ showPerforation })} />
                   <Toggle label="显示条形码 / 二维码占位" checked={settings.ticketConfig.showBarcode} onChange={showBarcode => patchTicket({ showBarcode })} />
                 </>

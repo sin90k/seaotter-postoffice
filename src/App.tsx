@@ -109,6 +109,9 @@ export type SettingsType = {
     aspect?: '3:2' | '16:9' | '3:4';
     imageArea?: 'large' | 'medium' | 'background';
     template?: 'classic' | 'train' | 'cinema' | 'travel' | 'event';
+    designMode?: 'template' | 'ai';
+    colorStyle?: 'auto' | 'blue' | 'red' | 'forest' | 'mono';
+    textPlacement?: 'top' | 'bottom' | 'center';
     subtitle?: string;
     note?: string;
     aiTitle?: boolean;
@@ -249,6 +252,9 @@ export type ProcessedPostcard = {
   backImagePrompt?: string;
   back_image_prompt?: string;
   generatedBackImage?: string;
+  /** Optional AI-generated ornament/texture used only in ticket design areas. */
+  generatedTicketArtwork?: string;
+  ticketImagePrompt?: string;
   message?: string;
   author?: string;
   date?: string;
@@ -327,6 +333,9 @@ export const defaultSettings: SettingsType = { // Exported
     aspect: '3:2',
     imageArea: 'large',
     template: 'travel',
+    designMode: 'template',
+    colorStyle: 'auto',
+    textPlacement: 'bottom',
     subtitle: '',
     note: '',
     aiTitle: true,
