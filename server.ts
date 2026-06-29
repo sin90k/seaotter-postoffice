@@ -1,5 +1,5 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
+import { createServer as createViteServer, loadEnv } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -11,8 +11,16 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const fileEnv = process.env.VERCEL === "1"
+    ? {}
+    : loadEnv(process.env.NODE_ENV || "development", __dirname, "");
+  const defaultSupabaseUrl = "https://nhddbpctroojcaywzmxy.supabase.co";
+  const supabaseUrl = process.env.SUPABASE_URL
+    || process.env.VITE_SUPABASE_URL
+    || fileEnv.SUPABASE_URL
+    || fileEnv.VITE_SUPABASE_URL
+    || defaultSupabaseUrl;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || fileEnv.SUPABASE_SERVICE_ROLE_KEY || "";
   const canUseServiceSupabase = !!(supabaseUrl && serviceRoleKey);
   const supabaseAdmin = canUseServiceSupabase ? createClient(supabaseUrl, serviceRoleKey) : null;
 
@@ -148,13 +156,16 @@ async function startServer() {
 
   // API routes
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({
+      status: "ok",
+      supabaseRelayConfigured: !!supabaseUrl,
+      serviceDatabaseConfigured: canUseServiceSupabase,
+    });
   });
 
   // Same-origin fallback for networks that cannot reach the Supabase project domain directly.
   // It only forwards requests to this project's public Supabase APIs and never adds service credentials.
   app.all("/api/supabase-proxy", async (req, res) => {
-    if (!supabaseUrl) return res.status(503).json({ error: "Supabase is not configured." });
     try {
       const requestOrigin = String(req.headers.origin || "");
       if (requestOrigin) {
