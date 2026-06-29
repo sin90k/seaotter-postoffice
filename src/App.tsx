@@ -4,7 +4,7 @@ import { SeaOtterLogo } from './components/SeaOtterLogo';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import Step1Upload from './components/Step1Upload';
-import Step3Configure from './components/Step3Configure';
+import Step3Configure from './components/Step3DesignConfigure';
 import Step5Process from './components/Step5Process';
 import AdminPanel from './components/AdminPanel';
 import AuthModal from './components/AuthModal';
@@ -29,6 +29,14 @@ const withAuthTimeout = <T,>(operation: PromiseLike<T>): Promise<T> =>
   ]);
 
 export type UserLevel = 'free' | 'vip';
+
+export type DesignType = 'postcard' | 'polaroid' | 'ticket' | 'diveLog';
+
+export type LayoutConfig = {
+  aspectRatio: '3:2' | '4:3' | '1:1' | 'custom';
+  imageFit: 'cover' | 'contain' | 'border' | 'bottomBorder';
+  orientation: 'landscape' | 'portrait';
+};
 
 export type Address = {
   id: string;
@@ -71,6 +79,60 @@ export type User = {
 };
 
 export type SettingsType = {
+  designType: DesignType;
+  layoutConfig: LayoutConfig;
+  postcardConfig: {
+    frontTextMode: 'titleLocation' | 'titleOnly' | 'locationOnly' | 'none';
+    backMode: 'postcard' | 'ticket' | 'diveLog' | 'none';
+    showDate: boolean;
+    showLocation: boolean;
+    showBrand: boolean;
+  };
+  polaroidConfig: {
+    caption: string;
+    captionMode: 'manual' | 'ai';
+    borderStyle: 'classic' | 'soft' | 'aged';
+    bottomTextArea: boolean;
+    showDate: boolean;
+    showLocation?: boolean;
+    backMode?: 'postcard' | 'ticket' | 'none';
+  };
+  ticketConfig: {
+    stubPosition: 'left' | 'right';
+    ticketTitle: string;
+    location: string;
+    date: string;
+    serialNumber: string;
+    showBarcode: boolean;
+    showPerforation: boolean;
+    backMode: 'postcard' | 'ticket';
+    aspect?: '3:2' | '16:9' | '3:4';
+    imageArea?: 'large' | 'medium' | 'background';
+    template?: 'classic' | 'train' | 'cinema' | 'travel' | 'event';
+    subtitle?: string;
+    note?: string;
+    aiTitle?: boolean;
+    aiLocation?: boolean;
+  };
+  diveLogConfig: {
+    location: string;
+    diveDate: string;
+    depth: string;
+    duration: string;
+    buddy: string;
+    species: string;
+    waterTemp: string;
+    visibility: string;
+    diveNumber: string;
+    backMode: 'postcard' | 'diveLog';
+    aspect?: '3:2' | '3:4' | '1:1';
+    imageArea?: 'top' | 'split' | 'background';
+    template?: 'log' | 'ticket' | 'archive' | 'site';
+    iconStyle?: 'line' | 'stamp' | 'minimal';
+    story?: string;
+    aiSpecies?: boolean;
+    aiStory?: boolean;
+  };
   layout: 'classic' | 'modern' | 'minimal';
   font: 'handwritten' | 'serif' | 'sans';
   showDate: boolean;
@@ -231,6 +293,64 @@ type MarketPricing = {
 };
 
 export const defaultSettings: SettingsType = { // Exported
+  designType: 'postcard',
+  layoutConfig: {
+    aspectRatio: '3:2',
+    imageFit: 'border',
+    orientation: 'landscape',
+  },
+  postcardConfig: {
+    frontTextMode: 'titleLocation',
+    backMode: 'postcard',
+    showDate: true,
+    showLocation: true,
+    showBrand: true,
+  },
+  polaroidConfig: {
+    caption: '',
+    captionMode: 'ai',
+    borderStyle: 'classic',
+    bottomTextArea: true,
+    showDate: true,
+    showLocation: true,
+    backMode: 'postcard',
+  },
+  ticketConfig: {
+    stubPosition: 'right',
+    ticketTitle: '',
+    location: '',
+    date: '',
+    serialNumber: '',
+    showBarcode: true,
+    showPerforation: true,
+    backMode: 'ticket',
+    aspect: '3:2',
+    imageArea: 'large',
+    template: 'travel',
+    subtitle: '',
+    note: '',
+    aiTitle: true,
+    aiLocation: true,
+  },
+  diveLogConfig: {
+    location: '',
+    diveDate: '',
+    depth: '',
+    duration: '',
+    buddy: '',
+    species: '',
+    waterTemp: '',
+    visibility: '',
+    diveNumber: '',
+    backMode: 'diveLog',
+    aspect: '3:2',
+    imageArea: 'split',
+    template: 'log',
+    iconStyle: 'line',
+    story: '',
+    aiSpecies: false,
+    aiStory: true,
+  },
   layout: 'classic',
   font: 'handwritten',
   showDate: true,
@@ -262,6 +382,47 @@ export const defaultSettings: SettingsType = { // Exported
   weather: '',
   size: '4x6',
   fill: 'border'
+};
+
+export const normalizeSettings = (input?: Partial<SettingsType> | null): SettingsType => {
+  const legacy = input || {};
+  const inferredDesignType: DesignType = legacy.designType
+    ?? (legacy.size === 'polaroid' ? 'polaroid' : 'postcard');
+  const legacyImageFit: LayoutConfig['imageFit'] = legacy.fill === 'fill'
+    ? 'cover'
+    : legacy.fill === 'bottom-border'
+      ? 'bottomBorder'
+      : 'border';
+  const legacyFrontMode = legacy.frontAiMode ?? (legacy.aiTitle === false ? 'none' : 'title_location');
+  const normalizedFrontMode: SettingsType['postcardConfig']['frontTextMode'] = legacyFrontMode === 'title_only'
+    ? 'titleOnly'
+    : legacyFrontMode === 'location_only'
+      ? 'locationOnly'
+      : legacyFrontMode === 'none'
+        ? 'none'
+        : 'titleLocation';
+
+  return {
+    ...defaultSettings,
+    ...legacy,
+    designType: inferredDesignType,
+    layoutConfig: {
+      ...defaultSettings.layoutConfig,
+      imageFit: legacyImageFit,
+      ...(legacy.layoutConfig || {}),
+    },
+    postcardConfig: {
+      ...defaultSettings.postcardConfig,
+      frontTextMode: normalizedFrontMode,
+      showDate: legacy.showDate ?? defaultSettings.postcardConfig.showDate,
+      showLocation: legacy.showLocation ?? defaultSettings.postcardConfig.showLocation,
+      showBrand: legacy.backBrandingEnabled ?? defaultSettings.postcardConfig.showBrand,
+      ...(legacy.postcardConfig || {}),
+    },
+    polaroidConfig: { ...defaultSettings.polaroidConfig, ...(legacy.polaroidConfig || {}) },
+    ticketConfig: { ...defaultSettings.ticketConfig, ...(legacy.ticketConfig || {}) },
+    diveLogConfig: { ...defaultSettings.diveLogConfig, ...(legacy.diveLogConfig || {}) },
+  };
 };
 
 const steps = [
@@ -964,7 +1125,7 @@ export default function App() {
 
   const handleSaveGroup = (group: ConfigGroup) => {
     // 确保 aiTitle/aiBackTemplate 不会因合并丢失，避免「设置了滤镜就不处理」的问题
-    const mergedSettings = { ...defaultSettings, ...(group.settings || {}) };
+    const mergedSettings = normalizeSettings(group.settings);
     const safeGroup = { ...group, settings: mergedSettings };
     setConfigGroups(prev => {
       const index = prev.findIndex(g => g.id === safeGroup.id);

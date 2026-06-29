@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { useEffect, useRef, useState } from 'react';
-import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, defaultSettings } from '../App';
+import { Photo, ConfigGroup, SettingsType, ProcessedPostcard, User, normalizeSettings } from '../App';
 import { ArrowLeft, Download, Loader2, CheckCircle2, RefreshCw, Check, Edit3, Clock, ShieldCheck, Wand2, X, HelpCircle, Share2, Move, ImageIcon, MapPinned, PenLine, Layers3, AlertTriangle } from 'lucide-react';
 import JSZip from 'jszip';
 import { cn } from '../lib/utils';
@@ -323,6 +323,10 @@ export default function Step5Process({
     const cleaned = cleanLocationDisplay(String(raw || '').trim());
     return isUnreliableInferredLocation(cleaned) ? '' : cleaned;
   };
+  const needsSpecializedAi = (settings: SettingsType) =>
+    (settings.designType === 'diveLog' && (settings.diveLogConfig.aiSpecies === true || settings.diveLogConfig.aiStory !== false))
+    || (settings.designType === 'ticket' && (settings.ticketConfig.aiTitle !== false || settings.ticketConfig.aiLocation !== false))
+    || (settings.designType === 'polaroid' && settings.polaroidConfig.captionMode === 'ai');
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -473,13 +477,13 @@ export default function Step5Process({
       }
       const aiPhotosCount = configuredPhotos.reduce((count, photo) => {
         const group = configGroups.find(g => g.id === photo.groupId);
-        const settings = { ...defaultSettings, ...(group?.settings || {}) };
+        const settings = normalizeSettings(group?.settings);
         const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
         const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
         const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
         const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
         const hasExifLocation = !!getExifLocationName(photo.exif);
-        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
+        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai' || needsSpecializedAi(settings);
         return count + (usesAi ? 1 : 0);
       }, 0);
       const totalNeed = creditsPerCard * aiPhotosCount;
@@ -496,14 +500,14 @@ export default function Step5Process({
       let remainPromo = Math.max(0, user.promo_credits ?? 0);
       for (const photo of configuredPhotos) {
         const group = configGroups.find(g => g.id === photo.groupId);
-        const settings = { ...defaultSettings, ...(group?.settings || {}) };
+        const settings = normalizeSettings(group?.settings);
         const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
         const requestedBrandingMode = resolveBrandingMode(settings);
         const frontMode = settings.frontAiMode ?? (settings.aiTitle ? 'title_location' : 'none');
         const needFrontTitle = frontMode === 'title_location' || frontMode === 'title_only';
         const needFrontLocation = frontMode === 'title_location' || frontMode === 'location_only';
         const hasExifLocation = !!getExifLocationName(photo.exif);
-        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
+        const usesAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai' || needsSpecializedAi(settings);
         const cost = usesAi ? creditsPerCard : 0;
 
         let promoUsed = false;
@@ -545,7 +549,7 @@ export default function Step5Process({
           
           if (group) {
             // 确保与 defaultSettings 合并，避免 aiTitle/aiBackTemplate 等关键项丢失（如仅修改滤镜时）
-            const settings = { ...defaultSettings, ...(group.settings || {}) };
+            const settings = normalizeSettings(group.settings);
             let aiCallSucceededForPhoto = false;
 
             try {
@@ -562,6 +566,8 @@ export default function Step5Process({
               let artisticIcons: string[] = [];
               let backImagePrompt = "";
               let generatedBackImageBase64: string | null = null;
+              let detectedSpecies = '';
+              let generatedDiveStory = '';
               let textPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' = 'bottom-left';
               let usedFallback = false;
               const backMode = settings.backDesignMode ?? (settings.aiBackTemplate ? 'ai' : 'template');
@@ -571,7 +577,7 @@ export default function Step5Process({
               const hasExifLocation = !!getExifLocationName(photo.exif);
               
               // AI 开关：任一项启用则运行 AI；纯滤镜模式（都关闭）不调用 AI。
-              const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai';
+              const runAi = needFrontTitle || (needFrontLocation && !hasExifLocation) || backMode === 'ai' || needsSpecializedAi(settings);
               if (runAi) {
                 updateProcessingItem(photo.id, 'analyzing');
                 const base64Data = getCompressedBase64(img, 768, 0.68);
@@ -603,7 +609,14 @@ export default function Step5Process({
                       photoMetadata.push(`Photo EXIF date: ${photo.exif.date}.`);
                     }
                   }
-                  const analysisPrompt = renderCaptionGenerationPrompt(
+                  const specializedGuidance = settings.designType === 'diveLog'
+                    ? '\nThis is a dive log card. Also return JSON keys "marine_species" (a concise comma-separated list only when visually identifiable) and "dive_story" (a short factual dive-memory paragraph; do not invent measurements).'
+                    : settings.designType === 'ticket'
+                      ? '\nThis is a commemorative ticket. Make the title concise and location suitable for a printed ticket.'
+                      : settings.designType === 'polaroid'
+                        ? '\nThis is a Polaroid caption. Keep the title intimate and concise enough for the bottom white margin.'
+                        : '';
+                  const analysisPrompt = `${renderCaptionGenerationPrompt(
                     selectMasterCaptionPrompt(captionPromptGuidance),
                     {
                       copywritingStyle: settings.copywritingStyle,
@@ -611,7 +624,7 @@ export default function Step5Process({
                       aiLanguage: settings.aiLanguage,
                       photoMetadata: photoMetadata.join('\n'),
                     }
-                  );
+                  )}${specializedGuidance}`;
 
                   const analysisResponse = await withTimeout(
                     invokePostcardAi('chat', {
@@ -640,6 +653,10 @@ export default function Step5Process({
                   const analysisData = JSON.parse(analysisResponse.choices?.[0]?.message?.content || "{}");
                   aiSuccessCount++;
                   aiCallSucceededForPhoto = true;
+                  if (settings.designType === 'diveLog') {
+                    detectedSpecies = String(analysisData.marine_species || '').trim();
+                    generatedDiveStory = String(analysisData.dive_story || analysisData.message || '').trim();
+                  }
 
                   // 3. 根据开关和 EXIF 更新文字与位置
                   if (needFrontTitle && analysisData.title) {
@@ -722,6 +739,12 @@ export default function Step5Process({
 
               if (!needFrontTitle) title = '';
               if (!needFrontLocation) location = '';
+              if (settings.designType === 'ticket' && settings.ticketConfig.location) {
+                location = settings.ticketConfig.location;
+              }
+              if (settings.designType === 'diveLog' && settings.diveLogConfig.location) {
+                location = settings.diveLogConfig.location;
+              }
               location = cleanLocationDisplay(location);
               if (!getExifLocationName(photo.exif) && isUnreliableInferredLocation(location)) {
                 location = '';
@@ -762,21 +785,36 @@ export default function Step5Process({
                 dateStr = `${y}.${m}.${d}`;
               }
               const authorStr = settings.authorName || '';
-              const displayDate = settings.showDate === false ? '' : dateStr;
+              const configuredDate = settings.designType === 'ticket'
+                ? settings.ticketConfig.date
+                : settings.designType === 'diveLog'
+                  ? settings.diveLogConfig.diveDate
+                  : '';
+              const displayDate = settings.showDate === false ? '' : (configuredDate || dateStr).replace(/-/g, '.');
+              const effectiveSettings = settings.designType === 'diveLog'
+                ? normalizeSettings({
+                    ...settings,
+                    diveLogConfig: {
+                      ...settings.diveLogConfig,
+                      species: settings.diveLogConfig.species || detectedSpecies,
+                      story: settings.diveLogConfig.story || generatedDiveStory,
+                    },
+                  })
+                : settings;
               
               const brandingMode = brandingModeByPhotoId.get(photo.id) || 'site';
               const useWatermark = brandingMode !== 'none';
               updateProcessingItem(photo.id, 'designing');
-              const frontDataUrl = await generateFront(img, title, location, theme, settings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
+              const frontDataUrl = await renderCard(img, title, location, theme, effectiveSettings, defaultFrontStyle, authorStr, displayDate, useWatermark && backMode === 'none');
               const backDataUrl = backMode === 'none'
                 ? ''
-                : await generateBack(
+                : await renderBack(
                     img,
                     message,
                     location,
                     postmark,
                     theme,
-                    settings,
+                    effectiveSettings,
                     defaultBackStyle,
                     authorStr,
                     dateStr,
@@ -810,7 +848,7 @@ export default function Step5Process({
                 draftDate: displayDate,
                 selected: true,
                 imgUrl: imgBase64,
-                settings: settings,
+                settings: effectiveSettings,
                 createdAt: Date.now(),
                 frontStyle: defaultFrontStyle,
                 backStyle: defaultBackStyle,
@@ -941,6 +979,26 @@ export default function Step5Process({
   }, [photos, configGroups, editId]);
 
   const getDimensions = (settings: SettingsType) => {
+    const safeSettings = normalizeSettings(settings);
+    if (safeSettings.designType === 'polaroid') {
+      if (safeSettings.layoutConfig.aspectRatio === '1:1') return { w: 1500, h: 1500 };
+      if (safeSettings.layoutConfig.orientation === 'portrait') return { w: 1200, h: 1600 };
+      return { w: 1800, h: 1200 };
+    }
+    if (safeSettings.designType === 'ticket') {
+      const aspect = safeSettings.ticketConfig.aspect || '3:2';
+      if (aspect === '16:9') return { w: 1920, h: 1080 };
+      if (aspect === '3:4') return { w: 1200, h: 1600 };
+      return { w: 1800, h: 1200 };
+    }
+    if (safeSettings.designType === 'diveLog') {
+      const aspect = safeSettings.diveLogConfig.aspect || '3:2';
+      if (aspect === '3:4') return { w: 1200, h: 1600 };
+      if (aspect === '1:1') return { w: 1500, h: 1500 };
+      return { w: 1800, h: 1200 };
+    }
+    if (safeSettings.layoutConfig.aspectRatio === '4:3') return { w: 1800, h: 1350 };
+    if (safeSettings.layoutConfig.aspectRatio === '1:1') return { w: 1500, h: 1500 };
     if (settings.size === 'custom') {
       return { w: Math.round((settings.customWidth || 6) * 300), h: Math.round((settings.customHeight || 4) * 300) };
     }
@@ -1301,10 +1359,10 @@ export default function Step5Process({
     return 'classic';
   };
 
-  const generateFront = async (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string, useFrontWatermark?: boolean) => {
+  const renderPostcard = async (img: HTMLImageElement, title: string, location: string, theme: string, settings: SettingsType, frontStyle?: ProcessedPostcard['frontStyle'], author?: string, date?: string, useFrontWatermark?: boolean) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
+    const safeSettings = normalizeSettings(settings);
     const { w, h } = getDimensions(safeSettings);
     const isPolaroidMode = safeSettings.size === 'polaroid';
     
@@ -1316,10 +1374,12 @@ export default function Step5Process({
     const ch = canvas.height;
     const isSquare = cw === ch; // 拍立得/方形
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = isPolaroidMode && safeSettings.polaroidConfig.borderStyle === 'aged' ? '#eee7d8' : '#ffffff';
     ctx.fillRect(0, 0, cw, ch);
 
-    const fillMode = safeSettings.fill || 'fill';
+    const fillMode = isPolaroidMode
+      ? (safeSettings.polaroidConfig.bottomTextArea ? 'bottom-border' : 'border')
+      : (safeSettings.fill || 'fill');
     const filterId = safeSettings.filter || 'original';
     const filterIntensity = safeSettings.filterIntensity ?? 0.8;
 
@@ -1383,8 +1443,10 @@ export default function Step5Process({
       applyFilterById(filterId, ctx, imgW, imgH, filterIntensity, imgX, imgY);
 
       const renderPolaroidText = () => {
-        const titleText = title || '';
-        const line2 = [location, date].filter(Boolean).join('  •  ');
+        const titleText = safeSettings.polaroidConfig.captionMode === 'manual' && safeSettings.polaroidConfig.caption
+          ? safeSettings.polaroidConfig.caption
+          : title || '';
+        const line2 = [safeSettings.polaroidConfig.showLocation === false ? '' : location, safeSettings.polaroidConfig.showDate ? date : ''].filter(Boolean).join('  •  ');
         if (!titleText && !line2) return;
 
         const style = frontStyle || { fontSize: 5, color: '#ffffff', position: 'bottom-left' };
@@ -1903,6 +1965,274 @@ export default function Step5Process({
     return canvas.toDataURL('image/jpeg', 0.9);
   };
 
+  const drawCoverImage = (
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    filter: SettingsType['filter'],
+    intensity: number,
+  ) => {
+    const scale = Math.max(width / img.width, height / img.height);
+    const drawWidth = img.width * scale;
+    const drawHeight = img.height * scale;
+    const drawX = x + (width - drawWidth) / 2;
+    const drawY = y + (height - drawHeight) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
+    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    ctx.restore();
+    applyFilterById(filter, ctx, width, height, intensity, x, y);
+  };
+
+  const fitCanvasText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, preferredSize: number, minSize: number, font: string) => {
+    let size = preferredSize;
+    while (size > minSize) {
+      ctx.font = `${size}px ${font}`;
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= 2;
+    }
+    ctx.font = `${Math.max(minSize, size)}px ${font}`;
+  };
+
+  const renderTicket = async (
+    img: HTMLImageElement,
+    title: string,
+    location: string,
+    settings: SettingsType,
+    date?: string,
+    useFrontWatermark?: boolean,
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    const { w, h } = getDimensions(safeSettings);
+    canvas.width = w;
+    canvas.height = h;
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const cfg = safeSettings.ticketConfig;
+    const stubWidth = cw * 0.27;
+    const stubX = cfg.stubPosition === 'left' ? 0 : cw - stubWidth;
+    const mainX = cfg.stubPosition === 'left' ? stubWidth : 0;
+    const mainWidth = cw - stubWidth;
+    const palette = cfg.template === 'cinema'
+      ? { paper: '#171717', ink: '#fafaf9', accent: '#e11d48' }
+      : cfg.template === 'train'
+        ? { paper: '#eee6d3', ink: '#3f3528', accent: '#9a3412' }
+        : cfg.template === 'event'
+          ? { paper: '#f5f3ff', ink: '#27203f', accent: '#6d5dfc' }
+          : { paper: '#f7f6f2', ink: '#1c1917', accent: '#2563eb' };
+
+    ctx.fillStyle = palette.paper;
+    ctx.fillRect(0, 0, cw, ch);
+    const imageArea = cfg.imageArea || 'large';
+    const imageWidth = imageArea === 'medium' ? mainWidth * 0.55 : mainWidth;
+    const imageHeight = imageArea === 'background' ? ch : ch * 0.66;
+    const imageX = mainX + (cfg.stubPosition === 'left' && imageArea === 'medium' ? mainWidth - imageWidth : 0);
+    drawCoverImage(ctx, img, imageX, 0, imageWidth, imageHeight, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+    if (imageArea === 'background') {
+      ctx.fillStyle = 'rgba(0,0,0,0.44)';
+      ctx.fillRect(mainX, 0, mainWidth, ch);
+    }
+
+    ctx.fillStyle = palette.accent;
+    ctx.fillRect(stubX, 0, stubWidth, ch);
+    const perforationX = cfg.stubPosition === 'left' ? stubWidth : cw - stubWidth;
+    if (cfg.showPerforation) {
+      ctx.save();
+      ctx.setLineDash([ch * 0.018, ch * 0.014]);
+      ctx.strokeStyle = 'rgba(28,25,23,0.45)';
+      ctx.lineWidth = Math.max(2, cw * 0.002);
+      ctx.beginPath();
+      ctx.moveTo(perforationX, ch * 0.04);
+      ctx.lineTo(perforationX, ch * 0.96);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const displayTitle = cfg.ticketTitle || title || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
+    const displayLocation = cfg.location || location;
+    const displayDate = cfg.date || date || '';
+    const serial = cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`;
+    const infoX = mainX + mainWidth * 0.055;
+    const infoY = imageArea === 'background' ? ch * 0.64 : imageHeight + ch * 0.09;
+    ctx.fillStyle = imageArea === 'background' ? '#ffffff' : palette.ink;
+    fitCanvasText(ctx, displayTitle.toUpperCase(), mainWidth * 0.88, Math.max(34, ch * 0.072), 22, '"Inter", sans-serif');
+    ctx.font = `800 ${ctx.font}`;
+    ctx.fillText(displayTitle.toUpperCase(), infoX, infoY);
+    ctx.font = `500 ${Math.max(18, ch * 0.028)}px "Inter", sans-serif`;
+    ctx.globalAlpha = 0.82;
+    ctx.fillText([cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  /  '), infoX, infoY + ch * 0.065);
+    ctx.globalAlpha = 1;
+
+    ctx.save();
+    ctx.translate(stubX + stubWidth * 0.5, ch * 0.5);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `800 ${Math.max(24, stubWidth * 0.15)}px "Inter", sans-serif`;
+    ctx.fillText(displayLocation || 'SEA OTTER POST OFFICE', 0, -stubWidth * 0.08);
+    ctx.font = `600 ${Math.max(15, stubWidth * 0.075)}px "Inter", sans-serif`;
+    ctx.fillText(`${displayDate}   ${serial}`, 0, stubWidth * 0.18);
+    ctx.restore();
+
+    if (cfg.showBarcode) {
+      const barX = stubX + stubWidth * 0.18;
+      const barY = ch * 0.78;
+      const barW = stubWidth * 0.64;
+      const barH = ch * 0.12;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = palette.ink;
+      for (let i = 0; i < 31; i++) {
+        const width = i % 4 === 0 ? 4 : i % 3 === 0 ? 2 : 1;
+        ctx.fillRect(barX + barW * (i + 2) / 35, barY + barH * 0.12, width, barH * 0.62);
+      }
+      ctx.font = `500 ${Math.max(10, ch * 0.014)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(serial, barX + barW / 2, barY + barH * 0.92);
+    }
+
+    if (useFrontWatermark) {
+      await drawBrandMark(ctx, cw, ch, { position: cfg.stubPosition === 'left' ? 'bottom-right' : 'bottom-left', compact: true, subtle: true, scale: 0.9 });
+    }
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  const renderDiveLog = async (
+    img: HTMLImageElement,
+    title: string,
+    location: string,
+    settings: SettingsType,
+    date?: string,
+    useFrontWatermark?: boolean,
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    const { w, h } = getDimensions(safeSettings);
+    canvas.width = w;
+    canvas.height = h;
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const cfg = safeSettings.diveLogConfig;
+    const imageArea = cfg.imageArea || 'split';
+    ctx.fillStyle = '#f7faf9';
+    ctx.fillRect(0, 0, cw, ch);
+
+    let imageBox = { x: 0, y: 0, w: cw * 0.54, h: ch };
+    if (imageArea === 'top') imageBox = { x: 0, y: 0, w: cw, h: ch * 0.58 };
+    if (imageArea === 'background') imageBox = { x: 0, y: 0, w: cw, h: ch };
+    drawCoverImage(ctx, img, imageBox.x, imageBox.y, imageBox.w, imageBox.h, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+    if (imageArea === 'background') {
+      const wash = ctx.createLinearGradient(0, 0, cw, 0);
+      wash.addColorStop(0, 'rgba(3,35,39,0.24)');
+      wash.addColorStop(0.48, 'rgba(3,35,39,0.48)');
+      wash.addColorStop(1, 'rgba(3,35,39,0.9)');
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, cw, ch);
+    }
+
+    const panelX = imageArea === 'split' ? cw * 0.54 : imageArea === 'top' ? 0 : cw * 0.5;
+    const panelY = imageArea === 'top' ? ch * 0.58 : 0;
+    const panelW = cw - panelX;
+    const panelH = ch - panelY;
+    if (imageArea !== 'background') {
+      ctx.fillStyle = '#f7faf9';
+      ctx.fillRect(panelX, panelY, panelW, panelH);
+    }
+    const ink = imageArea === 'background' ? '#ffffff' : '#123d40';
+    const muted = imageArea === 'background' ? 'rgba(255,255,255,0.72)' : '#557275';
+    const x = panelX + panelW * 0.09;
+    let y = panelY + panelH * 0.12;
+    const displayLocation = cfg.location || location || title || (language.startsWith('zh') ? '未命名潜点' : 'DIVE SITE');
+    ctx.fillStyle = muted;
+    ctx.font = `700 ${Math.max(14, Math.min(cw, ch) * 0.018)}px "Inter", sans-serif`;
+    ctx.fillText(`DIVE LOG  ${cfg.diveNumber || ''}`, x, y);
+    y += panelH * 0.09;
+    ctx.fillStyle = ink;
+    fitCanvasText(ctx, displayLocation, panelW * 0.82, Math.max(28, panelH * 0.075), 20, '"Playfair Display", serif');
+    ctx.fillText(displayLocation, x, y);
+    y += panelH * 0.1;
+
+    const items = [
+      ['DATE', cfg.diveDate || date || '—'],
+      ['MAX DEPTH', cfg.depth || '—'],
+      ['DURATION', cfg.duration || '—'],
+      ['WATER', cfg.waterTemp || '—'],
+      ['VISIBILITY', cfg.visibility || '—'],
+      ['BUDDY', cfg.buddy || '—'],
+    ];
+    const columns = imageArea === 'top' ? 3 : 2;
+    const cellW = panelW * 0.82 / columns;
+    const rowH = panelH * (imageArea === 'top' ? 0.16 : 0.12);
+    items.forEach((item, index) => {
+      const cx = x + (index % columns) * cellW;
+      const cy = y + Math.floor(index / columns) * rowH;
+      ctx.fillStyle = muted;
+      ctx.font = `700 ${Math.max(11, Math.min(cw, ch) * 0.013)}px "Inter", sans-serif`;
+      ctx.fillText(item[0], cx, cy);
+      ctx.fillStyle = ink;
+      ctx.font = `600 ${Math.max(15, Math.min(cw, ch) * 0.022)}px "Inter", sans-serif`;
+      ctx.fillText(item[1], cx, cy + rowH * 0.36);
+    });
+    y += Math.ceil(items.length / columns) * rowH + panelH * 0.02;
+    if (cfg.species) {
+      ctx.fillStyle = muted;
+      ctx.font = `700 ${Math.max(11, Math.min(cw, ch) * 0.013)}px "Inter", sans-serif`;
+      ctx.fillText(language.startsWith('zh') ? '遇见的生物' : 'MARINE LIFE', x, y);
+      ctx.fillStyle = ink;
+      ctx.font = `500 ${Math.max(14, Math.min(cw, ch) * 0.019)}px "Inter", sans-serif`;
+      ctx.fillText(cfg.species.slice(0, 48), x, y + panelH * 0.05);
+    }
+    ctx.strokeStyle = imageArea === 'background' ? 'rgba(255,255,255,0.35)' : 'rgba(18,61,64,0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, panelY + panelH * 0.07);
+    ctx.lineTo(x + panelW * 0.82, panelY + panelH * 0.07);
+    ctx.stroke();
+
+    if (useFrontWatermark) {
+      await drawBrandMark(ctx, cw, ch, { position: 'bottom-right', compact: true, subtle: true, opacity: imageArea === 'background' ? 0.72 : 0.48, scale: 0.9 });
+    }
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  const renderPolaroid = async (
+    img: HTMLImageElement,
+    title: string,
+    location: string,
+    theme: string,
+    settings: SettingsType,
+    frontStyle?: ProcessedPostcard['frontStyle'],
+    author?: string,
+    date?: string,
+    useFrontWatermark?: boolean,
+  ) => renderPostcard(img, title, location, theme, normalizeSettings({ ...settings, size: 'polaroid', fill: 'bottom-border' }), frontStyle, author, date, useFrontWatermark);
+
+  const renderCard = async (
+    img: HTMLImageElement,
+    title: string,
+    location: string,
+    theme: string,
+    settings: SettingsType,
+    frontStyle?: ProcessedPostcard['frontStyle'],
+    author?: string,
+    date?: string,
+    useFrontWatermark?: boolean,
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    if (safeSettings.designType === 'polaroid') return renderPolaroid(img, title, location, theme, safeSettings, frontStyle, author, date, useFrontWatermark);
+    if (safeSettings.designType === 'ticket') return renderTicket(img, title, location, safeSettings, date, useFrontWatermark);
+    if (safeSettings.designType === 'diveLog') return renderDiveLog(img, title, location, safeSettings, date, useFrontWatermark);
+    return renderPostcard(img, title, location, theme, safeSettings, frontStyle, author, date, useFrontWatermark);
+  };
+
   const drawArtisticIcon = (ctx: CanvasRenderingContext2D, type: string, x: number, y: number, size: number, color: string) => {
     ctx.save();
     ctx.translate(x, y);
@@ -2171,10 +2501,10 @@ export default function Step5Process({
     ctx.restore();
   };
 
-  const generateBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, brandingMode: BrandingMode = 'none') => {
+  const renderPostcardBack = async (img: HTMLImageElement, message: string, location: string, _postmark: string, theme: string, settings: SettingsType, backStyle?: ProcessedPostcard['backStyle'], author?: string, date?: string, artisticIcons: string[] = [], generatedBackImage?: string, brandingMode: BrandingMode = 'none') => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    const safeSettings = settings || { size: '4x6', fill: 'fill', aiTitle: true, aiLanguage: 'English' };
+    const safeSettings = normalizeSettings(settings);
     const { w, h } = getDimensions(safeSettings);
     const isChinese =
       language.startsWith('zh') || (safeSettings.aiLanguage || 'English').includes('Chinese');
@@ -2614,6 +2944,138 @@ export default function Step5Process({
     return canvas.toDataURL('image/jpeg', 0.9);
   };
 
+  const renderTicketBack = async (
+    message: string,
+    location: string,
+    settings: SettingsType,
+    date?: string,
+    brandingMode: BrandingMode = 'none',
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const { w, h } = getDimensions(safeSettings);
+    canvas.width = w;
+    canvas.height = h;
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const cfg = safeSettings.ticketConfig;
+    const padding = Math.min(cw, ch) * 0.065;
+    ctx.fillStyle = '#f5f1e8';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.strokeStyle = '#c9b99b';
+    ctx.lineWidth = Math.max(2, cw * 0.002);
+    ctx.setLineDash([12, 9]);
+    ctx.strokeRect(padding * 0.55, padding * 0.55, cw - padding * 1.1, ch - padding * 1.1);
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#29241f';
+    const heading = cfg.ticketTitle || (language.startsWith('zh') ? '票根信息' : 'TICKET DETAILS');
+    fitCanvasText(ctx, heading, cw * 0.75, ch * 0.09, ch * 0.05, '"Playfair Display", serif');
+    ctx.fillText(heading, padding, padding * 1.8);
+    const details = [
+      [language.startsWith('zh') ? '编号' : 'SERIAL', cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`],
+      [language.startsWith('zh') ? '日期' : 'DATE', cfg.date || date || '—'],
+      [language.startsWith('zh') ? '地点' : 'LOCATION', cfg.location || location || '—'],
+      [language.startsWith('zh') ? '备注' : 'NOTE', cfg.note || message || '—'],
+    ];
+    let y = ch * 0.34;
+    details.forEach(([label, value], index) => {
+      ctx.fillStyle = '#8a7760';
+      ctx.font = `700 ${Math.max(14, ch * 0.022)}px "Inter", sans-serif`;
+      ctx.fillText(label.toUpperCase(), padding, y);
+      ctx.fillStyle = '#29241f';
+      fitCanvasText(ctx, value, cw - padding * 3.2, Math.max(22, ch * 0.038), 16, '"Inter", sans-serif');
+      ctx.fillText(value.slice(0, index === 3 ? 72 : 48), cw * 0.3, y);
+      y += ch * 0.13;
+    });
+    if (brandingMode !== 'none') await drawBackBrandSignature(ctx, cw, ch, { padding, locale: language.startsWith('zh') ? 'zh' : 'en', brandingMode });
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  const renderDiveLogBack = async (
+    message: string,
+    location: string,
+    settings: SettingsType,
+    date?: string,
+    brandingMode: BrandingMode = 'none',
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const { w, h } = getDimensions(safeSettings);
+    canvas.width = w;
+    canvas.height = h;
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const cfg = safeSettings.diveLogConfig;
+    const padding = Math.min(cw, ch) * 0.065;
+    ctx.fillStyle = '#eef6f5';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#123d40';
+    ctx.font = `800 ${Math.max(30, ch * 0.074)}px "Inter", sans-serif`;
+    ctx.fillText(language.startsWith('zh') ? '潜水日志' : 'DIVE LOG', padding, padding * 1.65);
+    ctx.fillStyle = '#4e7476';
+    ctx.font = `600 ${Math.max(14, ch * 0.022)}px "Inter", sans-serif`;
+    ctx.fillText(`${cfg.diveNumber || ''}  ${cfg.diveDate || date || ''}`, padding, padding * 2.25);
+    const details = [
+      ['SITE', cfg.location || location || '—'], ['MAX DEPTH', cfg.depth || '—'],
+      ['DURATION', cfg.duration || '—'], ['WATER', cfg.waterTemp || '—'],
+      ['VISIBILITY', cfg.visibility || '—'], ['BUDDY', cfg.buddy || '—'],
+      ['MARINE LIFE', cfg.species || '—'],
+    ];
+    const startY = ch * 0.34;
+    const cellW = (cw - padding * 2.5) / 2;
+    const rowH = ch * 0.12;
+    details.forEach(([label, value], index) => {
+      const column = index % 2;
+      const row = Math.floor(index / 2);
+      const x = padding + column * cellW;
+      const y = startY + row * rowH;
+      ctx.fillStyle = '#648487';
+      ctx.font = `700 ${Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
+      ctx.fillText(label, x, y);
+      ctx.fillStyle = '#123d40';
+      fitCanvasText(ctx, value, cellW * 0.86, Math.max(17, ch * 0.027), 13, '"Inter", sans-serif');
+      ctx.fillText(value.slice(0, 42), x, y + rowH * 0.36);
+    });
+    const story = cfg.story || message;
+    if (story) {
+      ctx.fillStyle = '#315d60';
+      ctx.font = `italic ${Math.max(15, ch * 0.024)}px "Playfair Display", serif`;
+      ctx.fillText(story.slice(0, 80), padding, ch - padding * 1.7, cw - padding * 2.2);
+    }
+    if (brandingMode !== 'none') await drawBackBrandSignature(ctx, cw, ch, { padding, locale: language.startsWith('zh') ? 'zh' : 'en', brandingMode });
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  const renderBack = async (
+    img: HTMLImageElement,
+    message: string,
+    location: string,
+    postmark: string,
+    theme: string,
+    settings: SettingsType,
+    backStyle?: ProcessedPostcard['backStyle'],
+    author?: string,
+    date?: string,
+    artisticIcons: string[] = [],
+    generatedBackImage?: string,
+    brandingMode: BrandingMode = 'none',
+  ) => {
+    const safeSettings = normalizeSettings(settings);
+    if (safeSettings.backDesignMode === 'none') return '';
+    const backMode = safeSettings.designType === 'postcard'
+      ? safeSettings.postcardConfig.backMode
+      : safeSettings.designType === 'polaroid'
+        ? safeSettings.polaroidConfig.backMode || 'postcard'
+        : safeSettings.designType === 'ticket'
+          ? safeSettings.ticketConfig.backMode
+          : safeSettings.diveLogConfig.backMode;
+    if (backMode === 'ticket') return renderTicketBack(message, location, safeSettings, date, brandingMode);
+    if (backMode === 'diveLog') return renderDiveLogBack(message, location, safeSettings, date, brandingMode);
+    return renderPostcardBack(img, message, location, postmark, theme, safeSettings, backStyle, author, date, artisticIcons, generatedBackImage, brandingMode);
+  };
+
   const getCompressedBase64 = (img: HTMLImageElement, maxDim = 600, quality = 0.6): string => {
     const canvas = document.createElement('canvas');
     let width = img.width;
@@ -2868,10 +3330,10 @@ export default function Step5Process({
       const img = await loadImage(result.imgUrl || '');
       const brandingMode = resolveResultBrandingMode(result);
       const backMode = result.settings.backDesignMode ?? (result.settings.aiBackTemplate ? 'ai' : 'template');
-      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
+      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
         ? ''
-        : await generateBack(
+        : await renderBack(
             img,
             result.draftMessage || '',
             result.draftLocation || '',
@@ -3093,10 +3555,10 @@ ART DIRECTION FOR THE POSTCARD BACK:
       }
       const img = await loadImage(sourceImageUrl);
       const brandingMode = resolveResultBrandingMode(result);
-      const newFront = await generateFront(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
+      const newFront = await renderCard(img, result.draftTitle || '', result.draftLocation || '', result.theme || 'standard', result.settings, result.draftFrontStyle, result.draftAuthor, result.draftDate, result.watermark === true && backMode === 'none');
       const newBack = backMode === 'none'
         ? ''
-        : await generateBack(
+        : await renderBack(
             img,
             result.draftMessage || '',
             result.draftLocation || '',
@@ -3179,7 +3641,7 @@ ART DIRECTION FOR THE POSTCARD BACK:
         const brandingMode = resolveResultBrandingMode(promptReadyTarget);
         const newBack = backMode === 'none'
           ? ''
-          : await generateBack(
+          : await renderBack(
               img,
               promptReadyTarget.draftMessage || promptReadyTarget.message || '',
               promptReadyTarget.draftLocation || promptReadyTarget.location || '',
