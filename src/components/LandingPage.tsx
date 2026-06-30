@@ -51,6 +51,7 @@ const translations: Record<string, any> = {
     navGallery: "Gallery",
     navPricing: "Pricing",
     navAbout: "About"
+    ,front: "Front", back: "Back", sampleTitle: "Quiet Afternoon", sampleHint: "Editable title, place and date", sampleMessage: "A quiet moment, turned into a card worth keeping.", fromOtter: "Postcard from Otter", stamp: "Stamp", feedback: "Feedback", contact: "Contact"
   },
   zh: {
     badge: "海獭邮局",
@@ -88,6 +89,7 @@ const translations: Record<string, any> = {
     navGallery: "精选画廊",
     navPricing: "会员方案",
     navAbout: "关于我们"
+    ,front: "正面", back: "背面", sampleTitle: "猫咪时光", sampleHint: "标题、地点、日期都可调整", sampleMessage: "柔软的瞬间，被认真写成一张可以保存的明信片。", fromOtter: "海獭邮局明信片", stamp: "邮票", feedback: "意见反馈", contact: "联系我们"
   },
   // ... (keep other languages as fallback or update if needed, for now focusing on ZH/EN as requested)
   ja: {
@@ -96,6 +98,17 @@ const translations: Record<string, any> = {
     title2: "未来へ届けよう",
     subtitle: "ラッコの郵便屋さんが、あなたの大切な写真を素敵なポストカードに変えてくれます。愛を込めてお届けします。",
     startBtn: "手紙を送る",
+    secondaryBtn: "作例を見る",
+    heroEyebrow: "写真から作るAIポストカード",
+    proof1: "AIタイトルと文章",
+    proof2: "表面・裏面を編集",
+    proof3: "旅の地図に保存",
+    workflow1Title: "写真を追加",
+    workflow1Desc: "旅行や日常の一枚を選びます。",
+    workflow2Title: "AIで生成",
+    workflow2Desc: "タイトル、場所、文章を作ります。",
+    workflow3Title: "編集・書き出し",
+    workflow3Desc: "文字とスタイルを調整して保存します。",
     featuresTitle: "ラッコの特別便",
     featuresSubtitle: "ラッコチームが心を込めて作ります。",
     feature1Title: "スマートクロッピング",
@@ -110,7 +123,8 @@ const translations: Record<string, any> = {
     ctaTitle: "最初のカードを送る準備はできましたか？",
     ctaSubtitle: "ラッコの郵便屋さんがあなたの写真を待っています。",
     ctaBtn: "郵便局を開く",
-    rights: "全著作権所有。"
+    rights: "全著作権所有。",
+    navFeatures: "機能", navGallery: "作例", front: "表面", back: "裏面", sampleTitle: "静かな午後", sampleHint: "タイトル・場所・日付を編集できます", sampleMessage: "静かなひとときを、大切に残せる一枚のカードに。", fromOtter: "ラッコ郵便局から", stamp: "切手", feedback: "ご意見", contact: "お問い合わせ"
   },
   ko: {
     badge: "해달 우체국",
@@ -322,6 +336,18 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
     { icon: Wand2, title: t.workflow2Title, desc: t.workflow2Desc },
     { icon: SlidersHorizontal, title: t.workflow3Title, desc: t.workflow3Desc },
   ];
+  const defaultShowcase = [
+    { img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=800', title: 'Neon Shanghai', loc: 'The Bund, Shanghai', theme: 'City Night', style: 'neon', msg: 'The city lights shimmer on the river, turning the night into a postcard.' },
+    { img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=800', title: 'Venetian Serenade', loc: 'Venice, Italy', theme: 'Oil Painting', style: 'artistic', msg: 'Floating through the canals, the water reflects centuries of history.' },
+    { img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800', title: 'Alpine Solitude', loc: 'Zermatt, Switzerland', theme: 'Vintage Film', style: 'vintage', msg: 'The Matterhorn stands tall against the blue sky.' },
+    { img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800', title: 'Azure Escape', loc: 'Maldives', theme: 'Minimalist', style: 'minimal', msg: 'Endless blue water and powder-soft sand. A quiet paradise.' },
+  ];
+  const showcaseItems = language === 'ja' ? [
+    { ...defaultShowcase[0], title: '上海の夜景', loc: '上海・外灘', theme: 'シティナイト', msg: '川面に揺れる灯りが、街の夜を一枚の手紙に変えていきます。' },
+    { ...defaultShowcase[1], title: 'ヴェネツィアの旋律', loc: 'イタリア・ヴェネツィア', theme: '油彩', msg: '運河を進むたび、水面に長い歴史と静かな時間が映ります。' },
+    { ...defaultShowcase[2], title: 'アルプスの静寂', loc: 'スイス・ツェルマット', theme: 'ヴィンテージフィルム', msg: '澄んだ空の下、マッターホルンが変わらない姿で立っています。' },
+    { ...defaultShowcase[3], title: '青の休暇', loc: 'モルディブ', theme: 'ミニマル', msg: 'どこまでも続く青と、粉雪のような砂。静かな楽園を見つけました。' },
+  ] : defaultShowcase;
 
   return (
     <div className="min-h-screen bg-[#fafaf9] flex flex-col font-sans">
@@ -468,14 +494,14 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
 	            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
 	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg">
-	                <div className="text-[11px] font-medium text-stone-500 mb-1">{language === 'zh' ? '正面' : 'Front'}</div>
-	                <div className="text-sm font-semibold text-stone-900 truncate">{language === 'zh' ? '猫咪时光' : 'Quiet Afternoon'}</div>
-	                <div className="text-[11px] text-stone-500 mt-1 truncate">{language === 'zh' ? '标题、地点、日期都可调整' : 'Editable title, place and date'}</div>
+	                <div className="text-[11px] font-medium text-stone-500 mb-1">{t.front}</div>
+	                <div className="text-sm font-semibold text-stone-900 truncate">{t.sampleTitle}</div>
+	                <div className="text-[11px] text-stone-500 mt-1 truncate">{t.sampleHint}</div>
 	              </div>
 	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg hidden sm:block">
-	                <div className="text-[11px] font-medium text-stone-500 mb-1">{language === 'zh' ? '背面' : 'Back'}</div>
+	                <div className="text-[11px] font-medium text-stone-500 mb-1">{t.back}</div>
 	                <div className="text-[11px] text-stone-600 line-clamp-3">
-	                  {language === 'zh' ? '柔软的瞬间，被认真写成一张可以保存的明信片。' : 'A quiet moment, turned into a card worth keeping.'}
+	                  {t.sampleMessage}
 	                </div>
 	              </div>
 	            </div>
@@ -552,40 +578,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[
-              { 
-                img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=800', 
-                title: 'Neon Shanghai', 
-                loc: 'The Bund, Shanghai', 
-                theme: 'City Night',
-                style: 'neon',
-                msg: '霓虹在江面上晃动，城市像一封尚未寄出的信。今晚的上海，比记忆里的更亮一点。' 
-              },
-              { 
-                img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=800', 
-                title: 'Venetian Serenade', 
-                loc: 'Venice, Italy', 
-                theme: 'Oil Painting',
-                style: 'artistic',
-                msg: 'Floating through the canals, the water reflects centuries of history. Every corner is a masterpiece.\n\nCiao,\nOtter' 
-              },
-              { 
-                img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800', 
-                title: 'Alpine Solitude', 
-                loc: 'Zermatt, Switzerland', 
-                theme: 'Vintage Film',
-                style: 'vintage',
-                msg: 'The Matterhorn stands tall against the blue sky. The air is thin but the view is worth every breath.\n\nStay cool,\nOtter' 
-              },
-              { 
-                img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800', 
-                title: 'Azure Escape', 
-                loc: 'Maldives', 
-                theme: 'Minimalist',
-                style: 'minimal',
-                msg: 'Just blue. Endless blue. The sand is like powder and the water is like glass. Paradise found.\n\nPeace,\nOtter' 
-              },
-            ].map((item, i) => (
+            {showcaseItems.map((item, i) => (
               <motion.div 
                 key={i} 
                 initial={{ opacity: 0, y: 20 }}
@@ -690,7 +683,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                           "text-[10px] uppercase tracking-tighter mt-1 opacity-60",
                           item.style === 'cyberpunk' && "font-mono"
                         )}>
-                          Postcard from Otter
+                          {t.fromOtter}
                         </div>
                       </div>
                       <div className={cn(
@@ -700,7 +693,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                         item.style === 'vintage' ? "border-stone-400 bg-stone-200/50" :
                         "border-stone-200 bg-stone-50"
                       )}>
-                        <div className="text-[8px] font-bold uppercase opacity-40">Stamp</div>
+                        <div className="text-[8px] font-bold uppercase opacity-40">{t.stamp}</div>
                         {item.style === 'cyberpunk' ? <Sparkles className="w-4 h-4 text-cyan-400 mt-1" /> :
                          item.style === 'artistic' ? <Globe2 className="w-4 h-4 text-amber-800 mt-1" /> :
                          <Heart className="w-4 h-4 text-stone-400 mt-1" />}
@@ -819,11 +812,11 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           <div className="flex gap-8">
             <button onClick={onFeedback} className="hover:text-stone-600 transition-colors flex items-center gap-1">
               <MessageSquare className="w-4 h-4" />
-              Feedback
+              {t.feedback}
             </button>
             <a href="#" className="hover:text-stone-600 transition-colors">Twitter</a>
             <a href="#" className="hover:text-stone-600 transition-colors">Instagram</a>
-            <a href="#" className="hover:text-stone-600 transition-colors">Contact</a>
+            <a href="#" className="hover:text-stone-600 transition-colors">{t.contact}</a>
           </div>
           <p>© {new Date().getFullYear()} {t.badge}. {t.rights} · v{APP_VERSION}</p>
         </div>
