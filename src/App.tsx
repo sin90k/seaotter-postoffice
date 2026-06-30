@@ -115,6 +115,7 @@ export type SettingsType = {
     titleAlign?: 'left' | 'center' | 'right';
     titleScale?: number;
     stubOpacity?: number;
+    panelScale?: number;
     panelOpacity?: number;
     titleColor?: 'ink' | 'accent' | 'white';
     subtitle?: string;
@@ -344,6 +345,7 @@ export const defaultSettings: SettingsType = { // Exported
     titleAlign: 'left',
     titleScale: 1,
     stubOpacity: 0.92,
+    panelScale: 1,
     panelOpacity: 0.9,
     titleColor: 'ink',
     subtitle: '',

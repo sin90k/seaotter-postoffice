@@ -2071,22 +2071,46 @@ export default function Step5Process({
     const palette = cfg.colorStyle && cfg.colorStyle !== 'auto'
       ? colorPalettes[cfg.colorStyle]
       : templatePalette;
+    const displayTitle = title || cfg.ticketTitle || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
+    const displayLocation = location || cfg.location;
+    const displayDate = date || cfg.date || '';
+    const ticketMeta = [cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  ·  ');
+    const titleAlign = cfg.titleAlign || 'left';
 
     ctx.fillStyle = palette.paper;
     ctx.fillRect(0, 0, cw, ch);
     const imageArea = cfg.imageArea || 'large';
-    const imageWidth = imageArea === 'medium' ? mainWidth * 0.62 : mainWidth;
     const imageHeight = imageArea === 'background' ? ch : imageArea === 'medium' ? ch : ch * 0.68;
-    const imageX = imageArea === 'medium' && cfg.stubPosition === 'right' ? mainX + mainWidth - imageWidth : mainX;
-    drawCoverImage(ctx, img, imageX, 0, imageWidth, imageHeight, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
-    drawCoverImage(ctx, img, stubX, 0, stubWidth, ch, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+    // Render one continuous crop so a translucent stub stays aligned with the main photo.
+    drawCoverImage(ctx, img, 0, 0, cw, ch, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+
+    const textUnits = (value: string) => Array.from(value).reduce(
+      (total, character) => total + (character.charCodeAt(0) <= 255 ? 0.56 : 1),
+      0
+    );
+    const panelScale = Math.min(1.3, Math.max(0.7, cfg.panelScale ?? 1));
+    const longestTextUnits = Math.max(textUnits(displayTitle), textUnits(ticketMeta));
+    const automaticPanelRatio = Math.min(0.68, Math.max(0.44, 0.4 + longestTextUnits * 0.012));
+    const backgroundPanelWidth = Math.min(mainWidth * 0.82, Math.max(mainWidth * 0.38, mainWidth * automaticPanelRatio * panelScale));
+    const backgroundPanelHeight = ch * Math.min(0.26, Math.max(0.17, 0.19 * panelScale));
+    const panelMargin = mainWidth * 0.055;
+    const backgroundPanelX = titleAlign === 'right'
+      ? mainX + mainWidth - panelMargin - backgroundPanelWidth
+      : titleAlign === 'center'
+        ? mainX + (mainWidth - backgroundPanelWidth) / 2
+        : mainX + panelMargin;
+    const backgroundPanelY = cfg.textPlacement === 'top'
+      ? ch * 0.08
+      : cfg.textPlacement === 'center'
+        ? (ch - backgroundPanelHeight) / 2
+        : ch - backgroundPanelHeight - ch * 0.08;
 
     const infoPanel = imageArea === 'background'
       ? {
-          x: mainX + mainWidth * 0.055,
-          y: cfg.textPlacement === 'top' ? ch * 0.08 : cfg.textPlacement === 'center' ? ch * 0.36 : ch * 0.66,
-          w: mainWidth * 0.84,
-          h: ch * 0.25,
+          x: backgroundPanelX,
+          y: backgroundPanelY,
+          w: backgroundPanelWidth,
+          h: backgroundPanelHeight,
         }
       : imageArea === 'medium'
         ? {
@@ -2162,17 +2186,15 @@ export default function Step5Process({
       }
     }
 
-    const displayTitle = title || cfg.ticketTitle || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
-    const displayLocation = location || cfg.location;
-    const displayDate = date || cfg.date || '';
     const serial = cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`;
-    const titleAlign = cfg.titleAlign || 'left';
     const infoX = titleAlign === 'left'
       ? infoPanel.x + infoPanel.w * 0.07
       : titleAlign === 'right'
         ? infoPanel.x + infoPanel.w * 0.93
         : infoPanel.x + infoPanel.w * 0.5;
-    const titleYRatio = cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
+    const titleYRatio = imageArea === 'background'
+      ? 0.58
+      : cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
     const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? Math.min(0.48, titleYRatio) : titleYRatio);
     const textMaxWidth = infoPanel.w * 0.86;
     ctx.textAlign = titleAlign;
@@ -2186,7 +2208,6 @@ export default function Step5Process({
     const fittedTitleFont = ctx.font;
     ctx.font = `800 ${fittedTitleFont}`;
     ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
-    const ticketMeta = [cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  ·  ');
     fitCanvasText(ctx, ticketMeta, textMaxWidth, Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
     ctx.globalAlpha = 0.76;
     ctx.fillText(ticketMeta.slice(0, 64), infoX, titleY + infoPanel.h * 0.22);
@@ -4746,20 +4767,36 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 </div>
 
                                 {result.settings.ticketConfig.imageArea === 'background' && (
-                                  <label className="block text-sm font-medium text-stone-700">
-                                    <span className="mb-2 flex items-center justify-between">
-                                      <span>{language === 'zh' ? '白色信息框透明度' : 'Information panel opacity'}</span>
-                                      <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelOpacity ?? 0.9) * 100)}%</span>
-                                    </span>
-                                    <input
-                                      type="range"
-                                      min="45"
-                                      max="100"
-                                      value={(result.settings.ticketConfig.panelOpacity ?? 0.9) * 100}
-                                      onChange={(e) => updateTicketDraftConfig('panelOpacity', Number(e.target.value) / 100)}
-                                      className="w-full accent-stone-900"
-                                    />
-                                  </label>
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="block text-sm font-medium text-stone-700">
+                                      <span className="mb-2 flex items-center justify-between">
+                                        <span>{language === 'zh' ? '信息框大小' : 'Panel size'}</span>
+                                        <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelScale ?? 1) * 100)}%</span>
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="70"
+                                        max="130"
+                                        value={(result.settings.ticketConfig.panelScale ?? 1) * 100}
+                                        onChange={(e) => updateTicketDraftConfig('panelScale', Number(e.target.value) / 100)}
+                                        className="w-full accent-stone-900"
+                                      />
+                                    </label>
+                                    <label className="block text-sm font-medium text-stone-700">
+                                      <span className="mb-2 flex items-center justify-between">
+                                        <span>{language === 'zh' ? '白色信息框透明度' : 'Information panel opacity'}</span>
+                                        <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelOpacity ?? 0.9) * 100)}%</span>
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="45"
+                                        max="100"
+                                        value={(result.settings.ticketConfig.panelOpacity ?? 0.9) * 100}
+                                        onChange={(e) => updateTicketDraftConfig('panelOpacity', Number(e.target.value) / 100)}
+                                        className="w-full accent-stone-900"
+                                      />
+                                    </label>
+                                  </div>
                                 )}
 
                                 <div className="flex flex-wrap gap-2">
