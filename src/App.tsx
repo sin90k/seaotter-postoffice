@@ -114,6 +114,7 @@ export type SettingsType = {
     textPlacement?: 'top' | 'bottom' | 'center';
     titleAlign?: 'left' | 'center' | 'right';
     titleScale?: number;
+    stubWidth?: number;
     stubOpacity?: number;
     panelScale?: number;
     panelOpacity?: number;
@@ -344,6 +345,7 @@ export const defaultSettings: SettingsType = { // Exported
     textPlacement: 'bottom',
     titleAlign: 'left',
     titleScale: 1,
+    stubWidth: 0.2,
     stubOpacity: 0.92,
     panelScale: 1,
     panelOpacity: 0.9,

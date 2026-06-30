@@ -2051,7 +2051,8 @@ export default function Step5Process({
     const cw = canvas.width;
     const ch = canvas.height;
     const cfg = safeSettings.ticketConfig;
-    const stubWidth = cw * 0.245;
+    const stubWidthRatio = Math.min(0.28, Math.max(0.16, cfg.stubWidth ?? 0.2));
+    const stubWidth = cw * stubWidthRatio;
     const stubX = cfg.stubPosition === 'left' ? 0 : cw - stubWidth;
     const mainX = cfg.stubPosition === 'left' ? stubWidth : 0;
     const mainWidth = cw - stubWidth;
@@ -2088,11 +2089,11 @@ export default function Step5Process({
       (total, character) => total + (character.charCodeAt(0) <= 255 ? 0.56 : 1),
       0
     );
-    const panelScale = Math.min(1.3, Math.max(0.7, cfg.panelScale ?? 1));
+    const panelScale = Math.min(1.4, Math.max(0.55, cfg.panelScale ?? 1));
     const longestTextUnits = Math.max(textUnits(displayTitle), textUnits(ticketMeta));
-    const automaticPanelRatio = Math.min(0.68, Math.max(0.44, 0.4 + longestTextUnits * 0.012));
-    const backgroundPanelWidth = Math.min(mainWidth * 0.82, Math.max(mainWidth * 0.38, mainWidth * automaticPanelRatio * panelScale));
-    const backgroundPanelHeight = ch * Math.min(0.26, Math.max(0.17, 0.19 * panelScale));
+    const automaticPanelRatio = Math.min(0.62, Math.max(0.3, 0.26 + longestTextUnits * 0.016));
+    const backgroundPanelWidth = Math.min(mainWidth * 0.76, Math.max(mainWidth * 0.24, mainWidth * automaticPanelRatio * panelScale));
+    const backgroundPanelHeight = ch * Math.min(0.22, Math.max(0.115, 0.145 * panelScale));
     const panelMargin = mainWidth * 0.055;
     const backgroundPanelX = titleAlign === 'right'
       ? mainX + mainWidth - panelMargin - backgroundPanelWidth
@@ -2123,11 +2124,11 @@ export default function Step5Process({
 
     if (imageArea === 'background') {
       ctx.save();
-      ctx.shadowColor = 'rgba(28,25,23,0.18)';
-      ctx.shadowBlur = Math.max(18, cw * 0.015);
+      ctx.shadowColor = 'rgba(28,25,23,0.14)';
+      ctx.shadowBlur = Math.max(12, cw * 0.01);
       ctx.fillStyle = `rgba(255,255,255,${Math.min(1, Math.max(0.45, cfg.panelOpacity ?? 0.9))})`;
       ctx.beginPath();
-      ctx.roundRect(infoPanel.x, infoPanel.y, infoPanel.w, infoPanel.h, Math.min(24, ch * 0.025));
+      ctx.roundRect(infoPanel.x, infoPanel.y, infoPanel.w, infoPanel.h, Math.min(16, ch * 0.018));
       ctx.fill();
       ctx.restore();
     } else if (imageArea === 'medium') {
@@ -2167,6 +2168,20 @@ export default function Step5Process({
       }
     }
 
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+    ctx.lineWidth = Math.max(2, cw * 0.0015);
+    ctx.beginPath();
+    ctx.roundRect(
+      stubX + stubWidth * 0.1,
+      ch * 0.035,
+      stubWidth * 0.8,
+      ch * 0.93,
+      Math.max(10, stubWidth * 0.06)
+    );
+    ctx.stroke();
+    ctx.restore();
+
     const perforationX = cfg.stubPosition === 'left' ? stubWidth : cw - stubWidth;
     if (cfg.showPerforation) {
       ctx.save();
@@ -2193,7 +2208,7 @@ export default function Step5Process({
         ? infoPanel.x + infoPanel.w * 0.93
         : infoPanel.x + infoPanel.w * 0.5;
     const titleYRatio = imageArea === 'background'
-      ? 0.58
+      ? 0.56
       : cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
     const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? Math.min(0.48, titleYRatio) : titleYRatio);
     const textMaxWidth = infoPanel.w * 0.86;
@@ -2201,7 +2216,7 @@ export default function Step5Process({
     ctx.fillStyle = palette.accent;
     ctx.font = `700 ${Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
     ctx.letterSpacing = '0px';
-    ctx.fillText(cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'SEA OTTER PASS', infoX, infoPanel.y + infoPanel.h * 0.2);
+    ctx.fillText(cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'TRAVEL MEMORY', infoX, infoPanel.y + infoPanel.h * 0.22);
     ctx.fillStyle = cfg.titleColor === 'accent' ? palette.accent : cfg.titleColor === 'white' ? '#ffffff' : palette.ink;
     const titleScale = Math.min(1.4, Math.max(0.7, cfg.titleScale ?? 1));
     fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale, 18, '"Inter", sans-serif');
@@ -2210,7 +2225,7 @@ export default function Step5Process({
     ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
     fitCanvasText(ctx, ticketMeta, textMaxWidth, Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
     ctx.globalAlpha = 0.76;
-    ctx.fillText(ticketMeta.slice(0, 64), infoX, titleY + infoPanel.h * 0.22);
+    ctx.fillText(ticketMeta.slice(0, 64), infoX, infoPanel.y + infoPanel.h * 0.84);
     ctx.globalAlpha = 1;
 
     ctx.save();
@@ -2225,14 +2240,27 @@ export default function Step5Process({
     ctx.restore();
 
     ctx.save();
-    ctx.translate(stubX + stubWidth * 0.5, ch * 0.5);
+    ctx.translate(stubX + stubWidth * 0.5, ch * 0.44);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
-    ctx.font = `800 ${Math.max(24, stubWidth * 0.15)}px "Inter", sans-serif`;
-    ctx.fillText(displayLocation || 'SEA OTTER POST OFFICE', 0, -stubWidth * 0.09);
-    ctx.font = `600 ${Math.max(15, stubWidth * 0.075)}px "Inter", sans-serif`;
-    ctx.fillText(`${displayDate}   ${serial}`, 0, stubWidth * 0.18);
+    ctx.font = `750 ${Math.max(19, stubWidth * 0.105)}px "Inter", sans-serif`;
+    ctx.fillText(displayLocation || (cfg.template === 'cinema' ? 'ADMIT ONE' : 'TRAVEL PASS'), 0, -stubWidth * 0.1);
+    ctx.font = `600 ${Math.max(12, stubWidth * 0.058)}px "Inter", sans-serif`;
+    ctx.fillText(`${displayDate || 'MEMORY'}   ${serial}`, 0, stubWidth * 0.14);
+    const routeY = stubWidth * 0.31;
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = Math.max(1.5, cw * 0.001);
+    ctx.beginPath();
+    ctx.moveTo(-ch * 0.16, routeY);
+    ctx.lineTo(ch * 0.16, routeY);
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    for (const routeX of [-ch * 0.16, 0, ch * 0.16]) {
+      ctx.beginPath();
+      ctx.arc(routeX, routeY, Math.max(3, stubWidth * 0.018), 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
 
     if (cfg.showBarcode) {
@@ -4606,7 +4634,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   </div>
                                 </div>
 
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-3">
                                   <div>
                                     <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '图片区' : 'Image area'}</label>
                                     <div className="grid grid-cols-3 gap-2">
@@ -4752,6 +4780,20 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   </label>
                                   <label className="block text-sm font-medium text-stone-700">
                                     <span className="mb-2 flex items-center justify-between">
+                                      <span>{language === 'zh' ? '票根宽度' : 'Stub width'}</span>
+                                      <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.stubWidth ?? 0.2) * 100)}%</span>
+                                    </span>
+                                    <input
+                                      type="range"
+                                      min="16"
+                                      max="28"
+                                      value={(result.settings.ticketConfig.stubWidth ?? 0.2) * 100}
+                                      onChange={(e) => updateTicketDraftConfig('stubWidth', Number(e.target.value) / 100)}
+                                      className="w-full accent-stone-900"
+                                    />
+                                  </label>
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-2 flex items-center justify-between">
                                       <span>{language === 'zh' ? '票根色块透明度' : 'Stub opacity'}</span>
                                       <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.stubOpacity ?? 0.92) * 100)}%</span>
                                     </span>
@@ -4775,8 +4817,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       </span>
                                       <input
                                         type="range"
-                                        min="70"
-                                        max="130"
+                                        min="55"
+                                        max="140"
                                         value={(result.settings.ticketConfig.panelScale ?? 1) * 100}
                                         onChange={(e) => updateTicketDraftConfig('panelScale', Number(e.target.value) / 100)}
                                         className="w-full accent-stone-900"
