@@ -768,6 +768,9 @@ export default function Step5Process({
 
               if (!needFrontTitle) title = '';
               if (!needFrontLocation) location = '';
+              if (settings.designType === 'ticket' && settings.ticketConfig.ticketTitle) {
+                title = settings.ticketConfig.ticketTitle;
+              }
               if (settings.designType === 'ticket' && settings.ticketConfig.location) {
                 location = settings.ticketConfig.location;
               }
@@ -2097,7 +2100,7 @@ export default function Step5Process({
       ctx.save();
       ctx.shadowColor = 'rgba(28,25,23,0.18)';
       ctx.shadowBlur = Math.max(18, cw * 0.015);
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, Math.max(0.45, cfg.panelOpacity ?? 0.9))})`;
       ctx.beginPath();
       ctx.roundRect(infoPanel.x, infoPanel.y, infoPanel.w, infoPanel.h, Math.min(24, ch * 0.025));
       ctx.fill();
@@ -2155,19 +2158,27 @@ export default function Step5Process({
       }
     }
 
-    const displayTitle = cfg.ticketTitle || title || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
-    const displayLocation = cfg.location || location;
-    const displayDate = cfg.date || date || '';
+    const displayTitle = title || cfg.ticketTitle || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
+    const displayLocation = location || cfg.location;
+    const displayDate = date || cfg.date || '';
     const serial = cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`;
-    const infoX = infoPanel.x + infoPanel.w * 0.07;
-    const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? 0.25 : 0.48);
+    const titleAlign = cfg.titleAlign || 'left';
+    const infoX = titleAlign === 'left'
+      ? infoPanel.x + infoPanel.w * 0.07
+      : titleAlign === 'right'
+        ? infoPanel.x + infoPanel.w * 0.93
+        : infoPanel.x + infoPanel.w * 0.5;
+    const titleYRatio = cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
+    const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? Math.min(0.48, titleYRatio) : titleYRatio);
     const textMaxWidth = infoPanel.w * 0.86;
+    ctx.textAlign = titleAlign;
     ctx.fillStyle = palette.accent;
     ctx.font = `700 ${Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
     ctx.letterSpacing = '0px';
     ctx.fillText(cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'SEA OTTER PASS', infoX, infoPanel.y + infoPanel.h * 0.2);
-    ctx.fillStyle = palette.ink;
-    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)), 18, '"Inter", sans-serif');
+    ctx.fillStyle = cfg.titleColor === 'accent' ? palette.accent : cfg.titleColor === 'white' ? '#ffffff' : palette.ink;
+    const titleScale = Math.min(1.4, Math.max(0.7, cfg.titleScale ?? 1));
+    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale, 18, '"Inter", sans-serif');
     const fittedTitleFont = ctx.font;
     ctx.font = `800 ${fittedTitleFont}`;
     ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
@@ -2178,9 +2189,14 @@ export default function Step5Process({
     ctx.globalAlpha = 1;
 
     ctx.save();
-    ctx.strokeStyle = imageArea === 'background' ? 'rgba(255,255,255,0.7)' : `${palette.accent}66`;
+    ctx.strokeStyle = cfg.template === 'cinema'
+      ? `${palette.accent}cc`
+      : imageArea === 'background' ? 'rgba(255,255,255,0.7)' : `${palette.accent}66`;
     ctx.lineWidth = Math.max(2, cw * 0.0015);
     ctx.strokeRect(mainX + mainWidth * 0.018, ch * 0.025, mainWidth * 0.964, ch * 0.95);
+    if (cfg.template === 'train') {
+      ctx.strokeRect(mainX + mainWidth * 0.032, ch * 0.047, mainWidth * 0.936, ch * 0.906);
+    }
     ctx.restore();
 
     ctx.save();
@@ -3356,6 +3372,19 @@ export default function Step5Process({
     });
   };
 
+  const updateTicketDraftConfig = <K extends keyof SettingsType['ticketConfig'],>(
+    field: K,
+    value: SettingsType['ticketConfig'][K]
+  ) => {
+    setEditingDraft(prev => prev ? {
+      ...prev,
+      settings: normalizeSettings({
+        ...prev.settings,
+        ticketConfig: { ...prev.settings.ticketConfig, [field]: value },
+      }),
+    } : prev);
+  };
+
   const updateDraftBrandingMode = (brandingMode: BrandingMode) => {
     if (brandingMode === 'personal' && !hasPersonalBrand) return;
     setEditingDraft(prev => prev ? {
@@ -3786,6 +3815,24 @@ ART DIRECTION FOR THE POSTCARD BACK:
         : `Failed to update preview: ${e instanceof Error ? e.message : 'Please try again.'}`);
     }
   };
+
+  const ticketPreviewKey = editingDraft?.settings.designType === 'ticket'
+    ? JSON.stringify(editingDraft.settings.ticketConfig)
+    : '';
+
+  useEffect(() => {
+    if (!editingResultId || !editingDraft || editingDraft.settings.designType !== 'ticket') return;
+    const timer = window.setTimeout(() => {
+      void handleUpdatePreview(editingDraft, { generateMissingAiBack: false });
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [
+    editingResultId,
+    editingDraft?.draftTitle,
+    editingDraft?.draftLocation,
+    editingDraft?.draftDate,
+    ticketPreviewKey,
+  ]);
 
   const handleRegenerateBackImage = async (photoId: string, refreshPrompt = false) => {
     const result = editingDraft && editingDraft.id === photoId ? editingDraft : history.find(r => r.id === photoId);
@@ -4287,6 +4334,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                 (originalResult.date || '') !== (result.draftDate || '') ||
                 (originalResult.generatedTicketArtwork || '') !== (result.generatedTicketArtwork || '') ||
                 (originalResult.generatedBackImage || '') !== (result.generatedBackImage || '') ||
+                JSON.stringify(originalResult.settings.ticketConfig) !== JSON.stringify(result.settings.ticketConfig) ||
                 JSON.stringify(originalResult.frontStyle) !== JSON.stringify(result.draftFrontStyle) ||
                 JSON.stringify(originalResult.backStyle) !== JSON.stringify(result.draftBackStyle)
               );
@@ -4499,85 +4547,262 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                           </div>
                         ) : (
                           <div className="space-y-6 flex-1">
-                            <div className="space-y-4">
-                              <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.front} {t.style}</h4>
-                              
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.fontSize} (%)</label>
-                                  <input
-                                    type="number"
-                                    min="2" max="20" step="0.5"
-                                    value={result.draftFrontStyle.fontSize}
-                                    onChange={(e) => updateDraftStyle('front', 'fontSize', parseFloat(e.target.value))}
-                                    className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900"
-                                  />
+                            {result.settings.designType === 'ticket' ? (
+                              <div className="space-y-5">
+                                <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                                  <h4 className="font-medium text-stone-900">{language === 'zh' ? '票根正面设计' : 'Ticket front design'}</h4>
+                                  <span className="text-xs text-stone-500">{language === 'zh' ? '调整后自动预览' : 'Live preview'}</span>
                                 </div>
+
                                 <div>
-                                  <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.color}</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={result.draftFrontStyle.color}
-                                      onChange={(e) => updateDraftStyle('front', 'color', e.target.value)}
-                                      className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={result.draftFrontStyle.color}
-                                      onChange={(e) => updateDraftStyle('front', 'color', e.target.value)}
-                                      className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900"
-                                    />
+                                  <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '票根模板' : 'Ticket template'}</label>
+                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                    {([
+                                      ['classic', language === 'zh' ? '经典' : 'Classic'],
+                                      ['travel', language === 'zh' ? '旅行' : 'Travel'],
+                                      ['train', language === 'zh' ? '车票' : 'Train'],
+                                      ['cinema', language === 'zh' ? '电影' : 'Cinema'],
+                                      ['event', language === 'zh' ? '活动' : 'Event'],
+                                    ] as const).map(([id, label]) => (
+                                      <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => updateTicketDraftConfig('template', id)}
+                                        className={cn(
+                                          'h-10 rounded-lg border px-2 text-sm font-medium transition-colors',
+                                          result.settings.ticketConfig.template === id
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+                                            : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                        )}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
                                   </div>
                                 </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <div>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '图片区' : 'Image area'}</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {([
+                                        ['large', language === 'zh' ? '大图' : 'Large'],
+                                        ['medium', language === 'zh' ? '图文' : 'Split'],
+                                        ['background', language === 'zh' ? '背景图' : 'Background'],
+                                      ] as const).map(([id, label]) => (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          onClick={() => updateTicketDraftConfig('imageArea', id)}
+                                          className={cn(
+                                            'h-9 rounded-lg border px-2 text-xs font-medium transition-colors',
+                                            result.settings.ticketConfig.imageArea === id
+                                              ? 'border-stone-900 bg-stone-900 text-white'
+                                              : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                          )}
+                                        >
+                                          {label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '票根方向' : 'Stub position'}</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {([
+                                        ['left', language === 'zh' ? '左票根' : 'Left'],
+                                        ['right', language === 'zh' ? '右票根' : 'Right'],
+                                      ] as const).map(([id, label]) => (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          onClick={() => updateTicketDraftConfig('stubPosition', id)}
+                                          className={cn(
+                                            'h-9 rounded-lg border px-2 text-xs font-medium transition-colors',
+                                            result.settings.ticketConfig.stubPosition === id
+                                              ? 'border-stone-900 bg-stone-900 text-white'
+                                              : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                          )}
+                                        >
+                                          {label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '配色' : 'Color'}</label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {([
+                                      ['auto', '#6d5dfc', language === 'zh' ? '随模板' : 'Auto'],
+                                      ['blue', '#1f6f9f', language === 'zh' ? '海蓝' : 'Blue'],
+                                      ['red', '#b83a2f', language === 'zh' ? '砖红' : 'Red'],
+                                      ['forest', '#3f7457', language === 'zh' ? '森林' : 'Forest'],
+                                      ['mono', '#292524', language === 'zh' ? '黑白' : 'Mono'],
+                                    ] as const).map(([id, swatch, label]) => (
+                                      <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => updateTicketDraftConfig('colorStyle', id)}
+                                        className={cn(
+                                          'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors',
+                                          result.settings.ticketConfig.colorStyle === id
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+                                            : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                        )}
+                                      >
+                                        <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: swatch }} />
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <div>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '标题对齐' : 'Title align'}</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {([
+                                        ['left', language === 'zh' ? '左' : 'Left'],
+                                        ['center', language === 'zh' ? '中' : 'Center'],
+                                        ['right', language === 'zh' ? '右' : 'Right'],
+                                      ] as const).map(([id, label]) => (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          onClick={() => updateTicketDraftConfig('titleAlign', id)}
+                                          className={cn(
+                                            'h-9 rounded-lg border text-xs font-medium transition-colors',
+                                            (result.settings.ticketConfig.titleAlign || 'left') === id
+                                              ? 'border-stone-900 bg-stone-900 text-white'
+                                              : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                          )}
+                                        >
+                                          {label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '信息位置' : 'Text position'}</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {([
+                                        ['top', language === 'zh' ? '上' : 'Top'],
+                                        ['center', language === 'zh' ? '中' : 'Middle'],
+                                        ['bottom', language === 'zh' ? '下' : 'Bottom'],
+                                      ] as const).map(([id, label]) => (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          onClick={() => updateTicketDraftConfig('textPlacement', id)}
+                                          className={cn(
+                                            'h-9 rounded-lg border text-xs font-medium transition-colors',
+                                            result.settings.ticketConfig.textPlacement === id
+                                              ? 'border-stone-900 bg-stone-900 text-white'
+                                              : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                          )}
+                                        >
+                                          {label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-2 flex items-center justify-between">
+                                      <span>{language === 'zh' ? '标题大小' : 'Title size'}</span>
+                                      <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.titleScale ?? 1) * 100)}%</span>
+                                    </span>
+                                    <input
+                                      type="range"
+                                      min="70"
+                                      max="140"
+                                      value={(result.settings.ticketConfig.titleScale ?? 1) * 100}
+                                      onChange={(e) => updateTicketDraftConfig('titleScale', Number(e.target.value) / 100)}
+                                      className="w-full accent-stone-900"
+                                    />
+                                  </label>
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-2 flex items-center justify-between">
+                                      <span>{language === 'zh' ? '信息区透明度' : 'Panel opacity'}</span>
+                                      <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelOpacity ?? 0.9) * 100)}%</span>
+                                    </span>
+                                    <input
+                                      type="range"
+                                      min="45"
+                                      max="100"
+                                      value={(result.settings.ticketConfig.panelOpacity ?? 0.9) * 100}
+                                      onChange={(e) => updateTicketDraftConfig('panelOpacity', Number(e.target.value) / 100)}
+                                      className="w-full accent-stone-900"
+                                    />
+                                  </label>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTicketDraftConfig('showPerforation', !result.settings.ticketConfig.showPerforation)}
+                                    className={cn(
+                                      'h-9 rounded-lg border px-3 text-xs font-medium transition-colors',
+                                      result.settings.ticketConfig.showPerforation ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700'
+                                    )}
+                                  >
+                                    {language === 'zh' ? '撕边' : 'Perforation'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTicketDraftConfig('showBarcode', !result.settings.ticketConfig.showBarcode)}
+                                    className={cn(
+                                      'h-9 rounded-lg border px-3 text-xs font-medium transition-colors',
+                                      result.settings.ticketConfig.showBarcode ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700'
+                                    )}
+                                  >
+                                    {language === 'zh' ? '条形码' : 'Barcode'}
+                                  </button>
+                                </div>
                               </div>
-                              
-                              <div>
-                                <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.position}</label>
-                                <select
-                                  value={result.draftFrontStyle.position}
-                                  onChange={(e) => updateFrontPositionPreset(e.target.value)}
-                                  className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-white"
-                                >
-                                  <option value="bottom-left">Bottom Left</option>
-                                  <option value="bottom-right">Bottom Right</option>
-                                  <option value="top-left">Top Left</option>
-                                  <option value="top-right">Top Right</option>
-                                  <option value="center">Center</option>
-                                  <option value="custom">Custom</option>
-                                </select>
+                            ) : (
+                              <div className="space-y-4">
+                                <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.front} {t.style}</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.fontSize} (%)</label>
+                                    <input type="number" min="2" max="20" step="0.5" value={result.draftFrontStyle.fontSize} onChange={(e) => updateDraftStyle('front', 'fontSize', parseFloat(e.target.value))} className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.color}</label>
+                                    <div className="flex items-center gap-2">
+                                      <input type="color" value={result.draftFrontStyle.color} onChange={(e) => updateDraftStyle('front', 'color', e.target.value)} className="w-10 h-10 rounded cursor-pointer border-0 p-0" />
+                                      <input type="text" value={result.draftFrontStyle.color} onChange={(e) => updateDraftStyle('front', 'color', e.target.value)} className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900" />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.position}</label>
+                                  <select value={result.draftFrontStyle.position} onChange={(e) => updateFrontPositionPreset(e.target.value)} className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-white">
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                    <option value="top-left">Top Left</option>
+                                    <option value="top-right">Top Right</option>
+                                    <option value="center">Center</option>
+                                    <option value="custom">Custom</option>
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-1.5 flex items-center justify-between"><span>{language === 'zh' ? '水平位置' : 'Horizontal'}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).x)}%</span></span>
+                                    <input type="range" min="5" max="95" value={getFrontTextPosition(result.draftFrontStyle).x} onChange={(e) => updateFrontTextPosition('xPct', Number(e.target.value))} className="w-full accent-stone-900" />
+                                  </label>
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-1.5 flex items-center justify-between"><span>{language === 'zh' ? '垂直位置' : 'Vertical'}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).y)}%</span></span>
+                                    <input type="range" min="8" max="92" value={getFrontTextPosition(result.draftFrontStyle).y} onChange={(e) => updateFrontTextPosition('yPct', Number(e.target.value))} className="w-full accent-stone-900" />
+                                  </label>
+                                </div>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <label className="block text-sm font-medium text-stone-700">
-                                  <span className="mb-1.5 flex items-center justify-between">
-                                    <span>{language === 'zh' ? '水平位置' : 'Horizontal'}</span>
-                                    <span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).x)}%</span>
-                                  </span>
-                                  <input
-                                    type="range"
-                                    min="5"
-                                    max="95"
-                                    value={getFrontTextPosition(result.draftFrontStyle).x}
-                                    onChange={(e) => updateFrontTextPosition('xPct', Number(e.target.value))}
-                                    className="w-full accent-stone-900"
-                                  />
-                                </label>
-                                <label className="block text-sm font-medium text-stone-700">
-                                  <span className="mb-1.5 flex items-center justify-between">
-                                    <span>{language === 'zh' ? '垂直位置' : 'Vertical'}</span>
-                                    <span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).y)}%</span>
-                                  </span>
-                                  <input
-                                    type="range"
-                                    min="8"
-                                    max="92"
-                                    value={getFrontTextPosition(result.draftFrontStyle).y}
-                                    onChange={(e) => updateFrontTextPosition('yPct', Number(e.target.value))}
-                                    className="w-full accent-stone-900"
-                                  />
-                                </label>
-                              </div>
-                            </div>
+                            )}
 
                             <div className="space-y-4">
                               <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.backSide} {t.style}</h4>

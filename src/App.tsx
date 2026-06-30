@@ -112,6 +112,10 @@ export type SettingsType = {
     designMode?: 'template' | 'ai';
     colorStyle?: 'auto' | 'blue' | 'red' | 'forest' | 'mono';
     textPlacement?: 'top' | 'bottom' | 'center';
+    titleAlign?: 'left' | 'center' | 'right';
+    titleScale?: number;
+    panelOpacity?: number;
+    titleColor?: 'ink' | 'accent' | 'white';
     subtitle?: string;
     note?: string;
     aiTitle?: boolean;
@@ -336,6 +340,10 @@ export const defaultSettings: SettingsType = { // Exported
     designMode: 'template',
     colorStyle: 'auto',
     textPlacement: 'bottom',
+    titleAlign: 'left',
+    titleScale: 1,
+    panelOpacity: 0.9,
+    titleColor: 'ink',
     subtitle: '',
     note: '',
     aiTitle: true,
