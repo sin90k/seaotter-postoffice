@@ -184,8 +184,8 @@ const translations: Record<string, any> = {
     encrypted: 'エンドツーエンド暗号化',
     processingStep: 'ステップ {step} / {total}',
     free: '無料会員',
-    pro: 'Pro 会员',
-    supreme: 'Super 会员',
+    pro: 'Pro会員',
+    supreme: 'Super会員',
     historyTitle: '処理履歴とストレージ',
     historyDesc: '生成されたポストカードは安全に保存されます。現在の {level} メンバーシップに基づいて、ファイルは次の期間保持されます：',
     startOver: '最初からやり直す',
@@ -242,6 +242,36 @@ const translations: Record<string, any> = {
   }
 };
 
+const processingTranslations: Record<string, Record<string, string>> = {
+  en: {
+    queued: 'Queued', preparing: 'Reading photo', analyzing: 'Analyzing scene', designing: 'Designing', complete: 'Complete', fallback: 'Fallback complete', failed: 'Retry needed',
+    finished: 'finished', shortTip: 'Reading capture time, location, and composition.', mediumTip: 'Identifying the subject and checking reliable location data.', longTip: 'Complex scenes can take longer. The system will retry or finish from photo metadata.',
+    readPhotos: 'Read photos', identifyPlace: 'Identify place and scene', writeCopy: 'Write title and copy', composeCard: 'Compose postcard', queue: 'Processing queue', permanent: 'Permanent', days: 'Days',
+  },
+  zh: {
+    queued: '等待中', preparing: '读取照片', analyzing: '识别场景', designing: '排版中', complete: '已完成', fallback: '已降级完成', failed: '需重试',
+    finished: '张完成', shortTip: '正在读取拍摄时间、地点与画面构图。', mediumTip: '正在识别画面主题，并核对可信地点。', longTip: '复杂画面可能需要更久，超时后系统会自动重试或使用照片信息完成。',
+    readPhotos: '读取照片', identifyPlace: '识别地点与场景', writeCopy: '生成标题与文案', composeCard: '排版明信片', queue: '处理队列', permanent: '永久', days: '天',
+  },
+  ja: {
+    queued: '待機中', preparing: '写真を読み込み中', analyzing: 'シーンを解析中', designing: 'レイアウト中', complete: '完了', fallback: '代替処理で完了', failed: '再試行が必要',
+    finished: '枚完了', shortTip: '撮影日時、場所、構図を読み取っています。', mediumTip: '写真の主題を認識し、信頼できる位置情報を確認しています。', longTip: '複雑な写真は時間がかかる場合があります。タイムアウト時は自動再試行または写真情報から処理します。',
+    readPhotos: '写真を読み込む', identifyPlace: '場所とシーンを識別', writeCopy: 'タイトルと文章を生成', composeCard: 'ポストカードをレイアウト', queue: '処理キュー', permanent: '無期限', days: '日',
+  },
+  ko: {
+    queued: '대기 중', preparing: '사진 읽는 중', analyzing: '장면 분석 중', designing: '레이아웃 중', complete: '완료', fallback: '대체 처리 완료', failed: '재시도 필요',
+    finished: '장 완료', shortTip: '촬영 시간, 위치, 구도를 읽고 있습니다.', mediumTip: '사진의 주제를 식별하고 신뢰할 수 있는 위치를 확인하고 있습니다.', longTip: '복잡한 사진은 시간이 더 걸릴 수 있습니다. 시간 초과 시 자동으로 재시도하거나 사진 정보로 완료합니다.',
+    readPhotos: '사진 읽기', identifyPlace: '장소와 장면 식별', writeCopy: '제목과 문구 생성', composeCard: '엽서 레이아웃', queue: '처리 대기열', permanent: '영구', days: '일',
+  },
+};
+
+const ticketTranslations: Record<string, Record<string, string>> = {
+  en: { frontDesign: 'Ticket front design', livePreview: 'Live preview', template: 'Ticket template', classic: 'Classic', travel: 'Travel', train: 'Train', cinema: 'Cinema', event: 'Event', imageArea: 'Image area', large: 'Large', split: 'Split', background: 'Background', stubPosition: 'Stub position', leftStub: 'Left', rightStub: 'Right', color: 'Color', auto: 'Auto', blue: 'Blue', red: 'Red', forest: 'Forest', mono: 'Mono', titleAlign: 'Title align', left: 'Left', center: 'Center', right: 'Right', textPosition: 'Text position', top: 'Top', middle: 'Middle', bottom: 'Bottom', titleSize: 'Title size', stubWidth: 'Stub width', stubOpacity: 'Stub opacity', panelDisplay: 'Information panel', show: 'Show', hide: 'Hide', panelPadding: 'Text padding', panelOpacity: 'Panel opacity', perforation: 'Perforation', barcode: 'Barcode' },
+  zh: { frontDesign: '票根正面设计', livePreview: '调整后自动预览', template: '票根模板', classic: '经典', travel: '旅行', train: '车票', cinema: '电影', event: '活动', imageArea: '图片区', large: '大图', split: '图文', background: '背景图', stubPosition: '票根方向', leftStub: '左票根', rightStub: '右票根', color: '配色', auto: '随模板', blue: '海蓝', red: '砖红', forest: '森林', mono: '黑白', titleAlign: '标题对齐', left: '左', center: '中', right: '右', textPosition: '信息位置', top: '上', middle: '中', bottom: '下', titleSize: '标题大小', stubWidth: '票根宽度', stubOpacity: '票根色块透明度', panelDisplay: '信息框', show: '显示', hide: '隐藏', panelPadding: '文字留白', panelOpacity: '信息框透明度', perforation: '撕边', barcode: '条形码' },
+  ja: { frontDesign: 'チケット表面デザイン', livePreview: '変更を自動プレビュー', template: 'チケットテンプレート', classic: 'クラシック', travel: '旅行', train: '乗車券', cinema: '映画', event: 'イベント', imageArea: '写真エリア', large: '大きく', split: '写真＋文字', background: '背景写真', stubPosition: '半券の位置', leftStub: '左', rightStub: '右', color: '配色', auto: 'テンプレート準拠', blue: '海色', red: '赤茶', forest: '森', mono: '白黒', titleAlign: 'タイトル配置', left: '左', center: '中央', right: '右', textPosition: '文字位置', top: '上', middle: '中央', bottom: '下', titleSize: 'タイトルサイズ', stubWidth: '半券の幅', stubOpacity: '半券の不透明度', panelDisplay: '情報パネル', show: '表示', hide: '非表示', panelPadding: '文字の余白', panelOpacity: 'パネルの不透明度', perforation: 'ミシン目', barcode: 'バーコード' },
+  ko: { frontDesign: '티켓 앞면 디자인', livePreview: '변경 사항 자동 미리보기', template: '티켓 템플릿', classic: '클래식', travel: '여행', train: '승차권', cinema: '영화', event: '이벤트', imageArea: '사진 영역', large: '큰 사진', split: '사진+텍스트', background: '배경 사진', stubPosition: '티켓 조각 위치', leftStub: '왼쪽', rightStub: '오른쪽', color: '색상', auto: '템플릿', blue: '바다', red: '적갈색', forest: '숲', mono: '흑백', titleAlign: '제목 정렬', left: '왼쪽', center: '가운데', right: '오른쪽', textPosition: '텍스트 위치', top: '위', middle: '가운데', bottom: '아래', titleSize: '제목 크기', stubWidth: '티켓 조각 너비', stubOpacity: '티켓 조각 불투명도', panelDisplay: '정보 패널', show: '표시', hide: '숨기기', panelPadding: '텍스트 여백', panelOpacity: '패널 불투명도', perforation: '절취선', barcode: '바코드' },
+};
+
 export default function Step5Process({ 
   photos, 
   setPhotos, 
@@ -259,6 +289,8 @@ export default function Step5Process({
   onFeedback
 }: Props) {
   const t = translations[language] || translations.en;
+  const processingCopy = processingTranslations[language] || processingTranslations.en;
+  const ticketCopy = ticketTranslations[language] || ticketTranslations.en;
   const hasPersonalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled === true;
   const resolveBrandingMode = (settings: SettingsType): BrandingMode => {
     const requested = settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site');
@@ -2051,6 +2083,7 @@ export default function Step5Process({
     const cw = canvas.width;
     const ch = canvas.height;
     const cfg = safeSettings.ticketConfig;
+    const showInfoPanel = cfg.showInfoPanel !== false;
     const stubWidthRatio = Math.min(0.28, Math.max(0.16, cfg.stubWidth ?? 0.2));
     const stubWidth = cw * stubWidthRatio;
     const stubX = cfg.stubPosition === 'left' ? 0 : cw - stubWidth;
@@ -2139,7 +2172,7 @@ export default function Step5Process({
           }
         : { x: mainX, y: imageHeight, w: mainWidth, h: ch - imageHeight };
 
-    if (imageArea === 'background') {
+    if (imageArea === 'background' && showInfoPanel) {
       ctx.save();
       ctx.shadowColor = 'rgba(28,25,23,0.14)';
       ctx.shadowBlur = Math.max(12, cw * 0.01);
@@ -2241,12 +2274,19 @@ export default function Step5Process({
       ? titleY + metaGap + metaFontSize
       : infoPanel.y + infoPanel.h * 0.84;
     const textMaxWidth = imageArea === 'background' ? infoPanel.w - panelPaddingX * 2 : infoPanel.w * 0.86;
+    if (imageArea === 'background' && !showInfoPanel) {
+      ctx.shadowColor = 'rgba(0,0,0,0.82)';
+      ctx.shadowBlur = Math.max(8, cw * 0.006);
+      ctx.shadowOffsetY = Math.max(2, ch * 0.002);
+    }
     ctx.textAlign = titleAlign;
-    ctx.fillStyle = palette.accent;
+    ctx.fillStyle = imageArea === 'background' && !showInfoPanel ? '#ffffff' : palette.accent;
     ctx.font = `700 ${imageArea === 'background' ? eyebrowFontSize : Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
     ctx.letterSpacing = '0px';
     ctx.fillText(ticketEyebrow, infoX, eyebrowY);
-    ctx.fillStyle = cfg.titleColor === 'accent' ? palette.accent : cfg.titleColor === 'white' ? '#ffffff' : palette.ink;
+    ctx.fillStyle = imageArea === 'background' && !showInfoPanel
+      ? '#ffffff'
+      : cfg.titleColor === 'accent' ? palette.accent : cfg.titleColor === 'white' ? '#ffffff' : palette.ink;
     const requestedTitleSize = imageArea === 'background'
       ? preferredTitleFontSize
       : Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale;
@@ -2260,6 +2300,9 @@ export default function Step5Process({
       ctx.fillText(ticketMeta.slice(0, 64), infoX, metaY);
       ctx.globalAlpha = 1;
     }
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
     ctx.save();
     ctx.strokeStyle = cfg.template === 'cinema'
@@ -3612,8 +3655,8 @@ export default function Step5Process({
   };
 
   const getRetentionText = () => {
-    if (user.level === 'vip') return vipRetentionDays === 0 ? 'Permanent' : `${vipRetentionDays} Days`;
-    return `${freeRetentionDays} Days`;
+    if (user.level === 'vip') return vipRetentionDays === 0 ? processingCopy.permanent : `${vipRetentionDays} ${processingCopy.days}`;
+    return `${freeRetentionDays} ${processingCopy.days}`;
   };
 
   const getBackMode = (settings: SettingsType) =>
@@ -4150,15 +4193,21 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
   if (isProcessing) {
     const finishedCount = processingItems.filter(item => ['complete', 'fallback', 'failed'].includes(item.status)).length;
     const activeItem = processingItems.find(item => ['preparing', 'analyzing', 'designing'].includes(item.status));
-    const statusLabels: Record<ProcessingItemStatus, string> = language === 'zh'
-      ? { queued: '等待中', preparing: '读取照片', analyzing: '识别场景', designing: '排版中', complete: '已完成', fallback: '已降级完成', failed: '需重试' }
-      : { queued: 'Queued', preparing: 'Reading photo', analyzing: 'Analyzing scene', designing: 'Designing', complete: 'Complete', fallback: 'Fallback complete', failed: 'Retry needed' };
+    const statusLabels: Record<ProcessingItemStatus, string> = {
+      queued: processingCopy.queued,
+      preparing: processingCopy.preparing,
+      analyzing: processingCopy.analyzing,
+      designing: processingCopy.designing,
+      complete: processingCopy.complete,
+      fallback: processingCopy.fallback,
+      failed: processingCopy.failed,
+    };
     const elapsedText = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:${String(elapsedSeconds % 60).padStart(2, '0')}`;
     const waitingTip = elapsedSeconds < 15
-      ? (language === 'zh' ? '正在读取拍摄时间、地点与画面构图。' : 'Reading capture time, location, and composition.')
+      ? processingCopy.shortTip
       : elapsedSeconds < 45
-        ? (language === 'zh' ? '正在识别画面主题，并核对可信地点。' : 'Identifying the subject and checking reliable location data.')
-        : (language === 'zh' ? '复杂画面可能需要更久，超时后系统会自动重试或使用照片信息完成。' : 'Complex scenes can take longer. The system will retry or finish from photo metadata.');
+        ? processingCopy.mediumTip
+        : processingCopy.longTip;
 
     return (
       <div className="mx-auto flex h-full w-full max-w-5xl items-center px-4 py-8 sm:px-6">
@@ -4174,7 +4223,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                   <span className="absolute inset-0 flex items-center justify-center text-xl font-semibold text-stone-900">{progress}%</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-medium text-stone-500">{finishedCount}/{processingItems.length} {language === 'zh' ? '张完成' : 'finished'}</p>
+                  <p className="mb-1 text-xs font-medium text-stone-500">{finishedCount}/{processingItems.length} {processingCopy.finished}</p>
                   <h2 className="text-xl font-semibold text-stone-900">{activeItem ? statusLabels[activeItem.status] : t.processing}</h2>
                   <p className="mt-1 truncate text-sm text-stone-500">{activeItem?.name || t.wait}</p>
                 </div>
@@ -4182,10 +4231,10 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
               <div className="space-y-4 border-y border-stone-100 py-5">
                 {[
-                  { icon: ImageIcon, label: language === 'zh' ? '读取照片' : 'Read photos', threshold: 5 },
-                  { icon: MapPinned, label: language === 'zh' ? '识别地点与场景' : 'Identify place and scene', threshold: 25 },
-                  { icon: PenLine, label: language === 'zh' ? '生成标题与文案' : 'Write title and copy', threshold: 55 },
-                  { icon: Layers3, label: language === 'zh' ? '排版明信片' : 'Compose postcard', threshold: 80 },
+                  { icon: ImageIcon, label: processingCopy.readPhotos, threshold: 5 },
+                  { icon: MapPinned, label: processingCopy.identifyPlace, threshold: 25 },
+                  { icon: PenLine, label: processingCopy.writeCopy, threshold: 55 },
+                  { icon: Layers3, label: processingCopy.composeCard, threshold: 80 },
                 ].map(({ icon: Icon, label, threshold }) => {
                   const done = progress >= threshold;
                   return (
@@ -4211,7 +4260,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
           <section className="p-6 text-left lg:p-8">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-stone-900">{language === 'zh' ? '处理队列' : 'Processing queue'}</h3>
+              <h3 className="text-sm font-semibold text-stone-900">{processingCopy.queue}</h3>
               <span className="text-xs text-stone-400">{t.retention}: {getRetentionText()}</span>
             </div>
             <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
@@ -4636,19 +4685,19 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             {result.settings.designType === 'ticket' ? (
                               <div className="space-y-5">
                                 <div className="flex items-center justify-between border-b border-stone-100 pb-2">
-                                  <h4 className="font-medium text-stone-900">{language === 'zh' ? '票根正面设计' : 'Ticket front design'}</h4>
-                                  <span className="text-xs text-stone-500">{language === 'zh' ? '调整后自动预览' : 'Live preview'}</span>
+                                  <h4 className="font-medium text-stone-900">{ticketCopy.frontDesign}</h4>
+                                  <span className="text-xs text-stone-500">{ticketCopy.livePreview}</span>
                                 </div>
 
                                 <div>
-                                  <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '票根模板' : 'Ticket template'}</label>
+                                  <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.template}</label>
                                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                                     {([
-                                      ['classic', language === 'zh' ? '经典' : 'Classic'],
-                                      ['travel', language === 'zh' ? '旅行' : 'Travel'],
-                                      ['train', language === 'zh' ? '车票' : 'Train'],
-                                      ['cinema', language === 'zh' ? '电影' : 'Cinema'],
-                                      ['event', language === 'zh' ? '活动' : 'Event'],
+                                      ['classic', ticketCopy.classic],
+                                      ['travel', ticketCopy.travel],
+                                      ['train', ticketCopy.train],
+                                      ['cinema', ticketCopy.cinema],
+                                      ['event', ticketCopy.event],
                                     ] as const).map(([id, label]) => (
                                       <button
                                         key={id}
@@ -4669,12 +4718,12 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
                                 <div className="grid gap-4 sm:grid-cols-3">
                                   <div>
-                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '图片区' : 'Image area'}</label>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.imageArea}</label>
                                     <div className="grid grid-cols-3 gap-2">
                                       {([
-                                        ['large', language === 'zh' ? '大图' : 'Large'],
-                                        ['medium', language === 'zh' ? '图文' : 'Split'],
-                                        ['background', language === 'zh' ? '背景图' : 'Background'],
+                                        ['large', ticketCopy.large],
+                                        ['medium', ticketCopy.split],
+                                        ['background', ticketCopy.background],
                                       ] as const).map(([id, label]) => (
                                         <button
                                           key={id}
@@ -4693,11 +4742,11 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '票根方向' : 'Stub position'}</label>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.stubPosition}</label>
                                     <div className="grid grid-cols-2 gap-2">
                                       {([
-                                        ['left', language === 'zh' ? '左票根' : 'Left'],
-                                        ['right', language === 'zh' ? '右票根' : 'Right'],
+                                        ['left', ticketCopy.leftStub],
+                                        ['right', ticketCopy.rightStub],
                                       ] as const).map(([id, label]) => (
                                         <button
                                           key={id}
@@ -4718,14 +4767,14 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 </div>
 
                                 <div>
-                                  <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '配色' : 'Color'}</label>
+                                  <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.color}</label>
                                   <div className="flex flex-wrap gap-2">
                                     {([
-                                      ['auto', '#6d5dfc', language === 'zh' ? '随模板' : 'Auto'],
-                                      ['blue', '#1f6f9f', language === 'zh' ? '海蓝' : 'Blue'],
-                                      ['red', '#b83a2f', language === 'zh' ? '砖红' : 'Red'],
-                                      ['forest', '#3f7457', language === 'zh' ? '森林' : 'Forest'],
-                                      ['mono', '#292524', language === 'zh' ? '黑白' : 'Mono'],
+                                      ['auto', '#6d5dfc', ticketCopy.auto],
+                                      ['blue', '#1f6f9f', ticketCopy.blue],
+                                      ['red', '#b83a2f', ticketCopy.red],
+                                      ['forest', '#3f7457', ticketCopy.forest],
+                                      ['mono', '#292524', ticketCopy.mono],
                                     ] as const).map(([id, swatch, label]) => (
                                       <button
                                         key={id}
@@ -4747,12 +4796,12 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <div>
-                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '标题对齐' : 'Title align'}</label>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.titleAlign}</label>
                                     <div className="grid grid-cols-3 gap-2">
                                       {([
-                                        ['left', language === 'zh' ? '左' : 'Left'],
-                                        ['center', language === 'zh' ? '中' : 'Center'],
-                                        ['right', language === 'zh' ? '右' : 'Right'],
+                                        ['left', ticketCopy.left],
+                                        ['center', ticketCopy.center],
+                                        ['right', ticketCopy.right],
                                       ] as const).map(([id, label]) => (
                                         <button
                                           key={id}
@@ -4771,12 +4820,12 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="mb-2 block text-sm font-medium text-stone-700">{language === 'zh' ? '信息位置' : 'Text position'}</label>
+                                    <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.textPosition}</label>
                                     <div className="grid grid-cols-3 gap-2">
                                       {([
-                                        ['top', language === 'zh' ? '上' : 'Top'],
-                                        ['center', language === 'zh' ? '中' : 'Middle'],
-                                        ['bottom', language === 'zh' ? '下' : 'Bottom'],
+                                        ['top', ticketCopy.top],
+                                        ['center', ticketCopy.middle],
+                                        ['bottom', ticketCopy.bottom],
                                       ] as const).map(([id, label]) => (
                                         <button
                                           key={id}
@@ -4799,7 +4848,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <label className="block text-sm font-medium text-stone-700">
                                     <span className="mb-2 flex items-center justify-between">
-                                      <span>{language === 'zh' ? '标题大小' : 'Title size'}</span>
+                                      <span>{ticketCopy.titleSize}</span>
                                       <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.titleScale ?? 1) * 100)}%</span>
                                     </span>
                                     <input
@@ -4813,7 +4862,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   </label>
                                   <label className="block text-sm font-medium text-stone-700">
                                     <span className="mb-2 flex items-center justify-between">
-                                      <span>{language === 'zh' ? '票根宽度' : 'Stub width'}</span>
+                                      <span>{ticketCopy.stubWidth}</span>
                                       <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.stubWidth ?? 0.2) * 100)}%</span>
                                     </span>
                                     <input
@@ -4827,7 +4876,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   </label>
                                   <label className="block text-sm font-medium text-stone-700">
                                     <span className="mb-2 flex items-center justify-between">
-                                      <span>{language === 'zh' ? '票根色块透明度' : 'Stub opacity'}</span>
+                                      <span>{ticketCopy.stubOpacity}</span>
                                       <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.stubOpacity ?? 0.92) * 100)}%</span>
                                     </span>
                                     <input
@@ -4842,10 +4891,34 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 </div>
 
                                 {result.settings.ticketConfig.imageArea === 'background' && (
-                                  <div className="grid gap-4 sm:grid-cols-2">
+                                  <div className="space-y-4">
+                                    <div>
+                                      <span className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.panelDisplay}</span>
+                                      <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
+                                        {([
+                                          [true, ticketCopy.show],
+                                          [false, ticketCopy.hide],
+                                        ] as const).map(([value, label]) => (
+                                          <button
+                                            key={String(value)}
+                                            type="button"
+                                            onClick={() => updateTicketDraftConfig('showInfoPanel', value)}
+                                            className={cn(
+                                              'h-9 rounded-lg border text-xs font-medium transition-colors',
+                                              (result.settings.ticketConfig.showInfoPanel !== false) === value
+                                                ? 'border-stone-900 bg-stone-900 text-white'
+                                                : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+                                            )}
+                                          >
+                                            {label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="grid gap-4 sm:grid-cols-2">
                                     <label className="block text-sm font-medium text-stone-700">
                                       <span className="mb-2 flex items-center justify-between">
-                                        <span>{language === 'zh' ? '信息框留白' : 'Panel padding'}</span>
+                                        <span>{ticketCopy.panelPadding}</span>
                                         <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelScale ?? 0.75) * 100)}%</span>
                                       </span>
                                       <input
@@ -4857,9 +4930,9 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                         className="w-full accent-stone-900"
                                       />
                                     </label>
-                                    <label className="block text-sm font-medium text-stone-700">
+                                    {result.settings.ticketConfig.showInfoPanel !== false && <label className="block text-sm font-medium text-stone-700">
                                       <span className="mb-2 flex items-center justify-between">
-                                        <span>{language === 'zh' ? '白色信息框透明度' : 'Information panel opacity'}</span>
+                                        <span>{ticketCopy.panelOpacity}</span>
                                         <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelOpacity ?? 0.9) * 100)}%</span>
                                       </span>
                                       <input
@@ -4870,7 +4943,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                         onChange={(e) => updateTicketDraftConfig('panelOpacity', Number(e.target.value) / 100)}
                                         className="w-full accent-stone-900"
                                       />
-                                    </label>
+                                    </label>}
+                                    </div>
                                   </div>
                                 )}
 
@@ -4883,7 +4957,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       result.settings.ticketConfig.showPerforation ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700'
                                     )}
                                   >
-                                    {language === 'zh' ? '撕边' : 'Perforation'}
+                                    {ticketCopy.perforation}
                                   </button>
                                   <button
                                     type="button"
@@ -4893,7 +4967,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       result.settings.ticketConfig.showBarcode ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700'
                                     )}
                                   >
-                                    {language === 'zh' ? '条形码' : 'Barcode'}
+                                    {ticketCopy.barcode}
                                   </button>
                                 </div>
                               </div>

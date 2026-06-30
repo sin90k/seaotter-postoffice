@@ -26,6 +26,7 @@ const translations: Record<string, any> = {
     added: 'Added Photos',
     clearAll: 'Clear All',
     continue: 'Continue',
+    or: 'or',
     uploadFolder: 'Upload Folder',
     parseError: 'Could not read the selected files. Please check format and try again.',
     feedbackHint: 'Feedback & help',
@@ -39,6 +40,7 @@ const translations: Record<string, any> = {
     added: '已添加照片',
     clearAll: '一键清除',
     continue: '继续',
+    or: '或',
     uploadFolder: '上传文件夹',
     parseError: '无法解析所选文件，请确认格式后重试。',
     feedbackHint: '意见与帮助',
@@ -52,7 +54,10 @@ const translations: Record<string, any> = {
     added: '追加された写真',
     clearAll: 'すべて削除',
     continue: '次へ',
+    or: 'または',
+    uploadFolder: 'フォルダをアップロード',
     parseError: '選択したファイルを読み込めませんでした。形式を確認して再試行してください。',
+    feedbackHint: 'ご意見・ヘルプ',
   },
   ko: {
     title: '사진 업로드',
@@ -63,6 +68,7 @@ const translations: Record<string, any> = {
     added: '추가된 사진',
     clearAll: '모두 지우기',
     continue: '계속하기',
+    or: '또는',
     parseError: '선택한 파일을 읽을 수 없습니다. 형식을 확인한 후 다시 시도해 주세요.',
     feedbackHint: '피드백 및 도움말',
   },
@@ -351,7 +357,7 @@ export default function Step1Upload({ photos, setPhotos, onNext, language, onFee
           
           <div className="mt-4 flex items-center gap-4">
             <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
-            <span className="text-xs text-stone-400 uppercase tracking-widest font-medium">or</span>
+            <span className="text-xs text-stone-400 font-medium">{t.or}</span>
             <div className="h-px flex-1 max-w-16 bg-stone-200"></div>
           </div>
 

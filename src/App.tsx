@@ -118,6 +118,7 @@ export type SettingsType = {
     stubOpacity?: number;
     panelScale?: number;
     panelOpacity?: number;
+    showInfoPanel?: boolean;
     titleColor?: 'ink' | 'accent' | 'white';
     subtitle?: string;
     note?: string;
@@ -349,6 +350,7 @@ export const defaultSettings: SettingsType = { // Exported
     stubOpacity: 0.92,
     panelScale: 0.75,
     panelOpacity: 0.9,
+    showInfoPanel: true,
     titleColor: 'ink',
     subtitle: '',
     note: '',
@@ -1163,6 +1165,21 @@ export default function App() {
   };
 
   const tHeader = translations[language] || translations.en;
+  const mapLabels: Record<string, { label: string; title: string }> = {
+    en: { label: 'Map', title: 'Travel Map' },
+    zh: { label: '地图', title: '旅行地图' },
+    ja: { label: '地図', title: '旅行マップ' },
+    ko: { label: '지도', title: '여행 지도' },
+    fr: { label: 'Carte', title: 'Carte de voyage' },
+    de: { label: 'Karte', title: 'Reisekarte' },
+    es: { label: 'Mapa', title: 'Mapa de viaje' },
+    it: { label: 'Mappa', title: 'Mappa di viaggio' },
+    th: { label: 'แผนที่', title: 'แผนที่การเดินทาง' },
+    vi: { label: 'Bản đồ', title: 'Bản đồ hành trình' },
+    id: { label: 'Peta', title: 'Peta perjalanan' },
+    ms: { label: 'Peta', title: 'Peta perjalanan' },
+  };
+  const mapLabel = mapLabels[language] || mapLabels.en;
 
   if (isAdmin) {
     return <AdminPanel onBack={() => setIsAdmin(false)} users={allUsers} currentUser={user} />;
@@ -1287,10 +1304,10 @@ export default function App() {
                   <button
                     onClick={() => setIsAdmin(true)}
                     className="hidden sm:inline-flex items-center gap-1 text-[10px] sm:text-xs xl:text-sm font-medium text-emerald-700 bg-emerald-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full hover:bg-emerald-100 transition-colors whitespace-nowrap"
-                    title="Admin Panel"
-                    aria-label="Admin Panel"
+                    title={tHeader.admin}
+                    aria-label={tHeader.admin}
                   >
-                    管理
+                    {tHeader.admin}
                   </button>
                 )}
                 <button
@@ -1304,12 +1321,12 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setShowTravelMap(true)}
-                  title={language === 'zh' ? '旅行地图' : 'Travel Map'}
-                  aria-label={language === 'zh' ? '旅行地图' : 'Travel Map'}
+                  title={mapLabel.title}
+                  aria-label={mapLabel.title}
                   className="flex items-center gap-1 text-[10px] sm:text-xs xl:text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors whitespace-nowrap"
                 >
                   <Globe2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">{language === 'zh' ? '地图' : 'Map'}</span>
+                  <span className="hidden sm:inline">{mapLabel.label}</span>
                 </button>
                 <button
                   onClick={() => setShowProfile(true)}
