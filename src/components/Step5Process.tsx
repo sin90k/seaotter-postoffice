@@ -2079,6 +2079,7 @@ export default function Step5Process({
     const imageHeight = imageArea === 'background' ? ch : imageArea === 'medium' ? ch : ch * 0.68;
     const imageX = imageArea === 'medium' && cfg.stubPosition === 'right' ? mainX + mainWidth - imageWidth : mainX;
     drawCoverImage(ctx, img, imageX, 0, imageWidth, imageHeight, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
+    drawCoverImage(ctx, img, stubX, 0, stubWidth, ch, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
 
     const infoPanel = imageArea === 'background'
       ? {
@@ -2113,8 +2114,11 @@ export default function Step5Process({
       ctx.fillRect(mainX, imageHeight, mainWidth, ch - imageHeight);
     }
 
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, Math.max(0.2, cfg.stubOpacity ?? 0.92));
     ctx.fillStyle = palette.accent;
     ctx.fillRect(stubX, 0, stubWidth, ch);
+    ctx.restore();
 
     if (ticketArtwork) {
       try {
@@ -4727,7 +4731,24 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   </label>
                                   <label className="block text-sm font-medium text-stone-700">
                                     <span className="mb-2 flex items-center justify-between">
-                                      <span>{language === 'zh' ? '信息区透明度' : 'Panel opacity'}</span>
+                                      <span>{language === 'zh' ? '票根色块透明度' : 'Stub opacity'}</span>
+                                      <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.stubOpacity ?? 0.92) * 100)}%</span>
+                                    </span>
+                                    <input
+                                      type="range"
+                                      min="20"
+                                      max="100"
+                                      value={(result.settings.ticketConfig.stubOpacity ?? 0.92) * 100}
+                                      onChange={(e) => updateTicketDraftConfig('stubOpacity', Number(e.target.value) / 100)}
+                                      className="w-full accent-stone-900"
+                                    />
+                                  </label>
+                                </div>
+
+                                {result.settings.ticketConfig.imageArea === 'background' && (
+                                  <label className="block text-sm font-medium text-stone-700">
+                                    <span className="mb-2 flex items-center justify-between">
+                                      <span>{language === 'zh' ? '白色信息框透明度' : 'Information panel opacity'}</span>
                                       <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelOpacity ?? 0.9) * 100)}%</span>
                                     </span>
                                     <input
@@ -4739,7 +4760,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       className="w-full accent-stone-900"
                                     />
                                   </label>
-                                </div>
+                                )}
 
                                 <div className="flex flex-wrap gap-2">
                                   <button
