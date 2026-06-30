@@ -2076,7 +2076,9 @@ export default function Step5Process({
     const displayLocation = location || cfg.location;
     const displayDate = date || cfg.date || '';
     const ticketMeta = [cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  ·  ');
+    const ticketEyebrow = cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'TRAVEL MEMORY';
     const titleAlign = cfg.titleAlign || 'left';
+    const titleScale = Math.min(1.4, Math.max(0.7, cfg.titleScale ?? 1));
 
     ctx.fillStyle = palette.paper;
     ctx.fillRect(0, 0, cw, ch);
@@ -2085,15 +2087,30 @@ export default function Step5Process({
     // Render one continuous crop so a translucent stub stays aligned with the main photo.
     drawCoverImage(ctx, img, 0, 0, cw, ch, safeSettings.filter, safeSettings.filterIntensity ?? 0.8);
 
-    const textUnits = (value: string) => Array.from(value).reduce(
-      (total, character) => total + (character.charCodeAt(0) <= 255 ? 0.56 : 1),
-      0
-    );
-    const panelScale = Math.min(1.4, Math.max(0.55, cfg.panelScale ?? 1));
-    const longestTextUnits = Math.max(textUnits(displayTitle), textUnits(ticketMeta));
-    const automaticPanelRatio = Math.min(0.62, Math.max(0.3, 0.26 + longestTextUnits * 0.016));
-    const backgroundPanelWidth = Math.min(mainWidth * 0.76, Math.max(mainWidth * 0.24, mainWidth * automaticPanelRatio * panelScale));
-    const backgroundPanelHeight = ch * Math.min(0.22, Math.max(0.115, 0.145 * panelScale));
+    const panelPaddingScale = Math.min(1.6, Math.max(0.4, cfg.panelScale ?? 0.75));
+    const eyebrowFontSize = Math.max(11, ch * 0.014);
+    const preferredTitleFontSize = Math.max(28, ch * 0.045) * titleScale;
+    const metaFontSize = Math.max(12, ch * 0.016);
+    const panelPaddingX = Math.max(14, cw * 0.01) * panelPaddingScale;
+    const panelPaddingY = Math.max(10, ch * 0.009) * panelPaddingScale;
+    const eyebrowGap = Math.max(5, ch * 0.005);
+    const metaGap = Math.max(6, ch * 0.006);
+    const hasTicketMeta = ticketMeta.length > 0;
+    ctx.save();
+    ctx.font = `700 ${eyebrowFontSize}px "Inter", sans-serif`;
+    const eyebrowWidth = ctx.measureText(ticketEyebrow).width;
+    ctx.font = `800 ${preferredTitleFontSize}px "Inter", sans-serif`;
+    const measuredTitleWidth = ctx.measureText(displayTitle.toUpperCase()).width;
+    ctx.font = `500 ${metaFontSize}px "Inter", sans-serif`;
+    const measuredMetaWidth = hasTicketMeta ? ctx.measureText(ticketMeta).width : 0;
+    ctx.restore();
+    const measuredContentWidth = Math.max(eyebrowWidth, measuredTitleWidth, measuredMetaWidth);
+    const backgroundPanelWidth = Math.min(mainWidth * 0.78, measuredContentWidth + panelPaddingX * 2);
+    const backgroundPanelHeight = panelPaddingY * 2
+      + eyebrowFontSize
+      + eyebrowGap
+      + preferredTitleFontSize
+      + (hasTicketMeta ? metaGap + metaFontSize : 0);
     const panelMargin = mainWidth * 0.055;
     const backgroundPanelX = titleAlign === 'right'
       ? mainX + mainWidth - panelMargin - backgroundPanelWidth
@@ -2202,31 +2219,47 @@ export default function Step5Process({
     }
 
     const serial = cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`;
-    const infoX = titleAlign === 'left'
-      ? infoPanel.x + infoPanel.w * 0.07
-      : titleAlign === 'right'
-        ? infoPanel.x + infoPanel.w * 0.93
-        : infoPanel.x + infoPanel.w * 0.5;
-    const titleYRatio = imageArea === 'background'
-      ? 0.56
-      : cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
-    const titleY = infoPanel.y + infoPanel.h * (imageArea === 'medium' ? Math.min(0.48, titleYRatio) : titleYRatio);
-    const textMaxWidth = infoPanel.w * 0.86;
+    const infoX = imageArea === 'background'
+      ? titleAlign === 'left'
+        ? infoPanel.x + panelPaddingX
+        : titleAlign === 'right'
+          ? infoPanel.x + infoPanel.w - panelPaddingX
+          : infoPanel.x + infoPanel.w * 0.5
+      : titleAlign === 'left'
+        ? infoPanel.x + infoPanel.w * 0.07
+        : titleAlign === 'right'
+          ? infoPanel.x + infoPanel.w * 0.93
+          : infoPanel.x + infoPanel.w * 0.5;
+    const eyebrowY = imageArea === 'background'
+      ? infoPanel.y + panelPaddingY + eyebrowFontSize
+      : infoPanel.y + infoPanel.h * 0.22;
+    const titleYRatio = cfg.textPlacement === 'top' ? 0.38 : cfg.textPlacement === 'center' ? 0.54 : 0.66;
+    const titleY = imageArea === 'background'
+      ? eyebrowY + eyebrowGap + preferredTitleFontSize * 0.88
+      : infoPanel.y + infoPanel.h * (imageArea === 'medium' ? Math.min(0.48, titleYRatio) : titleYRatio);
+    const metaY = imageArea === 'background'
+      ? titleY + metaGap + metaFontSize
+      : infoPanel.y + infoPanel.h * 0.84;
+    const textMaxWidth = imageArea === 'background' ? infoPanel.w - panelPaddingX * 2 : infoPanel.w * 0.86;
     ctx.textAlign = titleAlign;
     ctx.fillStyle = palette.accent;
-    ctx.font = `700 ${Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
+    ctx.font = `700 ${imageArea === 'background' ? eyebrowFontSize : Math.max(11, ch * 0.016)}px "Inter", sans-serif`;
     ctx.letterSpacing = '0px';
-    ctx.fillText(cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'TRAVEL MEMORY', infoX, infoPanel.y + infoPanel.h * 0.22);
+    ctx.fillText(ticketEyebrow, infoX, eyebrowY);
     ctx.fillStyle = cfg.titleColor === 'accent' ? palette.accent : cfg.titleColor === 'white' ? '#ffffff' : palette.ink;
-    const titleScale = Math.min(1.4, Math.max(0.7, cfg.titleScale ?? 1));
-    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale, 18, '"Inter", sans-serif');
+    const requestedTitleSize = imageArea === 'background'
+      ? preferredTitleFontSize
+      : Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale;
+    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, requestedTitleSize, 18, '"Inter", sans-serif');
     const fittedTitleFont = ctx.font;
     ctx.font = `800 ${fittedTitleFont}`;
     ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
-    fitCanvasText(ctx, ticketMeta, textMaxWidth, Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
-    ctx.globalAlpha = 0.76;
-    ctx.fillText(ticketMeta.slice(0, 64), infoX, infoPanel.y + infoPanel.h * 0.84);
-    ctx.globalAlpha = 1;
+    if (hasTicketMeta) {
+      fitCanvasText(ctx, ticketMeta, textMaxWidth, imageArea === 'background' ? metaFontSize : Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
+      ctx.globalAlpha = 0.76;
+      ctx.fillText(ticketMeta.slice(0, 64), infoX, metaY);
+      ctx.globalAlpha = 1;
+    }
 
     ctx.save();
     ctx.strokeStyle = cfg.template === 'cinema'
@@ -4812,14 +4845,14 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   <div className="grid gap-4 sm:grid-cols-2">
                                     <label className="block text-sm font-medium text-stone-700">
                                       <span className="mb-2 flex items-center justify-between">
-                                        <span>{language === 'zh' ? '信息框大小' : 'Panel size'}</span>
-                                        <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelScale ?? 1) * 100)}%</span>
+                                        <span>{language === 'zh' ? '信息框留白' : 'Panel padding'}</span>
+                                        <span className="font-normal text-stone-500">{Math.round((result.settings.ticketConfig.panelScale ?? 0.75) * 100)}%</span>
                                       </span>
                                       <input
                                         type="range"
-                                        min="55"
-                                        max="140"
-                                        value={(result.settings.ticketConfig.panelScale ?? 1) * 100}
+                                        min="40"
+                                        max="160"
+                                        value={(result.settings.ticketConfig.panelScale ?? 0.75) * 100}
                                         onChange={(e) => updateTicketDraftConfig('panelScale', Number(e.target.value) / 100)}
                                         className="w-full accent-stone-900"
                                       />

@@ -347,7 +347,7 @@ export const defaultSettings: SettingsType = { // Exported
     titleScale: 1,
     stubWidth: 0.2,
     stubOpacity: 0.92,
-    panelScale: 1,
+    panelScale: 0.75,
     panelOpacity: 0.9,
     titleColor: 'ink',
     subtitle: '',
