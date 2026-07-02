@@ -108,9 +108,10 @@ export type SettingsType = {
     backMode: 'postcard' | 'ticket';
     aspect?: '3:2' | '16:9' | '3:4';
     imageArea?: 'large' | 'medium' | 'background';
-    template?: 'classic' | 'train' | 'cinema' | 'travel' | 'event';
+    template?: 'classic' | 'train' | 'cinema' | 'travel' | 'event' | 'boarding' | 'museum';
     designMode?: 'template' | 'ai';
-    colorStyle?: 'auto' | 'blue' | 'red' | 'forest' | 'mono';
+    colorStyle?: 'auto' | 'blue' | 'red' | 'forest' | 'mono' | 'custom';
+    customAccent?: string;
     textPlacement?: 'top' | 'bottom' | 'center';
     titleAlign?: 'left' | 'center' | 'right';
     titleScale?: number;
@@ -343,6 +344,7 @@ export const defaultSettings: SettingsType = { // Exported
     template: 'travel',
     designMode: 'template',
     colorStyle: 'auto',
+    customAccent: '#6d5dfc',
     textPlacement: 'bottom',
     titleAlign: 'left',
     titleScale: 1,

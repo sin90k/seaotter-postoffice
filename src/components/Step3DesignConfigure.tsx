@@ -56,6 +56,13 @@ const TYPE_OPTIONS: Array<{
   { id: 'diveLog', title: '潜水日志卡', description: '记录一次潜水回忆', icon: Waves },
 ];
 
+const normalizeTicketHex = (value?: string) => /^#[0-9a-f]{6}$/i.test(value || '') ? value!.toLowerCase() : '#6d5dfc';
+const ticketHexToRgb = (value?: string) => {
+  const hex = normalizeTicketHex(value).slice(1);
+  return { r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16) };
+};
+const ticketRgbToHex = (r: number, g: number, b: number) => `#${[r, g, b].map(channel => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0')).join('')}`;
+
 type Option<T extends string> = { id: T; label: string; description?: string };
 
 function SegmentedOptions<T extends string>({
@@ -157,6 +164,8 @@ export default function Step3DesignConfigure({ editingGroupId, configGroups, use
   const isZh = language.startsWith('zh');
   const canChooseBrand = hasUserBrandingEntitlement(user);
   const hasPersonalBrand = canChooseBrand && user.personalBranding?.enabled === true;
+  const ticketCustomHex = normalizeTicketHex(settings.ticketConfig.customAccent);
+  const ticketCustomRgb = ticketHexToRgb(ticketCustomHex);
 
   const patchSettings = (patch: Partial<SettingsType>) => setSettings(previous => ({ ...previous, ...patch }));
   const patchLayout = (patch: Partial<SettingsType['layoutConfig']>) => setSettings(previous => ({
@@ -424,12 +433,30 @@ export default function Step3DesignConfigure({ editingGroupId, configGroups, use
                   </div>
                   <div>
                     <div className="mb-2 text-sm font-medium text-stone-700">基础模板</div>
-                    <SegmentedOptions value={settings.ticketConfig.template || 'travel'} options={[{ id: 'classic', label: '经典票根' }, { id: 'train', label: '复古车票' }, { id: 'cinema', label: '电影票' }, { id: 'travel', label: '旅行票' }, { id: 'event', label: '活动票' }]} onChange={template => patchTicket({ template })} columns={5} />
+                    <SegmentedOptions value={settings.ticketConfig.template || 'travel'} options={[{ id: 'classic', label: '经典票根' }, { id: 'train', label: '复古车票' }, { id: 'cinema', label: '电影票' }, { id: 'travel', label: '旅行票' }, { id: 'event', label: '活动票' }, { id: 'boarding', label: '登机牌' }, { id: 'museum', label: '博物馆票' }]} onChange={template => patchTicket({ template })} columns={4} />
                   </div>
                   <div>
                     <div className="mb-2 text-sm font-medium text-stone-700">配色</div>
-                    <SegmentedOptions value={settings.ticketConfig.colorStyle || 'auto'} options={[{ id: 'auto', label: '跟随模板' }, { id: 'blue', label: '旅行蓝' }, { id: 'red', label: '票务红' }, { id: 'forest', label: '森林绿' }, { id: 'mono', label: '黑白' }]} onChange={colorStyle => patchTicket({ colorStyle })} columns={5} />
+                    <SegmentedOptions value={settings.ticketConfig.colorStyle || 'auto'} options={[{ id: 'auto', label: '跟随模板' }, { id: 'blue', label: '旅行蓝' }, { id: 'red', label: '票务红' }, { id: 'forest', label: '森林绿' }, { id: 'mono', label: '黑白' }, { id: 'custom', label: '自定义 RGB' }]} onChange={colorStyle => patchTicket({ colorStyle })} columns={3} />
                   </div>
+                  {settings.ticketConfig.colorStyle === 'custom' && (
+                    <div className="rounded-lg border border-stone-200 bg-stone-50 p-3">
+                      <div className="mb-2 text-sm font-medium text-stone-700">自定义主色</div>
+                      <div className="grid gap-2 sm:grid-cols-[44px_110px_repeat(3,minmax(0,1fr))]">
+                        <input type="color" value={ticketCustomHex} onChange={event => patchTicket({ customAccent: event.target.value })} className="h-10 w-11 cursor-pointer rounded-md border border-stone-200 bg-white p-1" aria-label="自定义主色" />
+                        <input value={ticketCustomHex.toUpperCase()} onChange={event => /^#[0-9a-f]{6}$/i.test(event.target.value.trim()) && patchTicket({ customAccent: event.target.value.trim() })} className="h-10 rounded-md border border-stone-200 bg-white px-2 font-mono text-xs uppercase outline-none focus:border-indigo-500" aria-label="HEX" />
+                        {(['r', 'g', 'b'] as const).map(channel => (
+                          <label key={channel} className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-stone-400">{channel}</span>
+                            <input type="number" min="0" max="255" value={ticketCustomRgb[channel]} onChange={event => {
+                              const next = { ...ticketCustomRgb, [channel]: Number(event.target.value) };
+                              patchTicket({ customAccent: ticketRgbToHex(next.r, next.g, next.b) });
+                            }} className="h-10 w-full rounded-md border border-stone-200 bg-white pl-6 pr-2 text-xs outline-none focus:border-indigo-500" aria-label={channel.toUpperCase()} />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {settings.ticketConfig.imageArea === 'background' && (
                     <div>
                       <div className="mb-2 text-sm font-medium text-stone-700">文字位置</div>

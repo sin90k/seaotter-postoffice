@@ -266,11 +266,25 @@ const processingTranslations: Record<string, Record<string, string>> = {
 };
 
 const ticketTranslations: Record<string, Record<string, string>> = {
-  en: { frontDesign: 'Ticket front design', livePreview: 'Live preview', template: 'Ticket template', classic: 'Classic', travel: 'Travel', train: 'Train', cinema: 'Cinema', event: 'Event', imageArea: 'Image area', large: 'Large', split: 'Split', background: 'Background', stubPosition: 'Stub position', leftStub: 'Left', rightStub: 'Right', color: 'Color', auto: 'Auto', blue: 'Blue', red: 'Red', forest: 'Forest', mono: 'Mono', titleAlign: 'Title align', left: 'Left', center: 'Center', right: 'Right', textPosition: 'Text position', top: 'Top', middle: 'Middle', bottom: 'Bottom', titleSize: 'Title size', stubWidth: 'Stub width', stubOpacity: 'Stub opacity', panelDisplay: 'Information panel', show: 'Show', hide: 'Hide', panelPadding: 'Text padding', panelOpacity: 'Panel opacity', perforation: 'Perforation', barcode: 'Barcode' },
-  zh: { frontDesign: '票根正面设计', livePreview: '调整后自动预览', template: '票根模板', classic: '经典', travel: '旅行', train: '车票', cinema: '电影', event: '活动', imageArea: '图片区', large: '大图', split: '图文', background: '背景图', stubPosition: '票根方向', leftStub: '左票根', rightStub: '右票根', color: '配色', auto: '随模板', blue: '海蓝', red: '砖红', forest: '森林', mono: '黑白', titleAlign: '标题对齐', left: '左', center: '中', right: '右', textPosition: '信息位置', top: '上', middle: '中', bottom: '下', titleSize: '标题大小', stubWidth: '票根宽度', stubOpacity: '票根色块透明度', panelDisplay: '信息框', show: '显示', hide: '隐藏', panelPadding: '文字留白', panelOpacity: '信息框透明度', perforation: '撕边', barcode: '条形码' },
-  ja: { frontDesign: 'チケット表面デザイン', livePreview: '変更を自動プレビュー', template: 'チケットテンプレート', classic: 'クラシック', travel: '旅行', train: '乗車券', cinema: '映画', event: 'イベント', imageArea: '写真エリア', large: '大きく', split: '写真＋文字', background: '背景写真', stubPosition: '半券の位置', leftStub: '左', rightStub: '右', color: '配色', auto: 'テンプレート準拠', blue: '海色', red: '赤茶', forest: '森', mono: '白黒', titleAlign: 'タイトル配置', left: '左', center: '中央', right: '右', textPosition: '文字位置', top: '上', middle: '中央', bottom: '下', titleSize: 'タイトルサイズ', stubWidth: '半券の幅', stubOpacity: '半券の不透明度', panelDisplay: '情報パネル', show: '表示', hide: '非表示', panelPadding: '文字の余白', panelOpacity: 'パネルの不透明度', perforation: 'ミシン目', barcode: 'バーコード' },
-  ko: { frontDesign: '티켓 앞면 디자인', livePreview: '변경 사항 자동 미리보기', template: '티켓 템플릿', classic: '클래식', travel: '여행', train: '승차권', cinema: '영화', event: '이벤트', imageArea: '사진 영역', large: '큰 사진', split: '사진+텍스트', background: '배경 사진', stubPosition: '티켓 조각 위치', leftStub: '왼쪽', rightStub: '오른쪽', color: '색상', auto: '템플릿', blue: '바다', red: '적갈색', forest: '숲', mono: '흑백', titleAlign: '제목 정렬', left: '왼쪽', center: '가운데', right: '오른쪽', textPosition: '텍스트 위치', top: '위', middle: '가운데', bottom: '아래', titleSize: '제목 크기', stubWidth: '티켓 조각 너비', stubOpacity: '티켓 조각 불투명도', panelDisplay: '정보 패널', show: '표시', hide: '숨기기', panelPadding: '텍스트 여백', panelOpacity: '패널 불투명도', perforation: '절취선', barcode: '바코드' },
+  en: { frontDesign: 'Ticket front design', livePreview: 'Live preview', template: 'Ticket template', classic: 'Classic', travel: 'Travel', train: 'Train', cinema: 'Cinema', event: 'Event', boarding: 'Boarding pass', museum: 'Museum', imageArea: 'Image area', large: 'Large', split: 'Split', background: 'Background', stubPosition: 'Stub position', leftStub: 'Left', rightStub: 'Right', color: 'Color', auto: 'Auto', blue: 'Blue', red: 'Red', forest: 'Forest', mono: 'Mono', custom: 'Custom RGB', customColor: 'Custom main color', titleAlign: 'Title align', left: 'Left', center: 'Center', right: 'Right', textPosition: 'Text position', top: 'Top', middle: 'Middle', bottom: 'Bottom', titleSize: 'Title size', stubWidth: 'Stub width', stubOpacity: 'Stub opacity', panelDisplay: 'Information panel', show: 'Show', hide: 'Hide', panelPadding: 'Text padding', panelOpacity: 'Panel opacity', perforation: 'Perforation', barcode: 'Barcode' },
+  zh: { frontDesign: '票根正面设计', livePreview: '调整后自动预览', template: '票根模板', classic: '经典', travel: '旅行', train: '车票', cinema: '电影', event: '活动', boarding: '登机牌', museum: '博物馆票', imageArea: '图片区', large: '大图', split: '图文', background: '背景图', stubPosition: '票根方向', leftStub: '左票根', rightStub: '右票根', color: '配色', auto: '随模板', blue: '海蓝', red: '砖红', forest: '森林', mono: '黑白', custom: '自定义 RGB', customColor: '自定义主色', titleAlign: '标题对齐', left: '左', center: '中', right: '右', textPosition: '信息位置', top: '上', middle: '中', bottom: '下', titleSize: '标题大小', stubWidth: '票根宽度', stubOpacity: '票根色块透明度', panelDisplay: '信息框', show: '显示', hide: '隐藏', panelPadding: '文字留白', panelOpacity: '信息框透明度', perforation: '撕边', barcode: '条形码' },
+  ja: { frontDesign: 'チケット表面デザイン', livePreview: '変更を自動プレビュー', template: 'チケットテンプレート', classic: 'クラシック', travel: '旅行', train: '乗車券', cinema: '映画', event: 'イベント', boarding: '搭乗券', museum: '美術館チケット', imageArea: '写真エリア', large: '大きく', split: '写真＋文字', background: '背景写真', stubPosition: '半券の位置', leftStub: '左', rightStub: '右', color: '配色', auto: 'テンプレート準拠', blue: '海色', red: '赤茶', forest: '森', mono: '白黒', custom: 'RGBカスタム', customColor: 'カスタムメインカラー', titleAlign: 'タイトル配置', left: '左', center: '中央', right: '右', textPosition: '文字位置', top: '上', middle: '中央', bottom: '下', titleSize: 'タイトルサイズ', stubWidth: '半券の幅', stubOpacity: '半券の不透明度', panelDisplay: '情報パネル', show: '表示', hide: '非表示', panelPadding: '文字の余白', panelOpacity: 'パネルの不透明度', perforation: 'ミシン目', barcode: 'バーコード' },
+  ko: { frontDesign: '티켓 앞면 디자인', livePreview: '변경 사항 자동 미리보기', template: '티켓 템플릿', classic: '클래식', travel: '여행', train: '승차권', cinema: '영화', event: '이벤트', boarding: '탑승권', museum: '박물관 티켓', imageArea: '사진 영역', large: '큰 사진', split: '사진+텍스트', background: '배경 사진', stubPosition: '티켓 조각 위치', leftStub: '왼쪽', rightStub: '오른쪽', color: '색상', auto: '템플릿', blue: '바다', red: '적갈색', forest: '숲', mono: '흑백', custom: 'RGB 사용자 지정', customColor: '사용자 지정 기본색', titleAlign: '제목 정렬', left: '왼쪽', center: '가운데', right: '오른쪽', textPosition: '텍스트 위치', top: '위', middle: '가운데', bottom: '아래', titleSize: '제목 크기', stubWidth: '티켓 조각 너비', stubOpacity: '티켓 조각 불투명도', panelDisplay: '정보 패널', show: '표시', hide: '숨기기', panelPadding: '텍스트 여백', panelOpacity: '패널 불투명도', perforation: '절취선', barcode: '바코드' },
 };
+
+const editActionTranslations: Record<string, Record<string, string>> = {
+  en: { aiRewrite: 'AI Rewrite', designTicket: 'AI ticket design (1 credit)', redesignTicket: 'Redesign ticket (1 credit)', generateBack: 'Generate AI Back (1 credit)', regenerateBack: 'Regenerate', redrawBack: 'Redraw AI Back (1 credit)', dragText: 'Drag text position', reanalyze: 'Reanalyze photo and generate back', horizontal: 'Horizontal', vertical: 'Vertical', backBranding: 'Back branding', site: 'Site', mine: 'Mine', none: 'None', brandHint: 'Enable and save your personal brand in Account Settings first.', updatePreview: 'Update Preview', bottomLeft: 'Bottom Left', bottomRight: 'Bottom Right', topLeft: 'Top Left', topRight: 'Top Right', center: 'Center', custom: 'Custom' },
+  zh: { aiRewrite: 'AI 改写', designTicket: 'AI 设计票面（1积分）', redesignTicket: '重新设计票面（1积分）', generateBack: '生成 AI 背面图（1积分）', regenerateBack: '重新生成', redrawBack: 'AI 重绘背面图（1积分）', dragText: '拖动文字位置', reanalyze: '重新分析照片并生成背面', horizontal: '水平位置', vertical: '垂直位置', backBranding: '背面品牌', site: '本站品牌', mine: '我的品牌', none: '不显示', brandHint: '请先在用户中心启用并保存个人品牌。', updatePreview: '更新预览', bottomLeft: '左下', bottomRight: '右下', topLeft: '左上', topRight: '右上', center: '居中', custom: '自定义' },
+  ja: { aiRewrite: 'AIで書き直す', designTicket: 'AIでチケットをデザイン（1クレジット）', redesignTicket: 'チケットを再デザイン（1クレジット）', generateBack: 'AI裏面を生成（1クレジット）', regenerateBack: '再生成', redrawBack: 'AI裏面を再描画（1クレジット）', dragText: '文字位置をドラッグ', reanalyze: '写真を再解析して裏面を生成', horizontal: '横位置', vertical: '縦位置', backBranding: '裏面ブランド', site: 'サイトブランド', mine: 'マイブランド', none: '表示しない', brandHint: 'ユーザーセンターでマイブランドを有効にして保存してください。', updatePreview: 'プレビューを更新', bottomLeft: '左下', bottomRight: '右下', topLeft: '左上', topRight: '右上', center: '中央', custom: 'カスタム' },
+  ko: { aiRewrite: 'AI로 다시 쓰기', designTicket: 'AI 티켓 디자인 (1크레딧)', redesignTicket: '티켓 다시 디자인 (1크레딧)', generateBack: 'AI 뒷면 생성 (1크레딧)', regenerateBack: '재생성', redrawBack: 'AI 뒷면 다시 그리기 (1크레딧)', dragText: '텍스트 위치 드래그', reanalyze: '사진을 다시 분석해 뒷면 생성', horizontal: '가로 위치', vertical: '세로 위치', backBranding: '뒷면 브랜드', site: '사이트 브랜드', mine: '내 브랜드', none: '표시 안 함', brandHint: '사용자 센터에서 개인 브랜드를 활성화하고 저장하세요.', updatePreview: '미리보기 업데이트', bottomLeft: '왼쪽 아래', bottomRight: '오른쪽 아래', topLeft: '왼쪽 위', topRight: '오른쪽 위', center: '가운데', custom: '사용자 지정' },
+};
+
+const normalizeHexColor = (value: string, fallback = '#6d5dfc') => /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
+const hexToRgb = (value: string) => {
+  const safe = normalizeHexColor(value).slice(1);
+  return { r: parseInt(safe.slice(0, 2), 16), g: parseInt(safe.slice(2, 4), 16), b: parseInt(safe.slice(4, 6), 16) };
+};
+const rgbToHex = (r: number, g: number, b: number) => `#${[r, g, b].map(value => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0')).join('')}`;
 
 export default function Step5Process({ 
   photos, 
@@ -291,6 +305,13 @@ export default function Step5Process({
   const t = translations[language] || translations.en;
   const processingCopy = processingTranslations[language] || processingTranslations.en;
   const ticketCopy = ticketTranslations[language] || ticketTranslations.en;
+  const editCopy = editActionTranslations[language] || editActionTranslations.en;
+  const cardCopy = ({
+    en: { travelPass: 'TRAVEL PASS', travelMemory: 'TRAVEL MEMORY', memory: 'MEMORY', admitOne: 'ADMIT ONE', journeyRecord: 'JOURNEY RECORD', boardingPass: 'BOARDING PASS', museumEntry: 'MUSEUM ENTRY', ticketDetails: 'TICKET DETAILS', serial: 'SERIAL', date: 'DATE', location: 'LOCATION', note: 'NOTE', diveLog: 'DIVE LOG', marineLife: 'MARINE LIFE', unnamedDive: 'DIVE SITE' },
+    zh: { travelPass: '旅行票', travelMemory: '旅行纪念', memory: '纪念', admitOne: '入场券', journeyRecord: '旅程记录', boardingPass: '登机牌', museumEntry: '博物馆入场券', ticketDetails: '票根信息', serial: '编号', date: '日期', location: '地点', note: '备注', diveLog: '潜水日志', marineLife: '遇见的生物', unnamedDive: '未命名潜点' },
+    ja: { travelPass: 'トラベルパス', travelMemory: '旅の記憶', memory: '思い出', admitOne: '入場券', journeyRecord: '旅の記録', boardingPass: '搭乗券', museumEntry: '美術館入場券', ticketDetails: 'チケット情報', serial: '番号', date: '日付', location: '場所', note: 'メモ', diveLog: 'ダイビングログ', marineLife: '出会った生き物', unnamedDive: 'ダイビングポイント' },
+    ko: { travelPass: '여행 티켓', travelMemory: '여행의 기억', memory: '추억', admitOne: '입장권', journeyRecord: '여정 기록', boardingPass: '탑승권', museumEntry: '박물관 입장권', ticketDetails: '티켓 정보', serial: '번호', date: '날짜', location: '장소', note: '메모', diveLog: '다이빙 로그', marineLife: '관찰 생물', unnamedDive: '다이빙 포인트' },
+  } as Record<string, Record<string, string>>)[language] || ({ travelPass: 'TRAVEL PASS', travelMemory: 'TRAVEL MEMORY', memory: 'MEMORY', admitOne: 'ADMIT ONE', journeyRecord: 'JOURNEY RECORD', boardingPass: 'BOARDING PASS', museumEntry: 'MUSEUM ENTRY', ticketDetails: 'TICKET DETAILS', serial: 'SERIAL', date: 'DATE', location: 'LOCATION', note: 'NOTE', diveLog: 'DIVE LOG', marineLife: 'MARINE LIFE', unnamedDive: 'DIVE SITE' });
   const hasPersonalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled === true;
   const resolveBrandingMode = (settings: SettingsType): BrandingMode => {
     const requested = settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site');
@@ -2093,6 +2114,10 @@ export default function Step5Process({
       ? { paper: '#171717', ink: '#fafaf9', accent: '#e11d48' }
       : cfg.template === 'train'
         ? { paper: '#eee6d3', ink: '#3f3528', accent: '#9a3412' }
+        : cfg.template === 'boarding'
+          ? { paper: '#eef7f8', ink: '#153b44', accent: '#008da8' }
+          : cfg.template === 'museum'
+            ? { paper: '#f7f1e7', ink: '#302820', accent: '#8b5a3c' }
         : cfg.template === 'event'
           ? { paper: '#f5f3ff', ink: '#27203f', accent: '#6d5dfc' }
           : { paper: '#f7f6f2', ink: '#1c1917', accent: '#2563eb' };
@@ -2102,14 +2127,24 @@ export default function Step5Process({
       forest: { paper: '#f3f6f0', ink: '#26372d', accent: '#3f7457' },
       mono: { paper: '#f5f5f4', ink: '#1c1917', accent: '#292524' },
     } as const;
+    const customAccent = /^#[0-9a-f]{6}$/i.test(cfg.customAccent || '') ? cfg.customAccent! : '#6d5dfc';
+    const customPalette = { paper: '#f7f7f5', ink: '#1c1917', accent: customAccent };
     const palette = cfg.colorStyle && cfg.colorStyle !== 'auto'
-      ? colorPalettes[cfg.colorStyle]
+      ? cfg.colorStyle === 'custom' ? customPalette : colorPalettes[cfg.colorStyle]
       : templatePalette;
-    const displayTitle = title || cfg.ticketTitle || (language.startsWith('zh') ? '旅途入场券' : 'TRAVEL PASS');
+    const displayTitle = title || cfg.ticketTitle || cardCopy.travelPass;
     const displayLocation = location || cfg.location;
     const displayDate = date || cfg.date || '';
     const ticketMeta = [cfg.subtitle, displayLocation, displayDate].filter(Boolean).join('  ·  ');
-    const ticketEyebrow = cfg.template === 'cinema' ? 'ADMIT ONE' : cfg.template === 'train' ? 'JOURNEY RECORD' : 'TRAVEL MEMORY';
+    const ticketEyebrow = cfg.template === 'cinema'
+      ? cardCopy.admitOne
+      : cfg.template === 'train'
+        ? cardCopy.journeyRecord
+        : cfg.template === 'boarding'
+          ? cardCopy.boardingPass
+          : cfg.template === 'museum'
+            ? cardCopy.museumEntry
+            : cardCopy.travelMemory;
     const titleAlign = cfg.titleAlign || 'left';
     const titleScale = Math.min(1.4, Math.max(0.7, cfg.titleScale ?? 1));
 
@@ -2313,6 +2348,31 @@ export default function Step5Process({
     if (cfg.template === 'train') {
       ctx.strokeRect(mainX + mainWidth * 0.032, ch * 0.047, mainWidth * 0.936, ch * 0.906);
     }
+    if (cfg.template === 'museum') {
+      ctx.strokeRect(mainX + mainWidth * 0.034, ch * 0.052, mainWidth * 0.932, ch * 0.896);
+    }
+    if (cfg.template === 'boarding') {
+      const routeY = ch * 0.075;
+      const routeStart = mainX + mainWidth * 0.08;
+      const routeEnd = mainX + mainWidth * 0.92;
+      ctx.strokeStyle = `${palette.accent}aa`;
+      ctx.lineWidth = Math.max(2, cw * 0.0015);
+      ctx.beginPath();
+      ctx.moveTo(routeStart, routeY);
+      ctx.lineTo(routeEnd, routeY);
+      ctx.stroke();
+      ctx.fillStyle = palette.accent;
+      [routeStart, (routeStart + routeEnd) / 2, routeEnd].forEach(routeX => {
+        ctx.beginPath();
+        ctx.arc(routeX, routeY, Math.max(4, ch * 0.009), 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    if (cfg.template === 'museum') {
+      ctx.fillStyle = `${palette.accent}22`;
+      ctx.fillRect(mainX + mainWidth * 0.034, ch * 0.052, mainWidth * 0.012, ch * 0.896);
+      ctx.fillRect(mainX + mainWidth * 0.954, ch * 0.052, mainWidth * 0.012, ch * 0.896);
+    }
     ctx.restore();
 
     ctx.save();
@@ -2321,9 +2381,9 @@ export default function Step5Process({
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
     ctx.font = `750 ${Math.max(19, stubWidth * 0.105)}px "Inter", sans-serif`;
-    ctx.fillText(displayLocation || (cfg.template === 'cinema' ? 'ADMIT ONE' : 'TRAVEL PASS'), 0, -stubWidth * 0.1);
+    ctx.fillText(displayLocation || (cfg.template === 'cinema' ? cardCopy.admitOne : cfg.template === 'boarding' ? cardCopy.boardingPass : cardCopy.travelPass), 0, -stubWidth * 0.1);
     ctx.font = `600 ${Math.max(12, stubWidth * 0.058)}px "Inter", sans-serif`;
-    ctx.fillText(`${displayDate || 'MEMORY'}   ${serial}`, 0, stubWidth * 0.14);
+    ctx.fillText(`${displayDate || cardCopy.memory}   ${serial}`, 0, stubWidth * 0.14);
     const routeY = stubWidth * 0.31;
     ctx.strokeStyle = 'rgba(255,255,255,0.65)';
     ctx.lineWidth = Math.max(1.5, cw * 0.001);
@@ -2408,23 +2468,29 @@ export default function Step5Process({
     const muted = imageArea === 'background' ? 'rgba(255,255,255,0.72)' : '#557275';
     const x = panelX + panelW * 0.09;
     let y = panelY + panelH * 0.12;
-    const displayLocation = cfg.location || location || title || (language.startsWith('zh') ? '未命名潜点' : 'DIVE SITE');
+    const displayLocation = cfg.location || location || title || cardCopy.unnamedDive;
     ctx.fillStyle = muted;
     ctx.font = `700 ${Math.max(14, Math.min(cw, ch) * 0.018)}px "Inter", sans-serif`;
-    ctx.fillText(`DIVE LOG  ${cfg.diveNumber || ''}`, x, y);
+    ctx.fillText(`${cardCopy.diveLog}  ${cfg.diveNumber || ''}`, x, y);
     y += panelH * 0.09;
     ctx.fillStyle = ink;
     fitCanvasText(ctx, displayLocation, panelW * 0.82, Math.max(28, panelH * 0.075), 20, '"Playfair Display", serif');
     ctx.fillText(displayLocation, x, y);
     y += panelH * 0.1;
 
+    const frontDiveLabels = ({
+      en: ['DATE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY'],
+      zh: ['日期', '最大深度', '潜水时长', '水温', '能见度', '潜伴'],
+      ja: ['日付', '最大深度', '潜水時間', '水温', '透明度', 'バディ'],
+      ko: ['날짜', '최대 수심', '다이빙 시간', '수온', '시야', '버디'],
+    } as Record<string, string[]>)[language] || ['DATE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY'];
     const items = [
-      ['DATE', cfg.diveDate || date || '—'],
-      ['MAX DEPTH', cfg.depth || '—'],
-      ['DURATION', cfg.duration || '—'],
-      ['WATER', cfg.waterTemp || '—'],
-      ['VISIBILITY', cfg.visibility || '—'],
-      ['BUDDY', cfg.buddy || '—'],
+      [frontDiveLabels[0], cfg.diveDate || date || '—'],
+      [frontDiveLabels[1], cfg.depth || '—'],
+      [frontDiveLabels[2], cfg.duration || '—'],
+      [frontDiveLabels[3], cfg.waterTemp || '—'],
+      [frontDiveLabels[4], cfg.visibility || '—'],
+      [frontDiveLabels[5], cfg.buddy || '—'],
     ];
     const columns = imageArea === 'top' ? 3 : 2;
     const cellW = panelW * 0.82 / columns;
@@ -2443,7 +2509,7 @@ export default function Step5Process({
     if (cfg.species) {
       ctx.fillStyle = muted;
       ctx.font = `700 ${Math.max(11, Math.min(cw, ch) * 0.013)}px "Inter", sans-serif`;
-      ctx.fillText(language.startsWith('zh') ? '遇见的生物' : 'MARINE LIFE', x, y);
+      ctx.fillText(cardCopy.marineLife, x, y);
       ctx.fillStyle = ink;
       ctx.font = `500 ${Math.max(14, Math.min(cw, ch) * 0.019)}px "Inter", sans-serif`;
       ctx.fillText(cfg.species.slice(0, 48), x, y + panelH * 0.05);
@@ -3228,14 +3294,14 @@ export default function Step5Process({
     ctx.strokeRect(padding * 0.55, padding * 0.55, cw - padding * 1.1, ch - padding * 1.1);
     ctx.setLineDash([]);
     ctx.fillStyle = '#29241f';
-    const heading = cfg.ticketTitle || (language.startsWith('zh') ? '票根信息' : 'TICKET DETAILS');
+    const heading = cfg.ticketTitle || cardCopy.ticketDetails;
     fitCanvasText(ctx, heading, cw * 0.75, ch * 0.09, ch * 0.05, '"Playfair Display", serif');
     ctx.fillText(heading, padding, padding * 1.8);
     const details = [
-      [language.startsWith('zh') ? '编号' : 'SERIAL', cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`],
-      [language.startsWith('zh') ? '日期' : 'DATE', cfg.date || date || '—'],
-      [language.startsWith('zh') ? '地点' : 'LOCATION', cfg.location || location || '—'],
-      [language.startsWith('zh') ? '备注' : 'NOTE', cfg.note || message || '—'],
+      [cardCopy.serial, cfg.serialNumber || `SO-${String(Date.now()).slice(-7)}`],
+      [cardCopy.date, cfg.date || date || '—'],
+      [cardCopy.location, cfg.location || location || '—'],
+      [cardCopy.note, cfg.note || message || '—'],
     ];
     let y = ch * 0.34;
     details.forEach(([label, value], index) => {
@@ -3272,15 +3338,21 @@ export default function Step5Process({
     ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = '#123d40';
     ctx.font = `800 ${Math.max(30, ch * 0.074)}px "Inter", sans-serif`;
-    ctx.fillText(language.startsWith('zh') ? '潜水日志' : 'DIVE LOG', padding, padding * 1.65);
+    ctx.fillText(cardCopy.diveLog, padding, padding * 1.65);
     ctx.fillStyle = '#4e7476';
     ctx.font = `600 ${Math.max(14, ch * 0.022)}px "Inter", sans-serif`;
     ctx.fillText(`${cfg.diveNumber || ''}  ${cfg.diveDate || date || ''}`, padding, padding * 2.25);
+    const diveLabels = ({
+      en: ['SITE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY', 'MARINE LIFE'],
+      zh: ['潜点', '最大深度', '潜水时长', '水温', '能见度', '潜伴', '遇见的生物'],
+      ja: ['ポイント', '最大深度', '潜水時間', '水温', '透明度', 'バディ', '出会った生き物'],
+      ko: ['포인트', '최대 수심', '다이빙 시간', '수온', '시야', '버디', '관찰 생물'],
+    } as Record<string, string[]>)[language] || ['SITE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY', 'MARINE LIFE'];
     const details = [
-      ['SITE', cfg.location || location || '—'], ['MAX DEPTH', cfg.depth || '—'],
-      ['DURATION', cfg.duration || '—'], ['WATER', cfg.waterTemp || '—'],
-      ['VISIBILITY', cfg.visibility || '—'], ['BUDDY', cfg.buddy || '—'],
-      ['MARINE LIFE', cfg.species || '—'],
+      [diveLabels[0], cfg.location || location || '—'], [diveLabels[1], cfg.depth || '—'],
+      [diveLabels[2], cfg.duration || '—'], [diveLabels[3], cfg.waterTemp || '—'],
+      [diveLabels[4], cfg.visibility || '—'], [diveLabels[5], cfg.buddy || '—'],
+      [diveLabels[6], cfg.species || '—'],
     ];
     const startY = ch * 0.34;
     const cellW = (cw - padding * 2.5) / 2;
@@ -4525,9 +4597,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 {rewritingState?.id === result.id && rewritingState?.field === 'ticket'
                                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                   : <Wand2 className="h-3.5 w-3.5" />}
-                                {result.generatedTicketArtwork
-                                  ? (language === 'zh' ? '重新设计票面（1积分）' : 'Redesign ticket (1 credit)')
-                                  : (language === 'zh' ? 'AI 设计票面（1积分）' : 'AI ticket design (1 credit)')}
+                                {result.generatedTicketArtwork ? editCopy.redesignTicket : editCopy.designTicket}
                               </button>
                             )}
                             {(result.settings.designType === 'postcard' || result.settings.designType === 'polaroid') && (result.draftTitle || result.draftLocation || result.draftAuthor || result.draftDate) && (() => {
@@ -4535,8 +4605,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                               return (
                                 <button
                                   type="button"
-                                  title={language === 'zh' ? '拖动文字位置' : 'Drag text position'}
-                                  aria-label={language === 'zh' ? '拖动正面文字位置' : 'Drag front text position'}
+                                  title={editCopy.dragText}
+                                  aria-label={editCopy.dragText}
                                   onPointerDown={handleFrontTextDrag}
                                   onPointerMove={handleFrontTextDrag}
                                   onPointerUp={() => { isDraggingFrontText.current = false; }}
@@ -4562,8 +4632,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 {result.generatedBackImage && (
                                   <button
                                     type="button"
-                                    title={language === 'zh' ? '重新分析照片并生成' : 'Reanalyze photo and generate'}
-                                    aria-label={language === 'zh' ? '重新分析照片并生成背面' : 'Reanalyze photo and generate back'}
+                                    title={editCopy.reanalyze}
+                                    aria-label={editCopy.reanalyze}
                                     onClick={() => handleRegenerateBackImage(result.id, true)}
                                     disabled={rewritingState?.id === result.id && rewritingState?.field === 'back'}
                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-stone-700 shadow-sm backdrop-blur-sm hover:bg-white disabled:opacity-60"
@@ -4584,8 +4654,8 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     : <Wand2 className="h-3.5 w-3.5" />}
                                   {result.generatedBackImage
-                                    ? (language === 'zh' ? '重新生成' : 'Regenerate')
-                                    : (language === 'zh' ? '生成 AI 背面图（1积分）' : 'Generate AI Back (1 credit)')}
+                                    ? editCopy.regenerateBack
+                                    : editCopy.generateBack}
                                 </button>
                               </div>
                             )}
@@ -4612,7 +4682,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 disabled:opacity-50 bg-indigo-50 px-2 py-1 rounded-md transition-colors"
                                 >
                                   {rewritingState?.id === result.id && rewritingState?.field === 'title' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                  AI Rewrite
+                                  {editCopy.aiRewrite}
                                 </button>
                               </div>
                               <input
@@ -4631,7 +4701,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 disabled:opacity-50 bg-indigo-50 px-2 py-1 rounded-md transition-colors"
                                 >
                                   {rewritingState?.id === result.id && rewritingState?.field === 'location' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                  AI Rewrite
+                                  {editCopy.aiRewrite}
                                 </button>
                               </div>
                               <input
@@ -4670,7 +4740,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                   className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 disabled:opacity-50 bg-indigo-50 px-2 py-1 rounded-md transition-colors"
                                 >
                                   {rewritingState?.id === result.id && rewritingState?.field === 'message' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                  AI Rewrite
+                                  {editCopy.aiRewrite}
                                 </button>
                               </div>
                               <textarea
@@ -4691,13 +4761,15 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
 
                                 <div>
                                   <label className="mb-2 block text-sm font-medium text-stone-700">{ticketCopy.template}</label>
-                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                     {([
                                       ['classic', ticketCopy.classic],
                                       ['travel', ticketCopy.travel],
                                       ['train', ticketCopy.train],
                                       ['cinema', ticketCopy.cinema],
                                       ['event', ticketCopy.event],
+                                      ['boarding', ticketCopy.boarding],
+                                      ['museum', ticketCopy.museum],
                                     ] as const).map(([id, label]) => (
                                       <button
                                         key={id}
@@ -4775,6 +4847,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       ['red', '#b83a2f', ticketCopy.red],
                                       ['forest', '#3f7457', ticketCopy.forest],
                                       ['mono', '#292524', ticketCopy.mono],
+                                      ['custom', result.settings.ticketConfig.customAccent || '#6d5dfc', ticketCopy.custom],
                                     ] as const).map(([id, swatch, label]) => (
                                       <button
                                         key={id}
@@ -4792,6 +4865,51 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                       </button>
                                     ))}
                                   </div>
+                                  {result.settings.ticketConfig.colorStyle === 'custom' && (() => {
+                                    const customHex = normalizeHexColor(result.settings.ticketConfig.customAccent || '#6d5dfc');
+                                    const rgb = hexToRgb(customHex);
+                                    const setRgbChannel = (channel: 'r' | 'g' | 'b', value: number) => {
+                                      const next = { ...rgb, [channel]: Math.max(0, Math.min(255, value || 0)) };
+                                      updateTicketDraftConfig('customAccent', rgbToHex(next.r, next.g, next.b));
+                                    };
+                                    return (
+                                      <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3">
+                                        <label className="mb-2 block text-xs font-medium text-stone-600">{ticketCopy.customColor}</label>
+                                        <div className="grid gap-2 sm:grid-cols-[44px_110px_repeat(3,minmax(0,1fr))]">
+                                          <input
+                                            type="color"
+                                            value={customHex}
+                                            onChange={(event) => updateTicketDraftConfig('customAccent', event.target.value)}
+                                            className="h-10 w-11 cursor-pointer rounded-md border border-stone-200 bg-white p-1"
+                                            aria-label={ticketCopy.customColor}
+                                          />
+                                          <input
+                                            value={customHex.toUpperCase()}
+                                            onChange={(event) => {
+                                              const value = event.target.value.trim();
+                                              if (/^#[0-9a-f]{6}$/i.test(value)) updateTicketDraftConfig('customAccent', value);
+                                            }}
+                                            className="h-10 rounded-md border border-stone-200 bg-white px-2 font-mono text-xs uppercase outline-none focus:border-indigo-500"
+                                            aria-label="HEX"
+                                          />
+                                          {(['r', 'g', 'b'] as const).map(channel => (
+                                            <label key={channel} className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-stone-400">{channel}</span>
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                max="255"
+                                                value={rgb[channel]}
+                                                onChange={(event) => setRgbChannel(channel, Number(event.target.value))}
+                                                className="h-10 w-full rounded-md border border-stone-200 bg-white pl-6 pr-2 text-xs outline-none focus:border-indigo-500"
+                                                aria-label={channel.toUpperCase()}
+                                              />
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -4990,21 +5108,21 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 <div>
                                   <label className="block text-sm font-medium text-stone-700 mb-1.5">{t.position}</label>
                                   <select value={result.draftFrontStyle.position} onChange={(e) => updateFrontPositionPreset(e.target.value)} className="w-full border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 bg-white">
-                                    <option value="bottom-left">Bottom Left</option>
-                                    <option value="bottom-right">Bottom Right</option>
-                                    <option value="top-left">Top Left</option>
-                                    <option value="top-right">Top Right</option>
-                                    <option value="center">Center</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="bottom-left">{editCopy.bottomLeft}</option>
+                                    <option value="bottom-right">{editCopy.bottomRight}</option>
+                                    <option value="top-left">{editCopy.topLeft}</option>
+                                    <option value="top-right">{editCopy.topRight}</option>
+                                    <option value="center">{editCopy.center}</option>
+                                    <option value="custom">{editCopy.custom}</option>
                                   </select>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <label className="block text-sm font-medium text-stone-700">
-                                    <span className="mb-1.5 flex items-center justify-between"><span>{language === 'zh' ? '水平位置' : 'Horizontal'}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).x)}%</span></span>
+                                    <span className="mb-1.5 flex items-center justify-between"><span>{editCopy.horizontal}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).x)}%</span></span>
                                     <input type="range" min="5" max="95" value={getFrontTextPosition(result.draftFrontStyle).x} onChange={(e) => updateFrontTextPosition('xPct', Number(e.target.value))} className="w-full accent-stone-900" />
                                   </label>
                                   <label className="block text-sm font-medium text-stone-700">
-                                    <span className="mb-1.5 flex items-center justify-between"><span>{language === 'zh' ? '垂直位置' : 'Vertical'}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).y)}%</span></span>
+                                    <span className="mb-1.5 flex items-center justify-between"><span>{editCopy.vertical}</span><span className="font-normal text-stone-500">{Math.round(getFrontTextPosition(result.draftFrontStyle).y)}%</span></span>
                                     <input type="range" min="8" max="92" value={getFrontTextPosition(result.draftFrontStyle).y} onChange={(e) => updateFrontTextPosition('yPct', Number(e.target.value))} className="w-full accent-stone-900" />
                                   </label>
                                 </div>
@@ -5015,13 +5133,13 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                               <h4 className="font-medium text-stone-900 pb-2 border-b border-stone-100">{t.backSide} {t.style}</h4>
                               <div>
                                 <label className="block text-sm font-medium text-stone-700 mb-2">
-                                  {language === 'zh' ? '背面品牌' : 'Back branding'}
+                                  {editCopy.backBranding}
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
                                   {([
-                                    { id: 'site', label: language === 'zh' ? '本站品牌' : 'Site' },
-                                    { id: 'personal', label: language === 'zh' ? '我的品牌' : 'Mine' },
-                                    { id: 'none', label: language === 'zh' ? '不显示' : 'None' },
+                                    { id: 'site', label: editCopy.site },
+                                    { id: 'personal', label: editCopy.mine },
+                                    { id: 'none', label: editCopy.none },
                                   ] as const).map(option => (
                                     <button
                                       key={option.id}
@@ -5041,7 +5159,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 </div>
                                 {!hasPersonalBrand && (
                                   <p className="mt-2 text-xs text-amber-700">
-                                    {language === 'zh' ? '请先在用户中心启用并保存个人品牌。' : 'Enable and save your personal brand in Account Settings first.'}
+                                    {editCopy.brandHint}
                                   </p>
                                 )}
                               </div>
@@ -5054,7 +5172,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                                 {rewritingState?.id === result.id && rewritingState?.field === 'back'
                                   ? <Loader2 className="h-4 w-4 animate-spin" />
                                   : <Wand2 className="h-4 w-4" />}
-                                {language === 'zh' ? 'AI 重绘背面图（1积分）' : 'Redraw AI Back (1 credit)'}
+                                {editCopy.redrawBack}
                               </button>
                               
                               <div className="grid grid-cols-2 gap-4">
@@ -5096,7 +5214,7 @@ OUTPUT ONLY THE NEW TEXT. No quotes, no markdown, no explanations.`;
                             className="px-3 sm:px-5 py-2.5 rounded-lg sm:rounded-xl font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors sm:mr-auto flex items-center gap-2 text-sm"
                           >
                             <RefreshCw className="w-4 h-4" />
-                            Update Preview
+                            {editCopy.updatePreview}
                           </button>
                           <button
                             onClick={handleCancelEdit}
