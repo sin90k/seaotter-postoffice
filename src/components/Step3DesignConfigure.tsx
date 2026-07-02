@@ -21,6 +21,7 @@ import {
 } from '../App';
 import { cn } from '../lib/utils';
 import { hasUserBrandingEntitlement } from '../lib/userBranding';
+import { localeMeta, SUPPORTED_LOCALES } from '../i18n';
 
 interface Props {
   editingGroupId: string | null;
@@ -568,7 +569,7 @@ export default function Step3DesignConfigure({ editingGroupId, configGroups, use
               <div>
                 <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-stone-700"><Languages className="h-4 w-4" />输出语言</label>
                 <select value={settings.aiLanguage} onChange={event => patchSettings({ aiLanguage: event.target.value })} className="h-11 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm outline-none focus:border-indigo-500">
-                  <option value="Simplified Chinese">简体中文</option><option value="Traditional Chinese">繁體中文</option><option value="English">English</option><option value="Japanese">日本語</option><option value="Korean">한국어</option>
+                  {SUPPORTED_LOCALES.map(locale => <option key={locale} value={localeMeta[locale].aiLanguage}>{localeMeta[locale].nativeName}</option>)}
                 </select>
               </div>
               {settings.designType === 'postcard' && (

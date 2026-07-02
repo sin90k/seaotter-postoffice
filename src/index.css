@@ -7,6 +7,23 @@
   html {
     font-size: 16px;
   }
+
+  html.locale-cjk body {
+    font-family: Inter, "Noto Sans CJK SC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans", "Yu Gothic", sans-serif;
+    letter-spacing: 0;
+    line-break: strict;
+  }
+
+  html.locale-thai body {
+    font-family: Inter, "Noto Sans Thai", Tahoma, sans-serif;
+    letter-spacing: 0;
+    line-height: 1.55;
+  }
+
+  html.locale-latin body {
+    font-family: Inter, system-ui, sans-serif;
+    letter-spacing: 0;
+  }
   
   @media (max-width: 640px) {
     html {

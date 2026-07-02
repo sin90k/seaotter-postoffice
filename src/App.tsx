@@ -21,6 +21,7 @@ import { logEvent } from './lib/events';
 import { APP_VERSION } from './version';
 import { loadBrandSettings } from './lib/brandSettings';
 import { loadUserBrandSettings, type UserBrandSettings } from './lib/userBranding';
+import { localeMeta, localeTypographyClass, normalizeLocale } from './i18n';
 
 const withAuthTimeout = <T,>(operation: PromiseLike<T>): Promise<T> =>
   Promise.race([
@@ -794,6 +795,13 @@ export default function App() {
   const hasInitialLoadRef = useRef(false);
   const loadHistoryRequestIdRef = useRef<string | null>(null);
   const creditsDeductedAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    const locale = normalizeLocale(language);
+    document.documentElement.lang = localeMeta[locale].htmlLang;
+    document.documentElement.classList.remove('locale-cjk', 'locale-thai', 'locale-latin');
+    document.documentElement.classList.add(localeTypographyClass(locale));
+  }, [language]);
   // 从 Supabase 会话同步用户信息
   const syncUserFromSupabase = async () => {
     const { data: { session } } = await supabase.auth.getSession();

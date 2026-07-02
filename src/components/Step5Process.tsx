@@ -17,6 +17,8 @@ import { getPublishedPromptContent } from '../lib/promptService';
 import { resolveLocationSource } from '../lib/locationSource';
 import { captionGenerationPrompt, renderCaptionGenerationPrompt, sceneryLocationGuidance } from '../config/prompts/captionGeneration';
 import { hasUserBrandingEntitlement } from '../lib/userBranding';
+import { getCardCopy } from '../i18n/cardCopy';
+import { normalizeLocale } from '../i18n';
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return Promise.race([
@@ -302,16 +304,12 @@ export default function Step5Process({
   language,
   onFeedback
 }: Props) {
-  const t = translations[language] || translations.en;
-  const processingCopy = processingTranslations[language] || processingTranslations.en;
-  const ticketCopy = ticketTranslations[language] || ticketTranslations.en;
-  const editCopy = editActionTranslations[language] || editActionTranslations.en;
-  const cardCopy = ({
-    en: { travelPass: 'TRAVEL PASS', travelMemory: 'TRAVEL MEMORY', memory: 'MEMORY', admitOne: 'ADMIT ONE', journeyRecord: 'JOURNEY RECORD', boardingPass: 'BOARDING PASS', museumEntry: 'MUSEUM ENTRY', ticketDetails: 'TICKET DETAILS', serial: 'SERIAL', date: 'DATE', location: 'LOCATION', note: 'NOTE', diveLog: 'DIVE LOG', marineLife: 'MARINE LIFE', unnamedDive: 'DIVE SITE' },
-    zh: { travelPass: '旅行票', travelMemory: '旅行纪念', memory: '纪念', admitOne: '入场券', journeyRecord: '旅程记录', boardingPass: '登机牌', museumEntry: '博物馆入场券', ticketDetails: '票根信息', serial: '编号', date: '日期', location: '地点', note: '备注', diveLog: '潜水日志', marineLife: '遇见的生物', unnamedDive: '未命名潜点' },
-    ja: { travelPass: 'トラベルパス', travelMemory: '旅の記憶', memory: '思い出', admitOne: '入場券', journeyRecord: '旅の記録', boardingPass: '搭乗券', museumEntry: '美術館入場券', ticketDetails: 'チケット情報', serial: '番号', date: '日付', location: '場所', note: 'メモ', diveLog: 'ダイビングログ', marineLife: '出会った生き物', unnamedDive: 'ダイビングポイント' },
-    ko: { travelPass: '여행 티켓', travelMemory: '여행의 기억', memory: '추억', admitOne: '입장권', journeyRecord: '여정 기록', boardingPass: '탑승권', museumEntry: '박물관 입장권', ticketDetails: '티켓 정보', serial: '번호', date: '날짜', location: '장소', note: '메모', diveLog: '다이빙 로그', marineLife: '관찰 생물', unnamedDive: '다이빙 포인트' },
-  } as Record<string, Record<string, string>>)[language] || ({ travelPass: 'TRAVEL PASS', travelMemory: 'TRAVEL MEMORY', memory: 'MEMORY', admitOne: 'ADMIT ONE', journeyRecord: 'JOURNEY RECORD', boardingPass: 'BOARDING PASS', museumEntry: 'MUSEUM ENTRY', ticketDetails: 'TICKET DETAILS', serial: 'SERIAL', date: 'DATE', location: 'LOCATION', note: 'NOTE', diveLog: 'DIVE LOG', marineLife: 'MARINE LIFE', unnamedDive: 'DIVE SITE' });
+  const locale = normalizeLocale(language);
+  const t = translations[locale] || translations.en;
+  const processingCopy = processingTranslations[locale] || processingTranslations.en;
+  const ticketCopy = ticketTranslations[locale] || ticketTranslations.en;
+  const editCopy = editActionTranslations[locale] || editActionTranslations.en;
+  const cardCopy = getCardCopy(locale);
   const hasPersonalBrand = hasUserBrandingEntitlement(user) && user.personalBranding?.enabled === true;
   const resolveBrandingMode = (settings: SettingsType): BrandingMode => {
     const requested = settings.backBrandingMode ?? (settings.backBrandingEnabled === false ? 'none' : 'site');
@@ -2168,7 +2166,7 @@ export default function Step5Process({
     ctx.font = `700 ${eyebrowFontSize}px "Inter", sans-serif`;
     const eyebrowWidth = ctx.measureText(ticketEyebrow).width;
     ctx.font = `800 ${preferredTitleFontSize}px "Inter", sans-serif`;
-    const measuredTitleWidth = ctx.measureText(displayTitle.toUpperCase()).width;
+    const measuredTitleWidth = ctx.measureText(displayTitle).width;
     ctx.font = `500 ${metaFontSize}px "Inter", sans-serif`;
     const measuredMetaWidth = hasTicketMeta ? ctx.measureText(ticketMeta).width : 0;
     ctx.restore();
@@ -2325,10 +2323,10 @@ export default function Step5Process({
     const requestedTitleSize = imageArea === 'background'
       ? preferredTitleFontSize
       : Math.max(30, Math.min(ch * 0.066, infoPanel.h * 0.3)) * titleScale;
-    fitCanvasText(ctx, displayTitle.toUpperCase(), textMaxWidth, requestedTitleSize, 18, '"Inter", sans-serif');
+    fitCanvasText(ctx, displayTitle, textMaxWidth, requestedTitleSize, 18, '"Inter", sans-serif');
     const fittedTitleFont = ctx.font;
     ctx.font = `800 ${fittedTitleFont}`;
-    ctx.fillText(displayTitle.toUpperCase(), infoX, titleY);
+    ctx.fillText(displayTitle, infoX, titleY);
     if (hasTicketMeta) {
       fitCanvasText(ctx, ticketMeta, textMaxWidth, imageArea === 'background' ? metaFontSize : Math.max(14, Math.min(ch * 0.024, infoPanel.h * 0.11)), 10, '"Inter", sans-serif');
       ctx.globalAlpha = 0.76;
@@ -2478,12 +2476,7 @@ export default function Step5Process({
     ctx.fillText(displayLocation, x, y);
     y += panelH * 0.1;
 
-    const frontDiveLabels = ({
-      en: ['DATE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY'],
-      zh: ['日期', '最大深度', '潜水时长', '水温', '能见度', '潜伴'],
-      ja: ['日付', '最大深度', '潜水時間', '水温', '透明度', 'バディ'],
-      ko: ['날짜', '최대 수심', '다이빙 시간', '수온', '시야', '버디'],
-    } as Record<string, string[]>)[language] || ['DATE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY'];
+    const frontDiveLabels = [cardCopy.date, ...cardCopy.diveLabels.slice(1, 6)];
     const items = [
       [frontDiveLabels[0], cfg.diveDate || date || '—'],
       [frontDiveLabels[1], cfg.depth || '—'],
@@ -3307,7 +3300,7 @@ export default function Step5Process({
     details.forEach(([label, value], index) => {
       ctx.fillStyle = '#8a7760';
       ctx.font = `700 ${Math.max(14, ch * 0.022)}px "Inter", sans-serif`;
-      ctx.fillText(label.toUpperCase(), padding, y);
+      ctx.fillText(label, padding, y);
       ctx.fillStyle = '#29241f';
       fitCanvasText(ctx, value, cw - padding * 3.2, Math.max(22, ch * 0.038), 16, '"Inter", sans-serif');
       ctx.fillText(value.slice(0, index === 3 ? 72 : 48), cw * 0.3, y);
@@ -3342,12 +3335,7 @@ export default function Step5Process({
     ctx.fillStyle = '#4e7476';
     ctx.font = `600 ${Math.max(14, ch * 0.022)}px "Inter", sans-serif`;
     ctx.fillText(`${cfg.diveNumber || ''}  ${cfg.diveDate || date || ''}`, padding, padding * 2.25);
-    const diveLabels = ({
-      en: ['SITE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY', 'MARINE LIFE'],
-      zh: ['潜点', '最大深度', '潜水时长', '水温', '能见度', '潜伴', '遇见的生物'],
-      ja: ['ポイント', '最大深度', '潜水時間', '水温', '透明度', 'バディ', '出会った生き物'],
-      ko: ['포인트', '최대 수심', '다이빙 시간', '수온', '시야', '버디', '관찰 생물'],
-    } as Record<string, string[]>)[language] || ['SITE', 'MAX DEPTH', 'DURATION', 'WATER', 'VISIBILITY', 'BUDDY', 'MARINE LIFE'];
+    const diveLabels = cardCopy.diveLabels;
     const details = [
       [diveLabels[0], cfg.location || location || '—'], [diveLabels[1], cfg.depth || '—'],
       [diveLabels[2], cfg.duration || '—'], [diveLabels[3], cfg.waterTemp || '—'],
