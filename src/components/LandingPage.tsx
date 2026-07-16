@@ -170,16 +170,16 @@ const translations: Record<string, Partial<LandingCopy>> = {
     featuresTitle: "ラッコの特別便",
     featuresSubtitle: "AIの下書きに、あなたらしい仕上げを加えられます。",
     feature1Title: "スマートクロッピング",
-    feature1Desc: "AIが写真の構図を分析し、ポストカードに最適なサイズへ美しく切り抜きます。",
+    feature1Desc: "AIによる自動構図トリミング。",
     feature2Title: "心温まるメッセージ",
-    feature2Desc: "旅行の感動やその瞬間の想いを、AIが心温まるメッセージに変えるお手伝いをします。",
+    feature2Desc: "旅行の思い出をAIが素敵な文章に。",
     feature3Title: "グローバルスタイル",
-    feature3Desc: "世界各国の旅情をそそる多彩なデザインテーマで、あなたの思い出を鮮やかに彩ります。",
+    feature3Desc: "世界中の旅情をそそる限定テーマ。",
     showcaseTitle: "ラッコギャラリー",
     showcaseSubtitle: "郵便局が扱った美しい思い出をご覧ください。",
     tryBtn: "郵便局へ行く",
-    ctaTitle: "あなただけの、特別な一枚を届けてみませんか？",
-    ctaSubtitle: "写真を選ぶだけで、言葉とデザインを添えた一枚に仕上げられます。",
+    ctaTitle: "写真を選ぶだけで、あなただけの特別な1枚に。",
+    ctaSubtitle: "",
     ctaBtn: "ポストカードを作ってみる",
     ctaMicrocopy: "※お試し作成は無料です。AI生成や追加機能はクレジット制で、確認なしに課金されることはありません。",
     rights: "無断転載を禁じます。",
@@ -603,7 +603,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               </div>
               <div className="min-w-0 text-left">
                 <div className="font-semibold text-stone-900">{title}</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-[#444444]">{desc}</div>
+                {language !== 'ja' && <div className="mt-1 text-[15px] leading-relaxed text-[#444444]">{desc}</div>}
               </div>
             </div>
           ))}
@@ -878,7 +878,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       <section id="about" className="py-24 px-4 sm:px-6 lg:px-8 bg-white text-center">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-[clamp(2rem,6vw,3rem)] font-bold text-stone-900 mb-6">{t.ctaTitle}</h2>
-          <p className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 mb-10">{t.ctaSubtitle}</p>
+          {t.ctaSubtitle && <p className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 mb-10">{t.ctaSubtitle}</p>}
           <button
             onClick={onStart}
             className="bg-stone-900 text-white px-8 py-4 rounded-2xl font-medium text-lg hover:bg-stone-800 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-stone-900/10"
