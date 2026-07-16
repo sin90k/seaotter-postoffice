@@ -801,6 +801,7 @@ export default function App() {
     document.documentElement.lang = localeMeta[locale].htmlLang;
     document.documentElement.classList.remove('locale-cjk', 'locale-thai', 'locale-latin');
     document.documentElement.classList.add(localeTypographyClass(locale));
+    document.title = locale === 'ja' ? 'ラッコ郵便局' : locale === 'en' ? 'Sea Otter Post Office' : locale === 'ko' ? '해달 우체국' : '海獭邮局';
   }, [language]);
   // 从 Supabase 会话同步用户信息
   const syncUserFromSupabase = async () => {

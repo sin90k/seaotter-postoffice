@@ -182,7 +182,7 @@ const translations: Record<string, Partial<LandingCopy>> = {
     ctaSubtitle: "写真を選ぶだけで、言葉とデザインを添えた一枚に仕上げられます。",
     ctaBtn: "ポストカードを作ってみる",
     ctaMicrocopy: "※お試し作成は無料です。AI生成や追加機能はクレジット制で、確認なしに課金されることはありません。",
-    rights: "全著作権所有。",
+    rights: "無断転載を禁じます。",
     navFeatures: "機能", navGallery: "作例", navPricing: "料金", navAbout: "概要", front: "表面", back: "裏面", sampleTitle: "静かな午後", sampleHint: "タイトル・場所・日付を編集できます", sampleMessage: "静かなひとときを、大切に残せる一枚のカードに。", fromOtter: "ラッコ郵便局から", stamp: "切手", feedback: "ご意見", contact: "お問い合わせ"
   },
   ko: {
