@@ -487,13 +487,13 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full flex flex-col items-center text-center md:text-left md:flex-row md:items-center md:justify-between gap-10">
+      <section className="relative pt-16 pb-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full flex flex-col items-center text-center md:text-left md:flex-row md:items-center md:justify-between gap-8">
         <div className="flex-1 max-w-xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm"
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm"
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span>{t.heroEyebrow || t.badge}</span>
@@ -502,7 +502,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-[clamp(2.25rem,8vw,4.5rem)] font-bold text-stone-900 tracking-tight mb-6 leading-[1.05]"
+            className="text-[clamp(2.25rem,8vw,4.5rem)] font-bold text-stone-900 tracking-tight mb-5 leading-[1.05]"
           >
             {t.title1}
             <br className="hidden sm:block" />
@@ -513,7 +513,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-[clamp(1rem,2.5vw,1.2rem)] text-stone-500 mb-8 leading-relaxed"
+            className="text-[clamp(1rem,2.5vw,1.2rem)] text-stone-500 mb-6 leading-relaxed"
           >
             {t.subtitle}
           </motion.p>
@@ -521,7 +521,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-5 py-4 text-[15px] font-semibold leading-7 text-stone-800 shadow-sm sm:text-base"
+            className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-5 py-4 text-[15px] font-semibold leading-7 text-stone-800 shadow-sm sm:text-base"
           >
             {t.deliveryNote}
           </motion.p>
@@ -551,7 +551,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-6 flex flex-wrap justify-center gap-2 text-xs text-stone-600 md:justify-start"
+            className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-stone-600 md:justify-start"
           >
             {[t.proof1, t.proof2, t.proof3].filter(Boolean).map((item: string) => (
               <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm">
@@ -594,7 +594,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 	        </motion.div>
       </section>
 
-      <section className="px-4 pb-16 sm:px-6 lg:px-8">
+      <section className="px-4 pb-8 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-6xl gap-3 md:grid-cols-3">
           {workflow.map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
@@ -611,15 +611,15 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-white px-4 sm:px-6 lg:px-8">
+      <section id="features" className="py-14 bg-white px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8">
             <h2 className="text-[clamp(1.75rem,5vw,2.5rem)] font-bold text-stone-900 mb-4">{t.featuresTitle}</h2>
             <p className="text-[clamp(1rem,2vw,1.125rem)] text-stone-500">{t.featuresSubtitle}</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <ImageIcon className="w-6 h-6 text-stone-700" />
               </div>
@@ -629,7 +629,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               </p>
             </div>
             
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <Heart className="w-6 h-6 text-stone-700" />
               </div>
@@ -639,7 +639,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               </p>
             </div>
 
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <Globe2 className="w-6 h-6 text-stone-700" />
               </div>
@@ -653,16 +653,16 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       </section>
 
       {/* Showcase Section */}
-      <section id="gallery" className="py-24 bg-stone-900 text-white px-4 sm:px-6 lg:px-8">
+      <section id="gallery" className="py-14 bg-stone-900 text-white px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
             <div>
               <h2 className="text-[clamp(1.75rem,5vw,2.5rem)] font-bold mb-4">{t.showcaseTitle}</h2>
               <p className="text-stone-400 text-[clamp(1rem,2vw,1.125rem)] max-w-xl">{t.showcaseSubtitle}</p>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {showcaseItems.map((item, i) => (
               <motion.div 
                 key={i} 
@@ -875,7 +875,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       </section>
 
       {/* CTA Section */}
-      <section id="about" className="py-24 px-4 sm:px-6 lg:px-8 bg-white text-center">
+      <section id="about" className="py-14 px-4 sm:px-6 lg:px-8 bg-white text-center">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-[clamp(2rem,6vw,3rem)] font-bold text-stone-900 mb-6">{t.ctaTitle}</h2>
           {t.ctaSubtitle && <p className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 mb-10">{t.ctaSubtitle}</p>}
