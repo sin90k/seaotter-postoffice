@@ -390,6 +390,23 @@ const translations: Record<string, Partial<LandingCopy>> = {
 export default function LandingPage({ onStart, language, countryConfig, onCountryChange, onFeedback }: Props) {
   const t = { ...translations.en, ...(translations[language] || {}) } as LandingCopy;
   const [showCountryMenu, setShowCountryMenu] = useState(false);
+  const renderCtaMicrocopy = () => {
+    if (language === 'ja') {
+      return (
+        <>
+          ※お試し作成は<strong className="font-bold text-stone-800">無料</strong>です。AI生成や追加機能はクレジット制で、<strong className="font-bold text-stone-800">確認なしに課金されることはありません。</strong>
+        </>
+      );
+    }
+    if (language === 'zh') {
+      return (
+        <>
+          可<strong className="font-bold text-stone-800">免费试用</strong>；AI 生成与高级功能使用积分，<strong className="font-bold text-stone-800">未经确认不会自动扣费。</strong>
+        </>
+      );
+    }
+    return t.ctaMicrocopy;
+  };
   const workflow = [
     { icon: UploadCloud, title: t.workflow1Title, desc: t.workflow1Desc },
     { icon: Wand2, title: t.workflow2Title, desc: t.workflow2Desc },
@@ -504,7 +521,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="mb-7 rounded-2xl border border-stone-200 bg-white/80 px-4 py-3 text-sm font-medium leading-relaxed text-stone-700 shadow-sm"
+            className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-5 py-4 text-[15px] font-semibold leading-7 text-stone-800 shadow-sm sm:text-base"
           >
             {t.deliveryNote}
           </motion.p>
@@ -513,7 +530,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center md:items-start gap-4"
+            className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6 md:items-start"
           >
             <button
               onClick={onStart}
@@ -524,7 +541,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             </button>
             <button
               onClick={() => document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-stone-200 text-stone-700 bg-white/70 hover:bg-white transition-all text-sm flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 transition-colors hover:text-stone-950 hover:decoration-stone-600 sm:w-auto"
             >
               <ImageIcon className="w-4 h-4" />
               {t.secondaryBtn || t.tryBtn}
@@ -586,7 +603,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               </div>
               <div className="min-w-0 text-left">
                 <div className="font-semibold text-stone-900">{title}</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-stone-700">{desc}</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-[#444444]">{desc}</div>
               </div>
             </div>
           ))}
@@ -602,32 +619,32 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-3xl bg-stone-50 border border-stone-100">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <ImageIcon className="w-6 h-6 text-stone-700" />
               </div>
               <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature1Title}</h3>
-              <p className="text-stone-500 leading-relaxed">
+              <p className="text-stone-600 leading-relaxed">
                 {t.feature1Desc}
               </p>
             </div>
             
-            <div className="p-8 rounded-3xl bg-stone-50 border border-stone-100">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <Heart className="w-6 h-6 text-stone-700" />
               </div>
               <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature2Title}</h3>
-              <p className="text-stone-500 leading-relaxed">
+              <p className="text-stone-600 leading-relaxed">
                 {t.feature2Desc}
               </p>
             </div>
 
-            <div className="p-8 rounded-3xl bg-stone-50 border border-stone-100">
+            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-8">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
                 <Globe2 className="w-6 h-6 text-stone-700" />
               </div>
               <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature3Title}</h3>
-              <p className="text-stone-500 leading-relaxed">
+              <p className="text-stone-600 leading-relaxed">
                 {t.feature3Desc}
               </p>
             </div>
@@ -699,7 +716,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                           </div>
                         )}
                         <h4 className={cn(
-                          "max-w-full break-words text-xl sm:text-2xl leading-tight mb-1",
+                          "mb-1 flex min-h-[3rem] max-w-full items-end break-words text-xl leading-tight sm:text-2xl",
                           item.style === 'cyberpunk' ? "font-mono text-cyan-400 [text-shadow:0_0_10px_rgba(34,211,238,0.8)]" :
                           item.style === 'artistic' ? "font-serif italic text-amber-100" :
                           item.style === 'vintage' ? "font-mono text-stone-800 bg-white/90 px-2 py-1 text-center text-sm" :
@@ -709,7 +726,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                         </h4>
                         {item.style !== 'vintage' && (
                           <p className={cn(
-                            "flex min-w-0 max-w-full items-center gap-1.5 text-sm",
+                            "flex h-5 min-w-0 max-w-full items-center gap-1.5 text-sm",
                             item.style === 'cyberpunk' ? "text-cyan-600 font-mono" :
                             item.style === 'artistic' ? "text-amber-400/80 font-serif italic" :
                             "text-stone-300"
@@ -868,7 +885,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           >
             {t.ctaBtn}
           </button>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-stone-500">{t.ctaMicrocopy}</p>
+          <p className="mx-auto mt-6 max-w-xl text-[15px] leading-7 text-stone-600">{renderCtaMicrocopy()}</p>
         </div>
       </section>
 
