@@ -14,14 +14,66 @@ interface Props {
   onFeedback: () => void;
 }
 
-const translations: Record<string, any> = {
+type LandingCopy = {
+  badge: string;
+  heroEyebrow: string;
+  title1: string;
+  title2: string;
+  subtitle: string;
+  deliveryNote: string;
+  startBtn: string;
+  navStartBtn: string;
+  secondaryBtn: string;
+  proof1: string;
+  proof2: string;
+  proof3: string;
+  workflow1Title: string;
+  workflow1Desc: string;
+  workflow2Title: string;
+  workflow2Desc: string;
+  workflow3Title: string;
+  workflow3Desc: string;
+  featuresTitle: string;
+  featuresSubtitle: string;
+  feature1Title: string;
+  feature1Desc: string;
+  feature2Title: string;
+  feature2Desc: string;
+  feature3Title: string;
+  feature3Desc: string;
+  showcaseTitle: string;
+  showcaseSubtitle: string;
+  tryBtn: string;
+  ctaTitle: string;
+  ctaSubtitle: string;
+  ctaBtn: string;
+  ctaMicrocopy: string;
+  rights: string;
+  navFeatures: string;
+  navGallery: string;
+  navPricing: string;
+  navAbout: string;
+  front: string;
+  back: string;
+  sampleTitle: string;
+  sampleHint: string;
+  sampleMessage: string;
+  fromOtter: string;
+  stamp: string;
+  feedback: string;
+  contact: string;
+};
+
+const translations: Record<string, Partial<LandingCopy>> = {
   en: {
     badge: "Sea Otter Post Office",
     heroEyebrow: "AI postcard maker for travel photos",
     title1: "Turn one photo into ",
     title2: "a finished postcard",
     subtitle: "Upload a photo, let AI draft the title, place and message, then fine-tune the front and back before saving or sharing.",
+    deliveryNote: "Create export-ready digital postcards today. Physical printing and mailing are being prepared.",
     startBtn: "Create a postcard",
+    navStartBtn: "Create",
     secondaryBtn: "View examples",
     proof1: "AI title and caption",
     proof2: "Editable front and back",
@@ -45,7 +97,8 @@ const translations: Record<string, any> = {
     tryBtn: "Visit the Post Office",
     ctaTitle: "Ready to send your first card?",
     ctaSubtitle: "The sea otter postman is waiting for your photos.",
-    ctaBtn: "Open Post Office",
+    ctaBtn: "Create a postcard",
+    ctaMicrocopy: "Free to try. AI generation and premium features use credits, and you will never be charged without confirmation.",
     rights: "All rights reserved.",
     navFeatures: "Features",
     navGallery: "Gallery",
@@ -59,7 +112,9 @@ const translations: Record<string, any> = {
     title1: "上传一张照片，",
     title2: "生成一张可收藏的明信片",
     subtitle: "自动生成标题、地点与背面文字，再手动调整排版、滤镜和水印。适合旅行记录，也适合把日常瞬间认真保存下来。",
+    deliveryNote: "目前先提供可保存、可下载的数字明信片；实体印刷与邮寄功能正在准备中。",
     startBtn: "开始制作",
+    navStartBtn: "开始制作",
     secondaryBtn: "查看示例",
     proof1: "AI 标题与正文",
     proof2: "正反面可编辑",
@@ -83,7 +138,8 @@ const translations: Record<string, any> = {
     tryBtn: "参观邮局",
     ctaTitle: "准备好寄出第一张明信片了吗？",
     ctaSubtitle: "海獭邮递员正在等待您的照片。",
-    ctaBtn: "进入邮局",
+    ctaBtn: "开始制作明信片",
+    ctaMicrocopy: "可免费试用；AI 生成与高级功能使用积分，未经确认不会自动扣费。",
     rights: "版权所有。",
     navFeatures: "功能介绍",
     navGallery: "精选画廊",
@@ -96,35 +152,38 @@ const translations: Record<string, any> = {
     badge: "ラッコ郵便局",
     title1: "思い出を",
     title2: "未来へ届けよう",
-    subtitle: "ラッコの郵便屋さんが、あなたの大切な写真を素敵なポストカードに変えてくれます。愛を込めてお届けします。",
-    startBtn: "手紙を送る",
+    subtitle: "ラッコの郵便屋さんが、あなたの大切な写真を素敵なポストカードへと生まれ変わらせます。",
+    deliveryNote: "現在は、保存・共有用のデジタルポストカードを作成できます。印刷・郵送機能は準備中です。",
+    startBtn: "ポストカードを作ってみる",
+    navStartBtn: "手紙を送る",
     secondaryBtn: "作例を見る",
     heroEyebrow: "写真から作るAIポストカード",
     proof1: "AIタイトルと文章",
     proof2: "表面・裏面を編集",
     proof3: "旅の地図に保存",
     workflow1Title: "写真を追加",
-    workflow1Desc: "旅行や日常の一枚を選びます。",
+    workflow1Desc: "旅先や日常の一枚を選びます。",
     workflow2Title: "AIで生成",
-    workflow2Desc: "タイトル、場所、文章を作ります。",
+    workflow2Desc: "写真に合うタイトル、場所、文章を作ります。",
     workflow3Title: "編集・書き出し",
     workflow3Desc: "文字とスタイルを調整して保存します。",
     featuresTitle: "ラッコの特別便",
-    featuresSubtitle: "ラッコチームが心を込めて作ります。",
+    featuresSubtitle: "AIの下書きに、あなたらしい仕上げを加えられます。",
     feature1Title: "スマートクロッピング",
-    feature1Desc: "写真をポストカードサイズにぴったり合うように丁寧に調整します。",
+    feature1Desc: "AIが写真の構図を分析し、ポストカードに最適なサイズへ美しく切り抜きます。",
     feature2Title: "心温まるメッセージ",
-    feature2Desc: "その瞬間の気持ちを捉えた完璧なメッセージ作りをお手伝いします。",
+    feature2Desc: "旅行の感動やその瞬間の想いを、AIが心温まるメッセージに変えるお手伝いをします。",
     feature3Title: "グローバルスタイル",
-    feature3Desc: "世界中のスタイルとテーマで、あなたの思い出を彩ります。",
+    feature3Desc: "世界各国の旅情をそそる多彩なデザインテーマで、あなたの思い出を鮮やかに彩ります。",
     showcaseTitle: "ラッコギャラリー",
     showcaseSubtitle: "郵便局が扱った美しい思い出をご覧ください。",
     tryBtn: "郵便局へ行く",
-    ctaTitle: "最初のカードを送る準備はできましたか？",
-    ctaSubtitle: "ラッコの郵便屋さんがあなたの写真を待っています。",
-    ctaBtn: "郵便局を開く",
+    ctaTitle: "あなただけの、特別な一枚を届けてみませんか？",
+    ctaSubtitle: "写真を選ぶだけで、言葉とデザインを添えた一枚に仕上げられます。",
+    ctaBtn: "ポストカードを作ってみる",
+    ctaMicrocopy: "※お試し作成は無料です。AI生成や追加機能はクレジット制で、確認なしに課金されることはありません。",
     rights: "全著作権所有。",
-    navFeatures: "機能", navGallery: "作例", front: "表面", back: "裏面", sampleTitle: "静かな午後", sampleHint: "タイトル・場所・日付を編集できます", sampleMessage: "静かなひとときを、大切に残せる一枚のカードに。", fromOtter: "ラッコ郵便局から", stamp: "切手", feedback: "ご意見", contact: "お問い合わせ"
+    navFeatures: "機能", navGallery: "作例", navPricing: "料金", navAbout: "概要", front: "表面", back: "裏面", sampleTitle: "静かな午後", sampleHint: "タイトル・場所・日付を編集できます", sampleMessage: "静かなひとときを、大切に残せる一枚のカードに。", fromOtter: "ラッコ郵便局から", stamp: "切手", feedback: "ご意見", contact: "お問い合わせ"
   },
   ko: {
     badge: "해달 우체국",
@@ -329,7 +388,7 @@ const translations: Record<string, any> = {
 };
 
 export default function LandingPage({ onStart, language, countryConfig, onCountryChange, onFeedback }: Props) {
-  const t = translations[language] || translations.en;
+  const t = { ...translations.en, ...(translations[language] || {}) } as LandingCopy;
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const workflow = [
     { icon: UploadCloud, title: t.workflow1Title, desc: t.workflow1Desc },
@@ -359,20 +418,21 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             <span className="font-bold text-lg tracking-tight text-stone-900">{t.badge}</span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">{t.navFeatures}</a>
-            <a href="#gallery" className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">{t.navGallery}</a>
+          <div className="hidden lg:flex items-center gap-5 xl:gap-8">
+            <a href="#features" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navFeatures}</a>
+            <a href="#gallery" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navGallery}</a>
+            <a href="#pricing" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navPricing}</a>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             {/* Country Selection in Header */}
             <div className="relative">
               <button
                 onClick={() => setShowCountryMenu(!showCountryMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 text-sm font-medium hover:border-stone-300 transition-all"
+              className="flex max-w-[11rem] items-center gap-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-stone-700 transition-all hover:border-stone-300 sm:max-w-none sm:px-3"
               >
                 <Globe2 className="w-4 h-4 text-stone-400" />
-                <span className="hidden sm:inline">{countryConfig.nativeCountry} ({countryConfig.nativeLanguage})</span>
+                <span className="hidden max-w-[13rem] truncate sm:inline">{countryConfig.nativeCountry} ({countryConfig.nativeLanguage})</span>
                 <ChevronDown className={cn("w-4 h-4 transition-transform", showCountryMenu && "rotate-180")} />
               </button>
 
@@ -401,9 +461,9 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
             <button
               onClick={onStart}
-              className="bg-stone-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800 transition-all hover:scale-105 active:scale-95"
+              className="shrink-0 whitespace-nowrap rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-stone-800 active:scale-95 sm:px-4"
             >
-              {t.startBtn}
+              {t.navStartBtn}
             </button>
           </div>
         </div>
@@ -439,6 +499,14 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
             className="text-[clamp(1rem,2.5vw,1.2rem)] text-stone-500 mb-8 leading-relaxed"
           >
             {t.subtitle}
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="mb-7 rounded-2xl border border-stone-200 bg-white/80 px-4 py-3 text-sm font-medium leading-relaxed text-stone-700 shadow-sm"
+          >
+            {t.deliveryNote}
           </motion.p>
           
           <motion.div
@@ -518,7 +586,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
               </div>
               <div className="min-w-0 text-left">
                 <div className="font-semibold text-stone-900">{title}</div>
-                <div className="mt-0.5 text-sm text-stone-500">{desc}</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-stone-700">{desc}</div>
               </div>
             </div>
           ))}
@@ -641,12 +709,13 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                         </h4>
                         {item.style !== 'vintage' && (
                           <p className={cn(
-                            "min-w-0 max-w-full text-sm flex items-center gap-1.5 truncate",
+                            "flex min-w-0 max-w-full items-center gap-1.5 text-sm",
                             item.style === 'cyberpunk' ? "text-cyan-600 font-mono" :
                             item.style === 'artistic' ? "text-amber-400/80 font-serif italic" :
                             "text-stone-300"
                           )}>
-                            <Globe2 className="w-3 h-3" /> {item.loc}
+                            <Globe2 className="h-3.5 w-3.5 shrink-0" />
+                            <span className="min-w-0 truncate leading-none">{item.loc}</span>
                           </p>
                         )}
                       </div>
@@ -799,6 +868,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           >
             {t.ctaBtn}
           </button>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-stone-500">{t.ctaMicrocopy}</p>
         </div>
       </section>
 
