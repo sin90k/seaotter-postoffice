@@ -64,6 +64,15 @@ type LandingCopy = {
   contact: string;
 };
 
+type ShowcaseItem = {
+  img: string;
+  title: string;
+  loc: string;
+  theme: string;
+  style: string;
+  msg: string;
+};
+
 const translations: Record<string, Partial<LandingCopy>> = {
   en: {
     badge: "Sea Otter Post Office",
@@ -425,18 +434,82 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
     { icon: Wand2, title: t.workflow2Title, desc: t.workflow2Desc },
     { icon: SlidersHorizontal, title: t.workflow3Title, desc: t.workflow3Desc },
   ];
-  const defaultShowcase = [
+  const defaultShowcase: ShowcaseItem[] = [
     { img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=800', title: 'Neon Shanghai', loc: 'The Bund, Shanghai', theme: 'City Night', style: 'neon', msg: 'The city lights shimmer on the river, turning the night into a postcard.' },
     { img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=800', title: 'Venetian Serenade', loc: 'Venice, Italy', theme: 'Oil Painting', style: 'artistic', msg: 'Floating through the canals, the water reflects centuries of history.' },
     { img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800', title: 'Alpine Solitude', loc: 'Zermatt, Switzerland', theme: 'Vintage Film', style: 'vintage', msg: 'The Matterhorn stands tall against the blue sky.' },
     { img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800', title: 'Azure Escape', loc: 'Maldives', theme: 'Minimalist', style: 'minimal', msg: 'Endless blue water and powder-soft sand. A quiet paradise.' },
   ];
-  const showcaseItems = language === 'ja' ? [
-    { ...defaultShowcase[0], title: '上海の夜景', loc: '上海・外灘', theme: 'シティナイト', msg: '川面に揺れる灯りが、街の夜を一枚の手紙に変えていきます。' },
-    { ...defaultShowcase[1], title: 'ヴェネツィアの旋律', loc: 'イタリア・ヴェネツィア', theme: '油彩', msg: '運河を進むたび、水面に長い歴史と静かな時間が映ります。' },
-    { ...defaultShowcase[2], title: 'アルプスの静寂', loc: 'スイス・ツェルマット', theme: 'ヴィンテージフィルム', msg: '澄んだ空の下、マッターホルンが変わらない姿で立っています。' },
-    { ...defaultShowcase[3], title: '青の休暇', loc: 'モルディブ', theme: 'ミニマル', msg: 'どこまでも続く青と、粉雪のような砂。静かな楽園を見つけました。' },
-  ] : defaultShowcase;
+  const showcaseByLanguage: Record<string, ShowcaseItem[]> = {
+    en: defaultShowcase,
+    zh: [
+      { ...defaultShowcase[0], title: '上海夜色', loc: '上海·外滩', theme: '城市夜景', msg: '江面倒映着城市灯火，把夜晚写成一张明信片。' },
+      { ...defaultShowcase[1], title: '威尼斯旋律', loc: '意大利·威尼斯', theme: '油画', msg: '船行过运河，水面映出几个世纪的历史与安静时光。' },
+      { ...defaultShowcase[2], title: '阿尔卑斯静境', loc: '瑞士·采尔马特', theme: '复古胶片', msg: '晴空之下，马特洪峰以沉默的姿态守着远方。' },
+      { ...defaultShowcase[3], title: '蓝色假期', loc: '马尔代夫', theme: '极简', msg: '无边的蓝与细软的白沙，像一段被放慢的假日。' },
+    ],
+    ja: [
+      { ...defaultShowcase[0], title: '上海の夜景', loc: '上海・外灘', theme: 'シティナイト', msg: '川面に揺れる灯りが、街の夜を一枚の手紙に変えていきます。' },
+      { ...defaultShowcase[1], title: 'ヴェネツィアの旋律', loc: 'イタリア・ヴェネツィア', theme: '油彩', msg: '運河を進むたび、水面に長い歴史と静かな時間が映ります。' },
+      { ...defaultShowcase[2], title: 'アルプスの静寂', loc: 'スイス・ツェルマット', theme: 'ヴィンテージフィルム', msg: '澄んだ空の下、マッターホルンが変わらない姿で立っています。' },
+      { ...defaultShowcase[3], title: '青の休暇', loc: 'モルディブ', theme: 'ミニマル', msg: 'どこまでも続く青と、粉雪のような砂。静かな楽園を見つけました。' },
+    ],
+    ko: [
+      { ...defaultShowcase[0], title: '상하이의 밤', loc: '상하이·와이탄', theme: '도시의 밤', msg: '강 위로 흔들리는 불빛이 도시의 밤을 한 장의 엽서로 바꿉니다.' },
+      { ...defaultShowcase[1], title: '베네치아의 선율', loc: '이탈리아·베네치아', theme: '유화', msg: '운하를 따라 흐르는 물결에 오랜 역사와 고요한 시간이 비칩니다.' },
+      { ...defaultShowcase[2], title: '알프스의 고요', loc: '스위스·체르마트', theme: '빈티지 필름', msg: '맑은 하늘 아래 마터호른은 변함없는 모습으로 서 있습니다.' },
+      { ...defaultShowcase[3], title: '푸른 휴가', loc: '몰디브', theme: '미니멀', msg: '끝없이 펼쳐진 푸른 바다와 부드러운 모래가 조용한 낙원을 만듭니다.' },
+    ],
+    fr: [
+      { ...defaultShowcase[0], title: 'Nuit à Shanghai', loc: 'Shanghai · Le Bund', theme: 'Nuit urbaine', msg: 'Les lumières glissent sur le fleuve et transforment la ville en carte postale.' },
+      { ...defaultShowcase[1], title: 'Mélodie vénitienne', loc: 'Venise · Italie', theme: 'Peinture à l’huile', msg: 'Au fil des canaux, l’eau reflète des siècles d’histoire et de calme.' },
+      { ...defaultShowcase[2], title: 'Silence alpin', loc: 'Zermatt · Suisse', theme: 'Film vintage', msg: 'Sous un ciel limpide, le Cervin veille avec une présence paisible.' },
+      { ...defaultShowcase[3], title: 'Échappée bleue', loc: 'Maldives', theme: 'Minimaliste', msg: 'L’eau infiniment bleue et le sable clair composent un paradis discret.' },
+    ],
+    es: [
+      { ...defaultShowcase[0], title: 'Noche en Shanghái', loc: 'Shanghái · El Bund', theme: 'Noche urbana', msg: 'Las luces tiemblan sobre el río y convierten la ciudad en una postal.' },
+      { ...defaultShowcase[1], title: 'Serenata veneciana', loc: 'Venecia · Italia', theme: 'Óleo', msg: 'Al avanzar por los canales, el agua refleja historia y tiempo suspendido.' },
+      { ...defaultShowcase[2], title: 'Silencio alpino', loc: 'Zermatt · Suiza', theme: 'Película vintage', msg: 'Bajo el cielo azul, el Cervino se alza con una calma intacta.' },
+      { ...defaultShowcase[3], title: 'Escapada azul', loc: 'Maldivas', theme: 'Minimalista', msg: 'Agua azul sin fin y arena suave: un paraíso tranquilo.' },
+    ],
+    de: [
+      { ...defaultShowcase[0], title: 'Shanghai bei Nacht', loc: 'Shanghai · Bund', theme: 'Stadtnacht', msg: 'Die Lichter spiegeln sich im Fluss und machen die Nacht zur Postkarte.' },
+      { ...defaultShowcase[1], title: 'Venezianische Melodie', loc: 'Venedig · Italien', theme: 'Ölgemälde', msg: 'Auf den Kanälen spiegelt das Wasser Geschichte und stille Zeit.' },
+      { ...defaultShowcase[2], title: 'Alpine Stille', loc: 'Zermatt · Schweiz', theme: 'Vintage-Film', msg: 'Unter klarem Himmel steht das Matterhorn ruhig und unverändert.' },
+      { ...defaultShowcase[3], title: 'Blaue Auszeit', loc: 'Malediven', theme: 'Minimalistisch', msg: 'Endloses Blau und weicher Sand formen ein stilles Paradies.' },
+    ],
+    it: [
+      { ...defaultShowcase[0], title: 'Notte a Shanghai', loc: 'Shanghai · Bund', theme: 'Notte urbana', msg: 'Le luci scivolano sul fiume e trasformano la notte in una cartolina.' },
+      { ...defaultShowcase[1], title: 'Melodia veneziana', loc: 'Venezia · Italia', theme: 'Pittura a olio', msg: 'Navigando tra i canali, l’acqua riflette secoli di storia e quiete.' },
+      { ...defaultShowcase[2], title: 'Silenzio alpino', loc: 'Zermatt · Svizzera', theme: 'Pellicola vintage', msg: 'Sotto il cielo limpido, il Cervino resta fermo e maestoso.' },
+      { ...defaultShowcase[3], title: 'Fuga azzurra', loc: 'Maldive', theme: 'Minimalista', msg: 'Acqua blu senza fine e sabbia soffice: un paradiso silenzioso.' },
+    ],
+    id: [
+      { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Malam Kota', msg: 'Cahaya kota berkilau di sungai, mengubah malam menjadi kartu pos.' },
+      { ...defaultShowcase[1], title: 'Serenada Venesia', loc: 'Venesia · Italia', theme: 'Lukisan Minyak', msg: 'Menyusuri kanal, air memantulkan sejarah panjang dan waktu yang tenang.' },
+      { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Zermatt · Swiss', theme: 'Film Vintage', msg: 'Di bawah langit biru, Matterhorn berdiri dengan damai.' },
+      { ...defaultShowcase[3], title: 'Liburan Biru', loc: 'Maladewa', theme: 'Minimalis', msg: 'Air biru tanpa batas dan pasir lembut menciptakan surga yang tenang.' },
+    ],
+    th: [
+      { ...defaultShowcase[0], title: 'ค่ำคืนเซี่ยงไฮ้', loc: 'เซี่ยงไฮ้ · เดอะบันด์', theme: 'เมืองยามค่ำ', msg: 'แสงไฟสะท้อนบนสายน้ำ เปลี่ยนค่ำคืนนี้ให้เป็นโปสการ์ดหนึ่งใบ' },
+      { ...defaultShowcase[1], title: 'ท่วงทำนองเวนิส', loc: 'เวนิส · อิตาลี', theme: 'สีน้ำมัน', msg: 'เมื่อเรือแล่นผ่านคลอง ผิวน้ำสะท้อนประวัติศาสตร์และความสงบ' },
+      { ...defaultShowcase[2], title: 'ความสงบแห่งแอลป์', loc: 'เซอร์แมท · สวิตเซอร์แลนด์', theme: 'ฟิล์มวินเทจ', msg: 'ใต้ท้องฟ้าใส ยอดเขาแมทเทอร์ฮอร์นตั้งตระหง่านอย่างเงียบงาม' },
+      { ...defaultShowcase[3], title: 'วันพักสีฟ้า', loc: 'มัลดีฟส์', theme: 'มินิมอล', msg: 'ทะเลสีฟ้าและทรายนุ่มละมุน กลายเป็นสวรรค์เงียบสงบ' },
+    ],
+    vi: [
+      { ...defaultShowcase[0], title: 'Đêm Thượng Hải', loc: 'Thượng Hải · Bến Thượng Hải', theme: 'Đêm đô thị', msg: 'Ánh đèn lay động trên mặt sông, biến đêm thành một tấm bưu thiếp.' },
+      { ...defaultShowcase[1], title: 'Giai điệu Venice', loc: 'Venice · Ý', theme: 'Tranh sơn dầu', msg: 'Theo dòng kênh, mặt nước phản chiếu lịch sử dài lâu và sự tĩnh lặng.' },
+      { ...defaultShowcase[2], title: 'Tĩnh lặng Alps', loc: 'Zermatt · Thụy Sĩ', theme: 'Phim cổ điển', msg: 'Dưới bầu trời trong, Matterhorn đứng yên bình và vững chãi.' },
+      { ...defaultShowcase[3], title: 'Kỳ nghỉ xanh', loc: 'Maldives', theme: 'Tối giản', msg: 'Biển xanh bất tận và cát trắng mềm tạo nên một thiên đường yên ả.' },
+    ],
+    ms: [
+      { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Malam Kota', msg: 'Cahaya bandar berkilau di sungai, menjadikan malam seperti sekeping poskad.' },
+      { ...defaultShowcase[1], title: 'Serenad Venice', loc: 'Venice · Itali', theme: 'Lukisan Minyak', msg: 'Menyusuri terusan, air memantulkan sejarah panjang dan detik yang tenang.' },
+      { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Zermatt · Switzerland', theme: 'Filem Vintaj', msg: 'Di bawah langit cerah, Matterhorn berdiri tenang dan megah.' },
+      { ...defaultShowcase[3], title: 'Percutian Biru', loc: 'Maldives', theme: 'Minimalis', msg: 'Air biru tanpa hujung dan pasir lembut membentuk syurga yang damai.' },
+    ],
+  };
+  const showcaseItems = showcaseByLanguage[language] ?? defaultShowcase;
 
   return (
     <div className="min-h-screen bg-[#fafaf9] flex flex-col font-sans">
