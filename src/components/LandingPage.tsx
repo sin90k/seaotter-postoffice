@@ -155,7 +155,7 @@ const translations: Record<string, Partial<LandingCopy>> = {
     subtitle: "ラッコの郵便屋さんが、あなたの大切な写真を素敵なポストカードへと生まれ変わらせます。",
     deliveryNote: "現在は、保存・共有用のデジタルポストカードを作成できます。印刷・郵送機能は準備中です。",
     startBtn: "ポストカードを作ってみる",
-    navStartBtn: "手紙を送る",
+    navStartBtn: "カードを作る",
     secondaryBtn: "作例を見る",
     heroEyebrow: "写真から作るAIポストカード",
     proof1: "AIタイトルと文章",
@@ -170,11 +170,11 @@ const translations: Record<string, Partial<LandingCopy>> = {
     featuresTitle: "ラッコの特別便",
     featuresSubtitle: "AIの下書きに、あなたらしい仕上げを加えられます。",
     feature1Title: "スマートクロッピング",
-    feature1Desc: "AIによる自動構図トリミング。",
+    feature1Desc: "AIによる自動構図トリミング",
     feature2Title: "心温まるメッセージ",
-    feature2Desc: "旅行の思い出をAIが素敵な文章に。",
+    feature2Desc: "旅行の思い出をAIが素敵な文章に",
     feature3Title: "グローバルスタイル",
-    feature3Desc: "世界中の旅情をそそる限定テーマ。",
+    feature3Desc: "世界中の旅情をそそる限定テーマ",
     showcaseTitle: "ラッコギャラリー",
     showcaseSubtitle: "郵便局が扱った美しい思い出をご覧ください。",
     tryBtn: "郵便局へ行く",
@@ -394,18 +394,31 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
     if (language === 'ja') {
       return (
         <>
-          ※お試し作成は<strong className="font-bold text-stone-800">無料</strong>です。AI生成や追加機能はクレジット制で、<strong className="font-bold text-stone-800">確認なしに課金されることはありません。</strong>
+          ※お試し作成は<strong className="font-bold text-stone-950">無料</strong>です。AI生成や追加機能はクレジット制で、<strong className="font-bold text-stone-950">確認なしに課金されることはありません。</strong>
         </>
       );
     }
     if (language === 'zh') {
       return (
         <>
-          可<strong className="font-bold text-stone-800">免费试用</strong>；AI 生成与高级功能使用积分，<strong className="font-bold text-stone-800">未经确认不会自动扣费。</strong>
+          可<strong className="font-bold text-stone-950">免费试用</strong>；AI 生成与高级功能使用积分，<strong className="font-bold text-stone-950">未经确认不会自动扣费。</strong>
         </>
       );
     }
     return t.ctaMicrocopy;
+  };
+  const renderCtaTitle = () => {
+    if (language === 'ja' && t.ctaTitle.includes('、')) {
+      const [first, second] = t.ctaTitle.split('、');
+      return (
+        <>
+          {first}、
+          <br />
+          {second}
+        </>
+      );
+    }
+    return t.ctaTitle;
   };
   const workflow = [
     { icon: UploadCloud, title: t.workflow1Title, desc: t.workflow1Desc },
@@ -602,7 +615,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 text-left">
-                <div className="font-semibold text-stone-900">{title}</div>
+                <div className="text-[17px] font-bold leading-snug text-stone-900">{title}</div>
                 {language !== 'ja' && <div className="mt-1 text-[15px] leading-relaxed text-[#444444]">{desc}</div>}
               </div>
             </div>
@@ -877,7 +890,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
       {/* CTA Section */}
       <section id="about" className="py-14 px-4 sm:px-6 lg:px-8 bg-white text-center">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-[clamp(2rem,6vw,3rem)] font-bold text-stone-900 mb-6">{t.ctaTitle}</h2>
+          <h2 className="mb-6 text-[clamp(2rem,6vw,3rem)] font-bold leading-tight text-stone-900 [word-break:keep-all]">{renderCtaTitle()}</h2>
           {t.ctaSubtitle && <p className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 mb-10">{t.ctaSubtitle}</p>}
           <button
             onClick={onStart}
@@ -885,7 +898,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
           >
             {t.ctaBtn}
           </button>
-          <p className="mx-auto mt-6 max-w-xl text-[15px] leading-7 text-stone-600">{renderCtaMicrocopy()}</p>
+          <p className="mx-auto mt-6 max-w-xl text-[15px] font-medium leading-7 text-stone-700">{renderCtaMicrocopy()}</p>
         </div>
       </section>
 
