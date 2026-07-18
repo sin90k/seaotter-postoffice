@@ -1,10 +1,21 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, Image as ImageIcon, Globe2, Sparkles, Heart, MessageSquare, ChevronDown, UploadCloud, Wand2, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  Globe2,
+  Image as ImageIcon,
+  MessageSquare,
+  MoveHorizontal,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 import { SeaOtterLogo } from './SeaOtterLogo';
 import { APP_VERSION } from '../version';
 import { cn } from '../lib/utils';
 import { CountryConfig, countriesConfig } from '../config/countries';
-import { useState } from 'react';
 
 interface Props {
   onStart: () => void;
@@ -27,39 +38,27 @@ type LandingCopy = {
   proof1: string;
   proof2: string;
   proof3: string;
-  workflow1Title: string;
-  workflow1Desc: string;
-  workflow2Title: string;
-  workflow2Desc: string;
-  workflow3Title: string;
-  workflow3Desc: string;
-  featuresTitle: string;
-  featuresSubtitle: string;
-  feature1Title: string;
-  feature1Desc: string;
-  feature2Title: string;
-  feature2Desc: string;
-  feature3Title: string;
-  feature3Desc: string;
+  comparisonTitle: string;
+  comparisonSubtitle: string;
+  beforeLabel: string;
+  afterLabel: string;
+  beforeCaption: string;
+  afterCaption: string;
   showcaseTitle: string;
   showcaseSubtitle: string;
-  tryBtn: string;
   ctaTitle: string;
-  ctaSubtitle: string;
   ctaBtn: string;
   ctaMicrocopy: string;
   rights: string;
   navFeatures: string;
   navGallery: string;
   navPricing: string;
-  navAbout: string;
   front: string;
   back: string;
   sampleTitle: string;
   sampleHint: string;
   sampleMessage: string;
   fromOtter: string;
-  stamp: string;
   feedback: string;
   contact: string;
 };
@@ -69,479 +68,452 @@ type ShowcaseItem = {
   title: string;
   loc: string;
   theme: string;
-  style: string;
   msg: string;
 };
 
-const translations: Record<string, Partial<LandingCopy>> = {
-  en: {
-    badge: "Sea Otter Post Office",
-    heroEyebrow: "AI postcard maker for travel photos",
-    title1: "Turn one photo into ",
-    title2: "a finished postcard",
-    subtitle: "Upload a photo, let AI draft the title, place and message, then fine-tune the front and back before saving or sharing.",
-    deliveryNote: "Create export-ready digital postcards today. Physical printing and mailing are being prepared.",
-    startBtn: "Create a postcard",
-    navStartBtn: "Create",
-    secondaryBtn: "View examples",
-    proof1: "AI title and caption",
-    proof2: "Editable front and back",
-    proof3: "Travel map history",
-    workflow1Title: "Upload",
-    workflow1Desc: "Pick a travel photo or daily snapshot.",
-    workflow2Title: "Generate",
-    workflow2Desc: "AI drafts the postcard copy and layout.",
-    workflow3Title: "Edit",
-    workflow3Desc: "Move text, tune style, then export.",
-    featuresTitle: "A focused postcard workflow",
-    featuresSubtitle: "Built around the actual steps of making and saving a card.",
-    feature1Title: "Photo-aware layout",
-    feature1Desc: "Keeps the image readable while reserving room for title, date and location.",
-    feature2Title: "AI writing that you can edit",
-    feature2Desc: "Use AI as a first draft, then keep your own voice in the final card.",
-    feature3Title: "Memory archive",
-    feature3Desc: "Saved postcards can build a travel map when location data is available.",
-    showcaseTitle: "Postcard styles",
-    showcaseSubtitle: "Examples of front design, back copy and export-ready cards.",
-    tryBtn: "Visit the Post Office",
-    ctaTitle: "Ready to send your first card?",
-    ctaSubtitle: "The sea otter postman is waiting for your photos.",
-    ctaBtn: "Create a postcard",
-    ctaMicrocopy: "Free to try. AI generation and premium features use credits, and you will never be charged without confirmation.",
-    rights: "All rights reserved.",
-    navFeatures: "Features",
-    navGallery: "Gallery",
-    navPricing: "Pricing",
-    navAbout: "About"
-    ,front: "Front", back: "Back", sampleTitle: "Quiet Afternoon", sampleHint: "Editable title, place and date", sampleMessage: "A quiet moment, turned into a card worth keeping.", fromOtter: "Postcard from Otter", stamp: "Stamp", feedback: "Feedback", contact: "Contact"
-  },
-  zh: {
-    badge: "海獭邮局",
-    heroEyebrow: "用 AI 把照片做成明信片",
-    title1: "上传一张照片，",
-    title2: "生成一张可收藏的明信片",
-    subtitle: "自动生成标题、地点与背面文字，再手动调整排版、滤镜和水印。适合旅行记录，也适合把日常瞬间认真保存下来。",
-    deliveryNote: "目前先提供可保存、可下载的数字明信片；实体印刷与邮寄功能正在准备中。",
-    startBtn: "开始制作",
-    navStartBtn: "开始制作",
-    secondaryBtn: "查看示例",
-    proof1: "AI 标题与正文",
-    proof2: "正反面可编辑",
-    proof3: "旅行地图归档",
-    workflow1Title: "上传照片",
-    workflow1Desc: "选择旅行或日常照片。",
-    workflow2Title: "AI 生成",
-    workflow2Desc: "生成标题、地点、正文和背面。",
-    workflow3Title: "编辑导出",
-    workflow3Desc: "拖动文字、调整样式并保存。",
-    featuresTitle: "围绕明信片制作的完整流程",
-    featuresSubtitle: "不是单纯套模板，而是从照片到可保存作品的一条流程。",
-    feature1Title: "照片优先的正面排版",
-    feature1Desc: "保留照片主体，同时给标题、日期和地点留下稳定位置。",
-    feature2Title: "可修改的 AI 文案",
-    feature2Desc: "AI 先帮你写第一版，你可以继续改成自己的语气。",
-    feature3Title: "可积累的旅行记录",
-    feature3Desc: "有地点信息的明信片会进入旅行地图，减少重复地点。",
-    showcaseTitle: "明信片样式示例",
-    showcaseSubtitle: "查看正面设计、背面文字和不同风格的最终效果。",
-    tryBtn: "参观邮局",
-    ctaTitle: "准备好寄出第一张明信片了吗？",
-    ctaSubtitle: "海獭邮递员正在等待您的照片。",
-    ctaBtn: "开始制作明信片",
-    ctaMicrocopy: "可免费试用；AI 生成与高级功能使用积分，未经确认不会自动扣费。",
-    rights: "版权所有。",
-    navFeatures: "功能介绍",
-    navGallery: "精选画廊",
-    navPricing: "会员方案",
-    navAbout: "关于我们"
-    ,front: "正面", back: "背面", sampleTitle: "猫咪时光", sampleHint: "标题、地点、日期都可调整", sampleMessage: "柔软的瞬间，被认真写成一张可以保存的明信片。", fromOtter: "海獭邮局明信片", stamp: "邮票", feedback: "意见反馈", contact: "联系我们"
-  },
-  // ... (keep other languages as fallback or update if needed, for now focusing on ZH/EN as requested)
-  ja: {
-    badge: "ラッコ郵便局",
-    title1: "思い出を",
-    title2: "未来へ届けよう",
-    subtitle: "ラッコの郵便屋さんが、あなたの大切な写真を素敵なポストカードへと生まれ変わらせます。",
-    deliveryNote: "現在は、保存・共有用のデジタルポストカードを作成できます。印刷・郵送機能は準備中です。",
-    startBtn: "ポストカードを作ってみる",
-    navStartBtn: "カードを作る",
-    secondaryBtn: "作例を見る",
-    heroEyebrow: "写真から作るAIポストカード",
-    proof1: "AIタイトルと文章",
-    proof2: "表面・裏面を編集",
-    proof3: "旅の地図に保存",
-    workflow1Title: "写真を追加",
-    workflow1Desc: "旅先や日常の一枚を選びます。",
-    workflow2Title: "AIで生成",
-    workflow2Desc: "写真に合うタイトル、場所、文章を作ります。",
-    workflow3Title: "編集・書き出し",
-    workflow3Desc: "文字とスタイルを調整して保存します。",
-    featuresTitle: "ラッコの特別便",
-    featuresSubtitle: "AIの下書きに、あなたらしい仕上げを加えられます。",
-    feature1Title: "スマートクロッピング",
-    feature1Desc: "AIによる自動構図トリミング",
-    feature2Title: "心温まるメッセージ",
-    feature2Desc: "旅行の思い出をAIが素敵な文章に",
-    feature3Title: "グローバルスタイル",
-    feature3Desc: "世界中の旅情をそそる限定テーマ",
-    showcaseTitle: "ラッコギャラリー",
-    showcaseSubtitle: "郵便局が扱った美しい思い出をご覧ください。",
-    tryBtn: "郵便局へ行く",
-    ctaTitle: "写真を選ぶだけで、あなただけの特別な1枚に。",
-    ctaSubtitle: "",
-    ctaBtn: "ポストカードを作ってみる",
-    ctaMicrocopy: "※お試し作成は無料です。AI生成や追加機能はクレジット制で、確認なしに課金されることはありません。",
-    rights: "無断転載を禁じます。",
-    navFeatures: "機能", navGallery: "作例", navPricing: "料金", navAbout: "概要", front: "表面", back: "裏面", sampleTitle: "静かな午後", sampleHint: "タイトル・場所・日付を編集できます", sampleMessage: "静かなひとときを、大切に残せる一枚のカードに。", fromOtter: "ラッコ郵便局から", stamp: "切手", feedback: "ご意見", contact: "お問い合わせ"
-  },
-  ko: {
-    badge: "해달 우체국",
-    title1: "당신의 추억을",
-    title2: "미래로 보내세요",
-    subtitle: "해달 우체부가 당신의 소중한 사진을 아름다운 엽서로 만들어 드립니다. 사랑과 정성을 담아 추억을 배달합니다.",
-    startBtn: "편지 보내기",
-    featuresTitle: "해달 특급 배송",
-    featuresSubtitle: "해달 팀이 정성을 다해 만듭니다.",
-    feature1Title: "스마트 포맷팅",
-    feature1Desc: "사진을 엽서 크기에 딱 맞게 조심스럽게 다듬어 드립니다.",
-    feature2Title: "진심 어린 메시지",
-    feature2Desc: "그 순간의 감동을 담은 완벽한 메시지를 작성하도록 도와드립니다.",
-    feature3Title: "글로벌 스타일",
-    feature3Desc: "전 세계의 다양한 스타일과 테마로 당신의 추억을 꾸며보세요.",
-    showcaseTitle: "해달 갤러리",
-    showcaseSubtitle: "우체국을 거쳐간 아름다운 추억들을 감상해보세요.",
-    tryBtn: "우체국 방문하기",
-    ctaTitle: "첫 번째 엽서를 보낼 준비가 되셨나요?",
-    ctaSubtitle: "해달 우체부가 당신의 사진을 기다리고 있습니다.",
-    ctaBtn: "우체국 입장하기",
-    rights: "모든 권리 보유."
-  },
-  // Keep other languages minimal or fallback to EN for now to save space/time, 
-  // but ideally they should be updated too. For this task, ZH is priority.
-  fr: {
-    badge: "Bureau de Poste des Loutres",
-    title1: "Envoyez vos souvenirs ",
-    title2: "vers le futur",
-    subtitle: "Laissez le facteur loutre transformer vos précieuses photos en magnifiques cartes postales.",
-    startBtn: "Commencer",
-    featuresTitle: "Service Spécial",
-    featuresSubtitle: "Créé avec amour par notre équipe de loutres.",
-    feature1Title: "Formatage Intelligent",
-    feature1Desc: "Nos loutres recadrent soigneusement vos photos.",
-    feature2Title: "Messages Sincères",
-    feature2Desc: "Nous vous aidons à écrire le message parfait.",
-    feature3Title: "Styles Mondiaux",
-    feature3Desc: "Des thèmes du monde entier.",
-    showcaseTitle: "Galerie des Loutres",
-    showcaseSubtitle: "Voir les beaux souvenirs.",
-    tryBtn: "Visiter",
-    ctaTitle: "Prêt à envoyer ?",
-    ctaSubtitle: "Le facteur loutre vous attend.",
-    ctaBtn: "Entrer",
-    rights: "Tous droits réservés."
-  },
-  es: {
-    badge: "Oficina de Correos de Nutrias",
-    title1: "Envía tus recuerdos ",
-    title2: "al futuro",
-    subtitle: "Deja que el cartero nutria convierta tus preciosas fotos en hermosas postales.",
-    startBtn: "Empezar",
-    featuresTitle: "Servicio Especial",
-    featuresSubtitle: "Creado con amor por nuestro equipo de nutrias.",
-    feature1Title: "Formato Inteligente",
-    feature1Desc: "Nuestras nutrias recortan cuidadosamente tus fotos.",
-    feature2Title: "Mensajes Sinceros",
-    feature2Desc: "Te ayudamos a escribir el mensaje perfecto.",
-    feature3Title: "Estilos Globales",
-    feature3Desc: "Temas de todo el mundo.",
-    showcaseTitle: "Galería de Nutrias",
-    showcaseSubtitle: "Ver los hermosos recuerdos.",
-    tryBtn: "Visitar",
-    ctaTitle: "¿Listo para enviar?",
-    ctaSubtitle: "El cartero nutria te espera.",
-    ctaBtn: "Entrar",
-    rights: "Todos los derechos reservados."
-  },
-  de: {
-    badge: "Seeotter-Postamt",
-    title1: "Senden Sie Ihre Erinnerungen ",
-    title2: "in die Zukunft",
-    subtitle: "Lassen Sie den Seeotter-Postboten Ihre wertvollen Fotos in wunderschöne Postkarten verwandeln.",
-    startBtn: "Starten",
-    featuresTitle: "Spezialversand",
-    featuresSubtitle: "Mit Liebe von unserem Seeotter-Team erstellt.",
-    feature1Title: "Intelligente Formatierung",
-    feature1Desc: "Unsere Otter schneiden Ihre Fotos sorgfältig zu.",
-    feature2Title: "Herzliche Nachrichten",
-    feature2Desc: "Wir helfen Ihnen, die perfekte Nachricht zu schreiben.",
-    feature3Title: "Globale Stile",
-    feature3Desc: "Themen aus der ganzen Welt.",
-    showcaseTitle: "Otter-Galerie",
-    showcaseSubtitle: "Sehen Sie die schönen Erinnerungen.",
-    tryBtn: "Besuchen",
-    ctaTitle: "Bereit zum Senden?",
-    ctaSubtitle: "Der Seeotter-Postbote wartet.",
-    ctaBtn: "Eintreten",
-    rights: "Alle Rechte vorbehalten."
-  },
-  it: {
-    badge: "Ufficio Postale delle Lontre",
-    title1: "Invia i tuoi ricordi ",
-    title2: "nel futuro",
-    subtitle: "Lascia che il postino lontra trasformi le tue foto preziose in splendide cartoline.",
-    startBtn: "Inizia",
-    featuresTitle: "Servizio Speciale",
-    featuresSubtitle: "Creato con amore dal nostro team di lontre.",
-    feature1Title: "Formattazione Intelligente",
-    feature1Desc: "Le nostre lontre ritagliano con cura le tue foto.",
-    feature2Title: "Messaggi Sinceri",
-    feature2Desc: "Ti aiutiamo a scrivere il messaggio perfetto.",
-    feature3Title: "Stili Globali",
-    feature3Desc: "Temi da tutto il mondo.",
-    showcaseTitle: "Galleria delle Lontre",
-    showcaseSubtitle: "Vedi i bei ricordi.",
-    tryBtn: "Visita",
-    ctaTitle: "Pronto a inviare?",
-    ctaSubtitle: "Il postino lontra ti aspetta.",
-    ctaBtn: "Entra",
-    rights: "Tutti i diritti riservati."
-  },
-  id: {
-    badge: "Kantor Pos Berang-berang",
-    title1: "Kirim kenangan Anda ",
-    title2: "ke masa depan",
-    subtitle: "Biarkan tukang pos berang-berang mengubah foto berharga Anda menjadi kartu pos yang indah.",
-    startBtn: "Mulai",
-    featuresTitle: "Layanan Khusus",
-    featuresSubtitle: "Dibuat dengan cinta oleh tim berang-berang kami.",
-    feature1Title: "Pemformatan Cerdas",
-    feature1Desc: "Berang-berang kami memotong foto Anda dengan hati-hati.",
-    feature2Title: "Pesan Tulus",
-    feature2Desc: "Kami membantu Anda menulis pesan yang sempurna.",
-    feature3Title: "Gaya Global",
-    feature3Desc: "Tema dari seluruh dunia.",
-    showcaseTitle: "Galeri Berang-berang",
-    showcaseSubtitle: "Lihat kenangan indah.",
-    tryBtn: "Kunjungi",
-    ctaTitle: "Siap mengirim?",
-    ctaSubtitle: "Tukang pos berang-berang menunggu.",
-    ctaBtn: "Masuk",
-    rights: "Hak cipta terpelihara."
-  },
-  th: {
-    badge: "ที่ทำการไปรษณีย์นากทะเล",
-    title1: "ส่งความทรงจำของคุณ ",
-    title2: "สู่อนาคต",
-    subtitle: "ให้บุรุษไปรษณีย์นากทะเลเปลี่ยนภาพถ่ายอันมีค่าของคุณให้เป็นโปสการ์ดที่สวยงาม",
-    startBtn: "เริ่ม",
-    featuresTitle: "บริการพิเศษ",
-    featuresSubtitle: "สร้างขึ้นด้วยความรักโดยทีมนากทะเลของเรา",
-    feature1Title: "การจัดรูปแบบอัจฉริยะ",
-    feature1Desc: "นากทะเลของเราตัดรูปภาพของคุณอย่างระมัดระวัง",
-    feature2Title: "ข้อความที่จริงใจ",
-    feature2Desc: "เราช่วยคุณเขียนข้อความที่สมบูรณ์แบบ",
-    feature3Title: "สไตล์ระดับโลก",
-    feature3Desc: "ธีมจากทั่วโลก",
-    showcaseTitle: "แกลเลอรีนากทะเล",
-    showcaseSubtitle: "ดูความทรงจำที่สวยงาม",
-    tryBtn: "เยี่ยมชม",
-    ctaTitle: "พร้อมส่งหรือยัง?",
-    ctaSubtitle: "บุรุษไปรษณีย์นากทะเลกำลังรออยู่",
-    ctaBtn: "เข้าสู่",
-    rights: "สงวนลิขสิทธิ์"
-  },
-  vi: {
-    badge: "Bưu điện Rái cá biển",
-    title1: "Gửi những kỷ niệm của bạn ",
-    title2: "đến tương lai",
-    subtitle: "Hãy để người đưa thư rái cá biển biến những bức ảnh quý giá của bạn thành những tấm bưu thiếp đẹp.",
-    startBtn: "Bắt đầu",
-    featuresTitle: "Dịch vụ đặc biệt",
-    featuresSubtitle: "Được tạo ra với tình yêu bởi đội ngũ rái cá biển của chúng tôi.",
-    feature1Title: "Định dạng thông minh",
-    feature1Desc: "Những chú rái cá của chúng tôi cẩn thận cắt ảnh của bạn.",
-    feature2Title: "Thông điệp chân thành",
-    feature2Desc: "Chúng tôi giúp bạn viết thông điệp hoàn hảo.",
-    feature3Title: "Phong cách toàn cầu",
-    feature3Desc: "Chủ đề từ khắp nơi trên thế giới.",
-    showcaseTitle: "Phòng trưng bày Rái cá",
-    showcaseSubtitle: "Xem những kỷ niệm đẹp.",
-    tryBtn: "Ghé thăm",
-    ctaTitle: "Sẵn sàng gửi?",
-    ctaSubtitle: "Người đưa thư rái cá đang chờ.",
-    ctaBtn: "Vào",
-    rights: "Đã đăng ký Bản quyền."
-  },
-  ms: {
-    badge: "Pejabat Pos Memerang Laut",
-    title1: "Hantar kenangan anda ",
-    title2: "ke masa depan",
-    subtitle: "Biarkan posmen memerang laut mengubah foto berharga anda menjadi poskad yang cantik.",
-    startBtn: "Mula",
-    featuresTitle: "Perkhidmatan Istimewa",
-    featuresSubtitle: "Dibuat dengan kasih sayang oleh pasukan memerang laut kami.",
-    feature1Title: "Pemformatan Pintar",
-    feature1Desc: "Memerang laut kami memotong foto anda dengan teliti.",
-    feature2Title: "Mesej Ikhlas",
-    feature2Desc: "Kami membantu anda menulis mesej yang sempurna.",
-    feature3Title: "Gaya Global",
-    feature3Desc: "Tema dari seluruh dunia.",
-    showcaseTitle: "Galeri Memerang",
-    showcaseSubtitle: "Lihat kenangan indah.",
-    tryBtn: "Lawati",
-    ctaTitle: "Bersedia untuk menghantar?",
-    ctaSubtitle: "Posmen memerang laut sedang menunggu.",
-    ctaBtn: "Masuk",
-    rights: "Hak cipta terpelihara."
-  }
+const baseCopy: LandingCopy = {
+  badge: 'Sea Otter Post Office',
+  heroEyebrow: 'AI postcard maker for travel photos',
+  title1: "Don't let beautiful views",
+  title2: 'die in your camera roll',
+  subtitle: 'Upload one photo. AI writes a poetic caption, lays it out with a vintage postcard feel, and turns an ordinary moment into something worth keeping.',
+  deliveryNote: 'Free digital creation and download are available now. Physical printing and global mailing are being prepared.',
+  startBtn: '[Free] Make my postcard',
+  navStartBtn: 'Make a card',
+  secondaryBtn: 'View examples',
+  proof1: 'Free digital download',
+  proof2: 'Editable front and back',
+  proof3: 'No surprise charges',
+  comparisonTitle: 'From snapshot to keepsake, in one glance.',
+  comparisonSubtitle: 'Drag the divider to see how a plain travel photo becomes a designed postcard.',
+  beforeLabel: 'Original',
+  afterLabel: 'AI postcard',
+  beforeCaption: 'A normal photo from the camera roll',
+  afterCaption: 'A finished card with title, copy and layout',
+  showcaseTitle: 'Sea Otter Theater',
+  showcaseSubtitle: 'A quiet reel of places turned into postcards.',
+  ctaTitle: 'Now, turn one precious memory into a postcard.',
+  ctaBtn: '[Free] Make my postcard',
+  ctaMicrocopy: 'Free to try and download. You will never be charged without confirmation.',
+  rights: 'All rights reserved.',
+  navFeatures: 'How it works',
+  navGallery: 'Gallery',
+  navPricing: 'Pricing',
+  front: 'Front',
+  back: 'Back',
+  sampleTitle: 'Quiet Afternoon',
+  sampleHint: 'Title, place and date can be edited',
+  sampleMessage: 'A quiet moment, turned into a card worth keeping.',
+  fromOtter: 'Postcard memory',
+  feedback: 'Feedback',
+  contact: 'Contact',
 };
 
+const translations: Record<string, Partial<LandingCopy>> = {
+  en: baseCopy,
+  zh: {
+    badge: '海獭邮局',
+    heroEyebrow: '照片生成 AI 明信片',
+    title1: '别让美景',
+    title2: '死在手机相册里',
+    subtitle: '上传一张照片，海獭 AI 帮你自动写诗、复古排版。把每一个平凡的瞬间，定格成可以收藏与邮寄的艺术明信片。',
+    deliveryNote: '支持免费制作与数字下载；实体印刷与全球邮寄正在加急准备中。',
+    startBtn: '[免费] 制作我的明信片',
+    navStartBtn: '免费制作',
+    secondaryBtn: '看作例',
+    proof1: '免费数字下载',
+    proof2: '正反面可编辑',
+    proof3: '绝无自动扣费',
+    comparisonTitle: '废片变大片，只需一眼。',
+    comparisonSubtitle: '拖动对比，看一张普通照片如何变成有故事感的明信片。',
+    beforeLabel: '手机原图',
+    afterLabel: 'AI 明信片',
+    beforeCaption: '普通相册照片',
+    afterCaption: '带标题、文案和复古版式的明信片',
+    showcaseTitle: '海獭放映室',
+    showcaseSubtitle: '看看他们记录的世界。',
+    ctaTitle: '现在，把你的珍贵回忆做成明信片吧。',
+    ctaBtn: '[免费] 制作我的明信片',
+    ctaMicrocopy: '试用与下载完全免费，绝无任何自动扣费。',
+    rights: '版权所有。',
+    navFeatures: '效果对比',
+    navGallery: '精选画廊',
+    navPricing: '价格',
+    front: '正面',
+    back: '背面',
+    sampleTitle: '静谧午后',
+    sampleHint: '标题、地点、日期都可调整',
+    sampleMessage: '把一瞬间认真写成一张可以保存的明信片。',
+    fromOtter: '海獭明信片',
+    feedback: '意见反馈',
+    contact: '联系我们',
+  },
+  ja: {
+    badge: 'ラッコ郵便局',
+    heroEyebrow: '写真から作るAIポストカード',
+    title1: '大切な風景を',
+    title2: 'スマホの中で眠らせない',
+    subtitle: '写真を一枚選ぶだけ。ラッコAIが言葉とレトロなレイアウトを添え、保存したくなるポストカードに仕上げます。',
+    deliveryNote: '無料で作成・デジタル保存できます。印刷と海外郵送は準備中です。',
+    startBtn: '無料でカードを作る',
+    navStartBtn: 'カードを作る',
+    secondaryBtn: '作例を見る',
+    proof1: '無料デジタル保存',
+    proof2: '表面・裏面を編集',
+    proof3: '勝手に課金されません',
+    comparisonTitle: '何気ない一枚が、物語のあるカードに。',
+    comparisonSubtitle: 'スライダーを動かして、写真がポストカードに変わる瞬間を見てください。',
+    beforeLabel: '元の写真',
+    afterLabel: 'AIポストカード',
+    beforeCaption: 'スマホに残っていた一枚',
+    afterCaption: '言葉と余白を添えた一枚',
+    showcaseTitle: 'ラッコシアター',
+    showcaseSubtitle: '世界の思い出を、静かに上映します。',
+    ctaTitle: '今、この思い出をポストカードに。',
+    ctaBtn: '無料でカードを作る',
+    ctaMicrocopy: 'お試し作成とダウンロードは無料です。確認なしに課金されることはありません。',
+    rights: '無断転載を禁じます。',
+    navFeatures: '比較',
+    navGallery: '作例',
+    navPricing: '料金',
+    front: '表面',
+    back: '裏面',
+    sampleTitle: '静かな午後',
+    sampleHint: 'タイトル・場所・日付を編集できます',
+    sampleMessage: '静かなひとときを、大切に残せる一枚のカードに。',
+    fromOtter: 'ラッコの一枚',
+    feedback: 'ご意見',
+    contact: 'お問い合わせ',
+  },
+  ko: {
+    badge: '해달 우체국',
+    heroEyebrow: '사진으로 만드는 AI 엽서',
+    title1: '아름다운 순간을',
+    title2: '앨범 속에만 두지 마세요',
+    subtitle: '사진 한 장을 올리면 AI가 문장과 빈티지 레이아웃을 더해 소장하고 싶은 엽서로 만들어 줍니다.',
+    deliveryNote: '디지털 제작과 다운로드는 무료입니다. 인쇄와 해외 발송은 준비 중입니다.',
+    startBtn: '[무료] 내 엽서 만들기',
+    navStartBtn: '엽서 만들기',
+    secondaryBtn: '예시 보기',
+    proof1: '무료 다운로드',
+    proof2: '앞뒷면 편집',
+    proof3: '자동 결제 없음',
+    comparisonTitle: '평범한 사진이 이야기 있는 엽서로.',
+    comparisonSubtitle: '슬라이더를 움직여 전후 차이를 확인해 보세요.',
+    showcaseTitle: '해달 상영관',
+    ctaTitle: '지금, 소중한 기억을 엽서로 만들어 보세요.',
+    ctaBtn: '[무료] 내 엽서 만들기',
+    ctaMicrocopy: '체험 제작과 다운로드는 무료이며, 확인 없이 결제되지 않습니다.',
+    navFeatures: '비교',
+    navGallery: '갤러리',
+    navPricing: '요금',
+  },
+  fr: {
+    badge: 'Poste des Loutres',
+    title1: 'Ne laissez pas vos beaux paysages',
+    title2: 'dormir dans la pellicule',
+    subtitle: 'Ajoutez une photo. L’IA écrit, compose et transforme un instant simple en carte postale à garder.',
+    deliveryNote: 'Création et téléchargement numériques gratuits. Impression et envoi mondial en préparation.',
+    startBtn: '[Gratuit] Créer ma carte',
+    navStartBtn: 'Créer',
+    secondaryBtn: 'Voir les exemples',
+    proof1: 'Téléchargement gratuit',
+    proof3: 'Aucun débit automatique',
+    comparisonTitle: 'Une photo simple devient une carte souvenir.',
+    showcaseTitle: 'Cinéma des Loutres',
+    ctaTitle: 'Transformez ce souvenir en carte postale.',
+    ctaBtn: '[Gratuit] Créer ma carte',
+    ctaMicrocopy: 'Essai et téléchargement gratuits. Aucun paiement sans confirmation.',
+    navFeatures: 'Comparaison',
+    navGallery: 'Galerie',
+    navPricing: 'Prix',
+  },
+  es: {
+    badge: 'Correo Nutria',
+    title1: 'No dejes que tus mejores vistas',
+    title2: 'mueran en la galería',
+    subtitle: 'Sube una foto. La IA escribe y compone una postal vintage lista para guardar.',
+    deliveryNote: 'Creación y descarga digital gratis. Impresión y envío internacional en preparación.',
+    startBtn: '[Gratis] Crear mi postal',
+    navStartBtn: 'Crear',
+    secondaryBtn: 'Ver ejemplos',
+    proof1: 'Descarga gratis',
+    proof3: 'Sin cargos sorpresa',
+    comparisonTitle: 'Una foto normal se convierte en recuerdo.',
+    showcaseTitle: 'Cine Nutria',
+    ctaTitle: 'Convierte un recuerdo en postal.',
+    ctaBtn: '[Gratis] Crear mi postal',
+    ctaMicrocopy: 'Prueba y descarga gratis. Nunca se cobra sin confirmación.',
+    navFeatures: 'Comparar',
+    navGallery: 'Galería',
+    navPricing: 'Precios',
+  },
+  de: {
+    badge: 'Seeotter-Post',
+    title1: 'Lass schöne Ausblicke',
+    title2: 'nicht im Fotoalbum verschwinden',
+    subtitle: 'Ein Foto hochladen, und die KI gestaltet daraus eine Postkarte mit Text und Vintage-Layout.',
+    deliveryNote: 'Digitale Erstellung und Download sind kostenlos. Druck und weltweiter Versand sind in Vorbereitung.',
+    startBtn: '[Gratis] Meine Karte erstellen',
+    navStartBtn: 'Karte erstellen',
+    secondaryBtn: 'Beispiele ansehen',
+    proof1: 'Gratis Download',
+    proof3: 'Keine automatische Abbuchung',
+    comparisonTitle: 'Aus einem Foto wird eine Karte mit Geschichte.',
+    showcaseTitle: 'Seeotter-Kino',
+    ctaTitle: 'Mach aus dieser Erinnerung eine Postkarte.',
+    ctaBtn: '[Gratis] Meine Karte erstellen',
+    ctaMicrocopy: 'Test und Download sind kostenlos. Keine Zahlung ohne Bestätigung.',
+    navFeatures: 'Vergleich',
+    navGallery: 'Galerie',
+    navPricing: 'Preise',
+  },
+  it: {
+    badge: 'Posta Lontra',
+    title1: 'Non lasciare i paesaggi più belli',
+    title2: 'dimenticati nel telefono',
+    subtitle: 'Carica una foto. L’AI aggiunge parole e layout vintage per creare una cartolina da conservare.',
+    deliveryNote: 'Creazione e download digitale gratuiti. Stampa e spedizione globale in preparazione.',
+    startBtn: '[Gratis] Crea la mia cartolina',
+    navStartBtn: 'Crea',
+    secondaryBtn: 'Vedi esempi',
+    proof1: 'Download gratuito',
+    proof3: 'Nessun addebito automatico',
+    comparisonTitle: 'Una foto semplice diventa una cartolina.',
+    showcaseTitle: 'Cinema Lontra',
+    ctaTitle: 'Trasforma un ricordo in cartolina.',
+    ctaBtn: '[Gratis] Crea la mia cartolina',
+    ctaMicrocopy: 'Prova e download gratuiti. Nessun pagamento senza conferma.',
+    navFeatures: 'Confronto',
+    navGallery: 'Galleria',
+    navPricing: 'Prezzi',
+  },
+  id: {
+    badge: 'Kantor Pos Berang-berang',
+    title1: 'Jangan biarkan pemandangan indah',
+    title2: 'hilang di galeri ponsel',
+    subtitle: 'Unggah satu foto. AI menulis dan menata kartu pos vintage yang siap disimpan.',
+    deliveryNote: 'Pembuatan dan unduhan digital gratis. Cetak dan pengiriman global sedang disiapkan.',
+    startBtn: '[Gratis] Buat kartu pos',
+    navStartBtn: 'Buat kartu',
+    secondaryBtn: 'Lihat contoh',
+    proof1: 'Unduhan gratis',
+    proof3: 'Tanpa tagihan otomatis',
+    comparisonTitle: 'Foto biasa menjadi kartu pos berkesan.',
+    showcaseTitle: 'Teater Berang-berang',
+    ctaTitle: 'Ubah kenangan ini menjadi kartu pos.',
+    ctaBtn: '[Gratis] Buat kartu pos',
+    ctaMicrocopy: 'Coba dan unduh gratis. Tidak ada pembayaran tanpa konfirmasi.',
+    navFeatures: 'Perbandingan',
+    navGallery: 'Galeri',
+    navPricing: 'Harga',
+  },
+  th: {
+    badge: 'ไปรษณีย์นากทะเล',
+    title1: 'อย่าปล่อยภาพสวยงาม',
+    title2: 'หลับอยู่ในอัลบั้ม',
+    subtitle: 'อัปโหลดภาพหนึ่งใบ AI จะช่วยเขียนและจัดวางเป็นโปสการ์ดวินเทจที่น่าเก็บไว้',
+    deliveryNote: 'สร้างและดาวน์โหลดแบบดิจิทัลได้ฟรี การพิมพ์และส่งทั่วโลกกำลังเตรียมพร้อม',
+    startBtn: '[ฟรี] สร้างโปสการ์ด',
+    navStartBtn: 'สร้างการ์ด',
+    secondaryBtn: 'ดูตัวอย่าง',
+    proof1: 'ดาวน์โหลดฟรี',
+    proof3: 'ไม่มีการหักเงินอัตโนมัติ',
+    comparisonTitle: 'ภาพธรรมดากลายเป็นโปสการ์ดมีเรื่องราว',
+    showcaseTitle: 'โรงภาพยนตร์นากทะเล',
+    ctaTitle: 'เปลี่ยนความทรงจำนี้เป็นโปสการ์ด',
+    ctaBtn: '[ฟรี] สร้างโปสการ์ด',
+    ctaMicrocopy: 'ทดลองและดาวน์โหลดฟรี ไม่มีการชำระเงินโดยไม่ยืนยัน',
+    navFeatures: 'เปรียบเทียบ',
+    navGallery: 'แกลเลอรี',
+    navPricing: 'ราคา',
+  },
+  vi: {
+    badge: 'Bưu điện Rái cá',
+    title1: 'Đừng để khung cảnh đẹp',
+    title2: 'ngủ quên trong album',
+    subtitle: 'Tải lên một bức ảnh. AI viết lời và dàn trang thành một tấm bưu thiếp cổ điển đáng lưu giữ.',
+    deliveryNote: 'Tạo và tải bản kỹ thuật số miễn phí. In ấn và gửi quốc tế đang được chuẩn bị.',
+    startBtn: '[Miễn phí] Tạo bưu thiếp',
+    navStartBtn: 'Tạo thẻ',
+    secondaryBtn: 'Xem mẫu',
+    proof1: 'Tải miễn phí',
+    proof3: 'Không tự động thu phí',
+    comparisonTitle: 'Ảnh thường trở thành bưu thiếp có câu chuyện.',
+    showcaseTitle: 'Rạp chiếu Rái cá',
+    ctaTitle: 'Biến kỷ niệm này thành bưu thiếp.',
+    ctaBtn: '[Miễn phí] Tạo bưu thiếp',
+    ctaMicrocopy: 'Dùng thử và tải xuống miễn phí. Không thu phí nếu chưa xác nhận.',
+    navFeatures: 'So sánh',
+    navGallery: 'Thư viện',
+    navPricing: 'Giá',
+  },
+  ms: {
+    badge: 'Pejabat Pos Memerang',
+    title1: 'Jangan biarkan pemandangan indah',
+    title2: 'tersimpan senyap dalam telefon',
+    subtitle: 'Muat naik satu foto. AI menulis dan menyusun poskad vintaj yang sesuai untuk disimpan.',
+    deliveryNote: 'Ciptaan dan muat turun digital adalah percuma. Cetakan dan penghantaran global sedang disediakan.',
+    startBtn: '[Percuma] Cipta poskad saya',
+    navStartBtn: 'Cipta kad',
+    secondaryBtn: 'Lihat contoh',
+    proof1: 'Muat turun percuma',
+    proof3: 'Tiada caj automatik',
+    comparisonTitle: 'Foto biasa menjadi poskad penuh cerita.',
+    showcaseTitle: 'Pawagam Memerang',
+    ctaTitle: 'Jadikan kenangan ini sebuah poskad.',
+    ctaBtn: '[Percuma] Cipta poskad saya',
+    ctaMicrocopy: 'Cuba dan muat turun percuma. Tiada bayaran tanpa pengesahan.',
+    navFeatures: 'Perbandingan',
+    navGallery: 'Galeri',
+    navPricing: 'Harga',
+  },
+};
+
+const defaultShowcase: ShowcaseItem[] = [
+  {
+    img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=900',
+    title: 'Neon Shanghai',
+    loc: 'The Bund · Shanghai',
+    theme: 'City night',
+    msg: 'The river catches the city lights and folds the night into a postcard.',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=900',
+    title: 'Venetian Serenade',
+    loc: 'Venice · Italy',
+    theme: 'Canal',
+    msg: 'Water carries the old city slowly, as if every bridge remembers a song.',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=900',
+    title: 'Alpine Quiet',
+    loc: 'Zermatt · Switzerland',
+    theme: 'Mountain',
+    msg: 'A quiet ridge, blue air, and a sky that makes distance feel gentle.',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=900',
+    title: 'Blue Holiday',
+    loc: 'Maldives · Full Moon',
+    theme: 'Sea',
+    msg: 'The afternoon dissolves into salt, light, and one endless shade of blue.',
+  },
+];
+
+const showcaseByLanguage: Record<string, ShowcaseItem[]> = {
+  en: defaultShowcase,
+  zh: [
+    { ...defaultShowcase[0], title: '上海夜色', loc: '上海 · 外滩', theme: '城市夜景', msg: '江面接住城市灯火，把夜晚折成一张可以寄出的明信片。' },
+    { ...defaultShowcase[1], title: '威尼斯旋律', loc: '意大利 · 威尼斯', theme: '水城', msg: '船慢慢划过桥影，水面像替古老城市保存着一支歌。' },
+    { ...defaultShowcase[2], title: '阿尔卑斯静境', loc: '瑞士 · 阿尔卑斯', theme: '雪山', msg: '山脊安静，空气清透，远方也变得温柔。' },
+    { ...defaultShowcase[3], title: '蓝色假期', loc: '马尔代夫 · 满月岛', theme: '海岛', msg: '午后融进盐、光和一整片无边的蓝。' },
+  ],
+  ja: [
+    { ...defaultShowcase[0], title: '上海の夜景', loc: '上海・外灘', theme: '都市の夜', msg: '川面が街の灯りを受け止め、夜を一枚のカードに折りたたみます。' },
+    { ...defaultShowcase[1], title: 'ヴェネツィアの旋律', loc: 'イタリア・ヴェネツィア', theme: '水の街', msg: '橋の影をくぐるたび、古い街が静かな歌を思い出します。' },
+    { ...defaultShowcase[2], title: 'アルプスの静寂', loc: 'スイス・アルプス', theme: '山景', msg: '澄んだ空気と静かな稜線が、遠くの景色までやさしくします。' },
+    { ...defaultShowcase[3], title: '青の休暇', loc: 'モルディブ・フルムーン', theme: '海辺', msg: '午後が塩と光、そしてどこまでも続く青に溶けていきます。' },
+  ],
+  ko: [
+    { ...defaultShowcase[0], title: '상하이의 밤', loc: '상하이 · 와이탄', theme: '도시 야경', msg: '강물은 도시의 빛을 받아 밤을 한 장의 엽서로 접어 둡니다.' },
+    { ...defaultShowcase[1], title: '베네치아의 선율', loc: '이탈리아 · 베네치아', theme: '운하', msg: '다리 그림자를 지날 때마다 오래된 도시는 조용한 노래를 떠올립니다.' },
+    { ...defaultShowcase[2], title: '알프스의 고요', loc: '스위스 · 알프스', theme: '산', msg: '맑은 공기와 조용한 능선이 먼 풍경까지 부드럽게 만듭니다.' },
+    { ...defaultShowcase[3], title: '푸른 휴가', loc: '몰디브 · 풀문', theme: '바다', msg: '오후는 소금과 빛, 끝없는 파랑 속으로 녹아듭니다.' },
+  ],
+  fr: [
+    { ...defaultShowcase[0], title: 'Nuit à Shanghai', loc: 'Shanghai · Le Bund', theme: 'Ville', msg: 'Le fleuve recueille les lumières et plie la nuit en carte postale.' },
+    { ...defaultShowcase[1], title: 'Mélodie vénitienne', loc: 'Venise · Italie', theme: 'Canal', msg: 'Sous les ponts, la vieille ville retrouve une chanson très douce.' },
+    { ...defaultShowcase[2], title: 'Silence alpin', loc: 'Suisse · Alpes', theme: 'Montagne', msg: 'L’air clair et la crête tranquille rendent l’horizon plus tendre.' },
+    { ...defaultShowcase[3], title: 'Vacances bleues', loc: 'Maldives · Full Moon', theme: 'Mer', msg: 'L’après-midi fond dans le sel, la lumière et un bleu sans fin.' },
+  ],
+  es: [
+    { ...defaultShowcase[0], title: 'Noche en Shanghái', loc: 'Shanghái · El Bund', theme: 'Ciudad', msg: 'El río recoge las luces y dobla la noche como una postal.' },
+    { ...defaultShowcase[1], title: 'Melodía veneciana', loc: 'Italia · Venecia', theme: 'Canal', msg: 'Bajo cada puente, la ciudad antigua recuerda una canción tranquila.' },
+    { ...defaultShowcase[2], title: 'Silencio alpino', loc: 'Suiza · Alpes', theme: 'Montaña', msg: 'El aire claro y la cresta serena vuelven amable la distancia.' },
+    { ...defaultShowcase[3], title: 'Vacación azul', loc: 'Maldivas · Full Moon', theme: 'Mar', msg: 'La tarde se disuelve en sal, luz y una inmensa sombra azul.' },
+  ],
+  de: [
+    { ...defaultShowcase[0], title: 'Shanghai bei Nacht', loc: 'Shanghai · Bund', theme: 'Stadt', msg: 'Der Fluss fängt die Lichter ein und faltet die Nacht zur Postkarte.' },
+    { ...defaultShowcase[1], title: 'Venezianische Melodie', loc: 'Italien · Venedig', theme: 'Kanal', msg: 'Unter jeder Brücke erinnert sich die alte Stadt an ein stilles Lied.' },
+    { ...defaultShowcase[2], title: 'Alpine Stille', loc: 'Schweiz · Alpen', theme: 'Berg', msg: 'Klare Luft und ruhige Grate machen die Ferne sanft.' },
+    { ...defaultShowcase[3], title: 'Blaue Auszeit', loc: 'Malediven · Full Moon', theme: 'Meer', msg: 'Der Nachmittag löst sich in Salz, Licht und endlosem Blau auf.' },
+  ],
+  it: [
+    { ...defaultShowcase[0], title: 'Notte a Shanghai', loc: 'Shanghai · Bund', theme: 'Città', msg: 'Il fiume raccoglie le luci e piega la notte in una cartolina.' },
+    { ...defaultShowcase[1], title: 'Melodia veneziana', loc: 'Italia · Venezia', theme: 'Canale', msg: 'Sotto ogni ponte, la città antica ricorda una canzone quieta.' },
+    { ...defaultShowcase[2], title: 'Silenzio alpino', loc: 'Svizzera · Alpi', theme: 'Montagna', msg: 'Aria limpida e creste silenziose rendono dolce la distanza.' },
+    { ...defaultShowcase[3], title: 'Vacanza blu', loc: 'Maldive · Full Moon', theme: 'Mare', msg: 'Il pomeriggio si scioglie in sale, luce e blu infinito.' },
+  ],
+  id: [
+    { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Kota', msg: 'Sungai menangkap cahaya kota dan melipat malam menjadi kartu pos.' },
+    { ...defaultShowcase[1], title: 'Serenada Venesia', loc: 'Italia · Venesia', theme: 'Kanal', msg: 'Di bawah jembatan, kota tua mengingat sebuah lagu yang tenang.' },
+    { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Swiss · Alpen', theme: 'Gunung', msg: 'Udara jernih dan punggung bukit yang sunyi membuat jarak terasa lembut.' },
+    { ...defaultShowcase[3], title: 'Liburan Biru', loc: 'Maladewa · Full Moon', theme: 'Laut', msg: 'Sore larut ke dalam garam, cahaya, dan biru yang tak berujung.' },
+  ],
+  th: [
+    { ...defaultShowcase[0], title: 'ค่ำคืนเซี่ยงไฮ้', loc: 'เซี่ยงไฮ้ · เดอะบันด์', theme: 'เมือง', msg: 'สายน้ำรับแสงไฟเมืองไว้ แล้วพับค่ำคืนให้เป็นโปสการ์ด' },
+    { ...defaultShowcase[1], title: 'ท่วงทำนองเวนิส', loc: 'อิตาลี · เวนิส', theme: 'คลอง', msg: 'ใต้สะพานแต่ละแห่ง เมืองเก่าค่อย ๆ นึกถึงบทเพลงอันสงบ' },
+    { ...defaultShowcase[2], title: 'ความสงบแห่งแอลป์', loc: 'สวิตเซอร์แลนด์ · แอลป์', theme: 'ภูเขา', msg: 'อากาศใสและสันเขาเงียบงาม ทำให้ระยะไกลดูอ่อนโยน' },
+    { ...defaultShowcase[3], title: 'วันพักสีฟ้า', loc: 'มัลดีฟส์ · ฟูลมูน', theme: 'ทะเล', msg: 'ยามบ่ายละลายในเกลือ แสง และสีฟ้าไม่สิ้นสุด' },
+  ],
+  vi: [
+    { ...defaultShowcase[0], title: 'Đêm Thượng Hải', loc: 'Thượng Hải · Bến Thượng Hải', theme: 'Thành phố', msg: 'Dòng sông giữ lấy ánh đèn và gấp đêm thành một tấm bưu thiếp.' },
+    { ...defaultShowcase[1], title: 'Giai điệu Venice', loc: 'Ý · Venice', theme: 'Kênh đào', msg: 'Dưới mỗi cây cầu, thành phố cũ nhớ lại một khúc hát rất yên.' },
+    { ...defaultShowcase[2], title: 'Tĩnh lặng Alps', loc: 'Thụy Sĩ · Alps', theme: 'Núi', msg: 'Không khí trong và sống núi lặng làm khoảng xa trở nên dịu dàng.' },
+    { ...defaultShowcase[3], title: 'Kỳ nghỉ xanh', loc: 'Maldives · Full Moon', theme: 'Biển', msg: 'Buổi chiều tan vào muối, ánh sáng và một màu xanh bất tận.' },
+  ],
+  ms: [
+    { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Bandar', msg: 'Sungai menyimpan cahaya bandar lalu melipat malam menjadi poskad.' },
+    { ...defaultShowcase[1], title: 'Serenad Venice', loc: 'Itali · Venice', theme: 'Terusan', msg: 'Di bawah setiap jambatan, kota lama mengingati sebuah lagu yang tenang.' },
+    { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Switzerland · Alpen', theme: 'Gunung', msg: 'Udara jernih dan rabung yang sunyi membuat jarak terasa lembut.' },
+    { ...defaultShowcase[3], title: 'Percutian Biru', loc: 'Maldives · Full Moon', theme: 'Laut', msg: 'Petang larut dalam garam, cahaya dan biru yang tidak berpenghujung.' },
+  ],
+};
+
+function getShowcaseItems(language: string) {
+  return showcaseByLanguage[language] ?? defaultShowcase;
+}
+
 export default function LandingPage({ onStart, language, countryConfig, onCountryChange, onFeedback }: Props) {
-  const t = { ...translations.en, ...(translations[language] || {}) } as LandingCopy;
+  const t = { ...baseCopy, ...(translations[language] || {}) };
+  const showcaseItems = getShowcaseItems(language);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
-  const renderCtaMicrocopy = () => {
-    if (language === 'ja') {
-      return (
-        <>
-          ※お試し作成は<strong className="font-bold text-stone-950">無料</strong>です。AI生成や追加機能はクレジット制で、<strong className="font-bold text-stone-950">確認なしに課金されることはありません。</strong>
-        </>
-      );
-    }
-    if (language === 'zh') {
-      return (
-        <>
-          可<strong className="font-bold text-stone-950">免费试用</strong>；AI 生成与高级功能使用积分，<strong className="font-bold text-stone-950">未经确认不会自动扣费。</strong>
-        </>
-      );
-    }
-    return t.ctaMicrocopy;
-  };
-  const renderCtaTitle = () => {
-    if (language === 'ja' && t.ctaTitle.includes('、')) {
-      const [first, second] = t.ctaTitle.split('、');
-      return (
-        <>
-          {first}、
-          <br />
-          {second}
-        </>
-      );
-    }
-    return t.ctaTitle;
-  };
-  const workflow = [
-    { icon: UploadCloud, title: t.workflow1Title, desc: t.workflow1Desc },
-    { icon: Wand2, title: t.workflow2Title, desc: t.workflow2Desc },
-    { icon: SlidersHorizontal, title: t.workflow3Title, desc: t.workflow3Desc },
-  ];
-  const defaultShowcase: ShowcaseItem[] = [
-    { img: 'https://images.unsplash.com/photo-1509043759401-136742328bb3?auto=format&fit=crop&q=80&w=800', title: 'Neon Shanghai', loc: 'The Bund, Shanghai', theme: 'City Night', style: 'neon', msg: 'The city lights shimmer on the river, turning the night into a postcard.' },
-    { img: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&q=80&w=800', title: 'Venetian Serenade', loc: 'Venice, Italy', theme: 'Oil Painting', style: 'artistic', msg: 'Floating through the canals, the water reflects centuries of history.' },
-    { img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800', title: 'Alpine Solitude', loc: 'Zermatt, Switzerland', theme: 'Vintage Film', style: 'vintage', msg: 'The Matterhorn stands tall against the blue sky.' },
-    { img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800', title: 'Azure Escape', loc: 'Maldives', theme: 'Minimalist', style: 'minimal', msg: 'Endless blue water and powder-soft sand. A quiet paradise.' },
-  ];
-  const showcaseByLanguage: Record<string, ShowcaseItem[]> = {
-    en: defaultShowcase,
-    zh: [
-      { ...defaultShowcase[0], title: '上海夜色', loc: '上海·外滩', theme: '城市夜景', msg: '江面倒映着城市灯火，把夜晚写成一张明信片。' },
-      { ...defaultShowcase[1], title: '威尼斯旋律', loc: '意大利·威尼斯', theme: '油画', msg: '船行过运河，水面映出几个世纪的历史与安静时光。' },
-      { ...defaultShowcase[2], title: '阿尔卑斯静境', loc: '瑞士·采尔马特', theme: '复古胶片', msg: '晴空之下，马特洪峰以沉默的姿态守着远方。' },
-      { ...defaultShowcase[3], title: '蓝色假期', loc: '马尔代夫', theme: '极简', msg: '无边的蓝与细软的白沙，像一段被放慢的假日。' },
-    ],
-    ja: [
-      { ...defaultShowcase[0], title: '上海の夜景', loc: '上海・外灘', theme: 'シティナイト', msg: '川面に揺れる灯りが、街の夜を一枚の手紙に変えていきます。' },
-      { ...defaultShowcase[1], title: 'ヴェネツィアの旋律', loc: 'イタリア・ヴェネツィア', theme: '油彩', msg: '運河を進むたび、水面に長い歴史と静かな時間が映ります。' },
-      { ...defaultShowcase[2], title: 'アルプスの静寂', loc: 'スイス・ツェルマット', theme: 'ヴィンテージフィルム', msg: '澄んだ空の下、マッターホルンが変わらない姿で立っています。' },
-      { ...defaultShowcase[3], title: '青の休暇', loc: 'モルディブ', theme: 'ミニマル', msg: 'どこまでも続く青と、粉雪のような砂。静かな楽園を見つけました。' },
-    ],
-    ko: [
-      { ...defaultShowcase[0], title: '상하이의 밤', loc: '상하이·와이탄', theme: '도시의 밤', msg: '강 위로 흔들리는 불빛이 도시의 밤을 한 장의 엽서로 바꿉니다.' },
-      { ...defaultShowcase[1], title: '베네치아의 선율', loc: '이탈리아·베네치아', theme: '유화', msg: '운하를 따라 흐르는 물결에 오랜 역사와 고요한 시간이 비칩니다.' },
-      { ...defaultShowcase[2], title: '알프스의 고요', loc: '스위스·체르마트', theme: '빈티지 필름', msg: '맑은 하늘 아래 마터호른은 변함없는 모습으로 서 있습니다.' },
-      { ...defaultShowcase[3], title: '푸른 휴가', loc: '몰디브', theme: '미니멀', msg: '끝없이 펼쳐진 푸른 바다와 부드러운 모래가 조용한 낙원을 만듭니다.' },
-    ],
-    fr: [
-      { ...defaultShowcase[0], title: 'Nuit à Shanghai', loc: 'Shanghai · Le Bund', theme: 'Nuit urbaine', msg: 'Les lumières glissent sur le fleuve et transforment la ville en carte postale.' },
-      { ...defaultShowcase[1], title: 'Mélodie vénitienne', loc: 'Venise · Italie', theme: 'Peinture à l’huile', msg: 'Au fil des canaux, l’eau reflète des siècles d’histoire et de calme.' },
-      { ...defaultShowcase[2], title: 'Silence alpin', loc: 'Zermatt · Suisse', theme: 'Film vintage', msg: 'Sous un ciel limpide, le Cervin veille avec une présence paisible.' },
-      { ...defaultShowcase[3], title: 'Échappée bleue', loc: 'Maldives', theme: 'Minimaliste', msg: 'L’eau infiniment bleue et le sable clair composent un paradis discret.' },
-    ],
-    es: [
-      { ...defaultShowcase[0], title: 'Noche en Shanghái', loc: 'Shanghái · El Bund', theme: 'Noche urbana', msg: 'Las luces tiemblan sobre el río y convierten la ciudad en una postal.' },
-      { ...defaultShowcase[1], title: 'Serenata veneciana', loc: 'Venecia · Italia', theme: 'Óleo', msg: 'Al avanzar por los canales, el agua refleja historia y tiempo suspendido.' },
-      { ...defaultShowcase[2], title: 'Silencio alpino', loc: 'Zermatt · Suiza', theme: 'Película vintage', msg: 'Bajo el cielo azul, el Cervino se alza con una calma intacta.' },
-      { ...defaultShowcase[3], title: 'Escapada azul', loc: 'Maldivas', theme: 'Minimalista', msg: 'Agua azul sin fin y arena suave: un paraíso tranquilo.' },
-    ],
-    de: [
-      { ...defaultShowcase[0], title: 'Shanghai bei Nacht', loc: 'Shanghai · Bund', theme: 'Stadtnacht', msg: 'Die Lichter spiegeln sich im Fluss und machen die Nacht zur Postkarte.' },
-      { ...defaultShowcase[1], title: 'Venezianische Melodie', loc: 'Venedig · Italien', theme: 'Ölgemälde', msg: 'Auf den Kanälen spiegelt das Wasser Geschichte und stille Zeit.' },
-      { ...defaultShowcase[2], title: 'Alpine Stille', loc: 'Zermatt · Schweiz', theme: 'Vintage-Film', msg: 'Unter klarem Himmel steht das Matterhorn ruhig und unverändert.' },
-      { ...defaultShowcase[3], title: 'Blaue Auszeit', loc: 'Malediven', theme: 'Minimalistisch', msg: 'Endloses Blau und weicher Sand formen ein stilles Paradies.' },
-    ],
-    it: [
-      { ...defaultShowcase[0], title: 'Notte a Shanghai', loc: 'Shanghai · Bund', theme: 'Notte urbana', msg: 'Le luci scivolano sul fiume e trasformano la notte in una cartolina.' },
-      { ...defaultShowcase[1], title: 'Melodia veneziana', loc: 'Venezia · Italia', theme: 'Pittura a olio', msg: 'Navigando tra i canali, l’acqua riflette secoli di storia e quiete.' },
-      { ...defaultShowcase[2], title: 'Silenzio alpino', loc: 'Zermatt · Svizzera', theme: 'Pellicola vintage', msg: 'Sotto il cielo limpido, il Cervino resta fermo e maestoso.' },
-      { ...defaultShowcase[3], title: 'Fuga azzurra', loc: 'Maldive', theme: 'Minimalista', msg: 'Acqua blu senza fine e sabbia soffice: un paradiso silenzioso.' },
-    ],
-    id: [
-      { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Malam Kota', msg: 'Cahaya kota berkilau di sungai, mengubah malam menjadi kartu pos.' },
-      { ...defaultShowcase[1], title: 'Serenada Venesia', loc: 'Venesia · Italia', theme: 'Lukisan Minyak', msg: 'Menyusuri kanal, air memantulkan sejarah panjang dan waktu yang tenang.' },
-      { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Zermatt · Swiss', theme: 'Film Vintage', msg: 'Di bawah langit biru, Matterhorn berdiri dengan damai.' },
-      { ...defaultShowcase[3], title: 'Liburan Biru', loc: 'Maladewa', theme: 'Minimalis', msg: 'Air biru tanpa batas dan pasir lembut menciptakan surga yang tenang.' },
-    ],
-    th: [
-      { ...defaultShowcase[0], title: 'ค่ำคืนเซี่ยงไฮ้', loc: 'เซี่ยงไฮ้ · เดอะบันด์', theme: 'เมืองยามค่ำ', msg: 'แสงไฟสะท้อนบนสายน้ำ เปลี่ยนค่ำคืนนี้ให้เป็นโปสการ์ดหนึ่งใบ' },
-      { ...defaultShowcase[1], title: 'ท่วงทำนองเวนิส', loc: 'เวนิส · อิตาลี', theme: 'สีน้ำมัน', msg: 'เมื่อเรือแล่นผ่านคลอง ผิวน้ำสะท้อนประวัติศาสตร์และความสงบ' },
-      { ...defaultShowcase[2], title: 'ความสงบแห่งแอลป์', loc: 'เซอร์แมท · สวิตเซอร์แลนด์', theme: 'ฟิล์มวินเทจ', msg: 'ใต้ท้องฟ้าใส ยอดเขาแมทเทอร์ฮอร์นตั้งตระหง่านอย่างเงียบงาม' },
-      { ...defaultShowcase[3], title: 'วันพักสีฟ้า', loc: 'มัลดีฟส์', theme: 'มินิมอล', msg: 'ทะเลสีฟ้าและทรายนุ่มละมุน กลายเป็นสวรรค์เงียบสงบ' },
-    ],
-    vi: [
-      { ...defaultShowcase[0], title: 'Đêm Thượng Hải', loc: 'Thượng Hải · Bến Thượng Hải', theme: 'Đêm đô thị', msg: 'Ánh đèn lay động trên mặt sông, biến đêm thành một tấm bưu thiếp.' },
-      { ...defaultShowcase[1], title: 'Giai điệu Venice', loc: 'Venice · Ý', theme: 'Tranh sơn dầu', msg: 'Theo dòng kênh, mặt nước phản chiếu lịch sử dài lâu và sự tĩnh lặng.' },
-      { ...defaultShowcase[2], title: 'Tĩnh lặng Alps', loc: 'Zermatt · Thụy Sĩ', theme: 'Phim cổ điển', msg: 'Dưới bầu trời trong, Matterhorn đứng yên bình và vững chãi.' },
-      { ...defaultShowcase[3], title: 'Kỳ nghỉ xanh', loc: 'Maldives', theme: 'Tối giản', msg: 'Biển xanh bất tận và cát trắng mềm tạo nên một thiên đường yên ả.' },
-    ],
-    ms: [
-      { ...defaultShowcase[0], title: 'Malam Shanghai', loc: 'Shanghai · The Bund', theme: 'Malam Kota', msg: 'Cahaya bandar berkilau di sungai, menjadikan malam seperti sekeping poskad.' },
-      { ...defaultShowcase[1], title: 'Serenad Venice', loc: 'Venice · Itali', theme: 'Lukisan Minyak', msg: 'Menyusuri terusan, air memantulkan sejarah panjang dan detik yang tenang.' },
-      { ...defaultShowcase[2], title: 'Sunyi Alpen', loc: 'Zermatt · Switzerland', theme: 'Filem Vintaj', msg: 'Di bawah langit cerah, Matterhorn berdiri tenang dan megah.' },
-      { ...defaultShowcase[3], title: 'Percutian Biru', loc: 'Maldives', theme: 'Minimalis', msg: 'Air biru tanpa hujung dan pasir lembut membentuk syurga yang damai.' },
-    ],
-  };
-  const showcaseItems = showcaseByLanguage[language] ?? defaultShowcase;
+  const [compare, setCompare] = useState(56);
+  const heroImage = showcaseItems[1]?.img ?? defaultShowcase[1].img;
+  const compareImage = showcaseItems[3]?.img ?? defaultShowcase[3].img;
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] flex flex-col font-sans">
-      {/* Navigation Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-100 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <SeaOtterLogo className="w-8 h-8 text-stone-900" />
-            <span className="font-bold text-lg tracking-tight text-stone-900">{t.badge}</span>
+    <div className="min-h-screen bg-[#fbfaf7] font-sans text-stone-950">
+      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-stone-200/70 bg-[#fbfaf7]/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <SeaOtterLogo className="h-8 w-8 shrink-0 text-stone-900" />
+            <span className="truncate text-lg font-bold tracking-tight text-stone-950">{t.badge}</span>
           </div>
-          
-          <div className="hidden lg:flex items-center gap-5 xl:gap-8">
-            <a href="#features" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navFeatures}</a>
-            <a href="#gallery" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navGallery}</a>
-            <a href="#pricing" className="whitespace-nowrap text-sm font-semibold text-stone-600 hover:text-stone-900 transition-colors">{t.navPricing}</a>
+
+          <div className="hidden items-center gap-8 lg:flex">
+            <a href="#compare" className="text-sm font-bold text-stone-700 transition-colors hover:text-stone-950">{t.navFeatures}</a>
+            <a href="#gallery" className="text-sm font-bold text-stone-700 transition-colors hover:text-stone-950">{t.navGallery}</a>
+            <a href="#pricing" className="text-sm font-bold text-stone-700 transition-colors hover:text-stone-950">{t.navPricing}</a>
           </div>
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            {/* Country Selection in Header */}
             <div className="relative">
               <button
                 onClick={() => setShowCountryMenu(!showCountryMenu)}
-              className="flex max-w-[11rem] items-center gap-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-stone-700 transition-all hover:border-stone-300 sm:max-w-none sm:px-3"
+                className="flex max-w-[10rem] items-center gap-2 rounded-xl border border-stone-200 bg-white px-2.5 py-2 text-sm font-semibold text-stone-700 shadow-sm transition-all hover:border-stone-300 sm:max-w-none sm:px-3"
               >
-                <Globe2 className="w-4 h-4 text-stone-400" />
-                <span className="hidden max-w-[13rem] truncate sm:inline">{countryConfig.nativeCountry} ({countryConfig.nativeLanguage})</span>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showCountryMenu && "rotate-180")} />
+                <Globe2 className="h-4 w-4 shrink-0 text-stone-500" />
+                <span className="hidden max-w-[12rem] truncate sm:inline">
+                  {countryConfig.nativeCountry} ({countryConfig.nativeLanguage})
+                </span>
+                <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', showCountryMenu && 'rotate-180')} />
               </button>
 
               {showCountryMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-stone-100 overflow-hidden z-20 min-w-[160px]">
-                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                <div className="absolute right-0 top-full z-20 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-stone-100 bg-white shadow-2xl">
+                  <div className="custom-scrollbar max-h-[300px] overflow-y-auto">
                     {countriesConfig.map((country) => (
                       <button
                         key={country.country}
@@ -550,8 +522,8 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
                           setShowCountryMenu(false);
                         }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50 transition-colors text-sm",
-                          countryConfig.country === country.country ? "bg-stone-50 text-stone-900 font-bold" : "text-stone-600"
+                          'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-stone-50',
+                          countryConfig.country === country.country ? 'bg-stone-50 font-bold text-stone-900' : 'text-stone-600',
                         )}
                       >
                         <span>{country.nativeCountry} ({country.nativeLanguage})</span>
@@ -564,7 +536,7 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
 
             <button
               onClick={onStart}
-              className="shrink-0 whitespace-nowrap rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-stone-800 active:scale-95 sm:px-4"
+              className="shrink-0 rounded-xl bg-[#9b5c2e] px-3 py-2 text-sm font-bold text-white shadow-lg shadow-[#9b5c2e]/15 transition-all hover:-translate-y-0.5 hover:bg-[#7f4624] sm:px-4"
             >
               {t.navStartBtn}
             </button>
@@ -572,424 +544,258 @@ export default function LandingPage({ onStart, language, countryConfig, onCountr
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-16 pb-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full flex flex-col items-center text-center md:text-left md:flex-row md:items-center md:justify-between gap-8">
-        <div className="flex-1 max-w-xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm"
-          >
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>{t.heroEyebrow || t.badge}</span>
-          </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-[clamp(2.25rem,8vw,4.5rem)] font-bold text-stone-900 tracking-tight mb-5 leading-[1.05]"
-          >
-            {t.title1}
-            <br className="hidden sm:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-stone-500 to-stone-900">{t.title2}</span>
-          </motion.h1>
-          
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-[clamp(1rem,2.5vw,1.2rem)] text-stone-500 mb-6 leading-relaxed"
-          >
-            {t.subtitle}
-          </motion.p>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-5 py-4 text-[15px] font-semibold leading-7 text-stone-800 shadow-sm sm:text-base"
-          >
-            {t.deliveryNote}
-          </motion.p>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6 md:items-start"
-          >
-            <button
-              onClick={onStart}
-              className="w-full sm:w-auto bg-stone-900 text-white px-8 py-4 rounded-2xl font-medium text-lg hover:bg-stone-800 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-xl shadow-stone-900/10"
+      <main>
+        <section className="px-4 pt-8 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl items-start gap-8 py-5 md:py-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="max-w-2xl"
             >
-              {t.startBtn}
-              <ArrowRight className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })}
-              className="flex w-full items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 transition-colors hover:text-stone-950 hover:decoration-stone-600 sm:w-auto"
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3.5 py-2 text-sm font-bold text-stone-700 shadow-sm">
+                <Sparkles className="h-4 w-4 text-[#d59138]" />
+                <span>{t.heroEyebrow}</span>
+              </div>
+
+              <h1 className="max-w-[620px] text-[clamp(2.45rem,5.35vw,4.7rem)] font-black leading-[0.98] tracking-tight text-stone-950">
+                {t.title1}
+                <br />
+                <span className="text-stone-600">{t.title2}</span>
+              </h1>
+
+              <p className="mt-7 max-w-xl text-[clamp(1rem,2vw,1.25rem)] font-medium leading-8 text-stone-600">
+                {t.subtitle}
+              </p>
+
+              <p className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-[15px] font-bold leading-7 text-stone-800 shadow-sm sm:text-base">
+                {t.deliveryNote}
+              </p>
+
+              <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-7">
+                <button
+                  onClick={onStart}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#9b5c2e] px-8 py-4 text-lg font-black text-white shadow-xl shadow-[#9b5c2e]/20 transition-all hover:-translate-y-0.5 hover:bg-[#7f4624] sm:w-auto"
+                >
+                  {t.startBtn}
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="inline-flex items-center justify-center gap-2 text-sm font-bold text-stone-700 underline decoration-stone-300 underline-offset-4 transition-colors hover:text-stone-950 hover:decoration-stone-600"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  {t.secondaryBtn}
+                </button>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                {[t.proof1, t.proof2, t.proof3].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 shadow-sm">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.1 }}
+              className="relative"
             >
-              <ImageIcon className="w-4 h-4" />
-              {t.secondaryBtn || t.tryBtn}
-            </button>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-stone-600 md:justify-start"
-          >
-            {[t.proof1, t.proof2, t.proof3].filter(Boolean).map((item: string) => (
-              <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 shadow-sm">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                {item}
-              </span>
-            ))}
-          </motion.div>
-        </div>
-
-        {/* Hero Image/Mockup */}
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.4 }}
-          className="flex-1 w-full max-w-lg mx-auto md:mx-0"
-        >
-          <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-stone-200/60 bg-gradient-to-br from-stone-900 via-stone-800 to-stone-600">
-            <img 
-              src="https://images.unsplash.com/photo-1516738901171-8eb4fc13bd20?auto=format&fit=crop&q=80&w=1600" 
-              alt="Postcards scattered on a table" 
-              className="w-full h-full object-cover opacity-85"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
-	            <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg">
-	                <div className="text-[11px] font-medium text-stone-500 mb-1">{t.front}</div>
-	                <div className="text-sm font-semibold text-stone-900 truncate">{t.sampleTitle}</div>
-	                <div className="text-[11px] text-stone-500 mt-1 truncate">{t.sampleHint}</div>
-	              </div>
-	              <div className="flex-1 bg-white/90 rounded-2xl p-3 shadow-lg hidden sm:block">
-	                <div className="text-[11px] font-medium text-stone-500 mb-1">{t.back}</div>
-	                <div className="text-[11px] text-stone-600 line-clamp-3">
-	                  {t.sampleMessage}
-	                </div>
-	              </div>
-	            </div>
-	          </div>
-	        </motion.div>
-      </section>
-
-      <section className="px-4 pb-8 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-6xl gap-3 md:grid-cols-3">
-          {workflow.map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-900 text-white">
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 text-left">
-                <div className="text-[17px] font-bold leading-snug text-stone-900">{title}</div>
-                {language !== 'ja' && <div className="mt-1 text-[15px] leading-relaxed text-[#444444]">{desc}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-14 bg-white px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-[clamp(1.75rem,5vw,2.5rem)] font-bold text-stone-900 mb-4">{t.featuresTitle}</h2>
-            <p className="text-[clamp(1rem,2vw,1.125rem)] text-stone-500">{t.featuresSubtitle}</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
-                <ImageIcon className="w-6 h-6 text-stone-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature1Title}</h3>
-              <p className="text-stone-600 leading-relaxed">
-                {t.feature1Desc}
-              </p>
-            </div>
-            
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
-                <Heart className="w-6 h-6 text-stone-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature2Title}</h3>
-              <p className="text-stone-600 leading-relaxed">
-                {t.feature2Desc}
-              </p>
-            </div>
-
-            <div className="flex h-full flex-col rounded-3xl border border-stone-100 bg-stone-50 p-7">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 mb-6">
-                <Globe2 className="w-6 h-6 text-stone-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">{t.feature3Title}</h3>
-              <p className="text-stone-600 leading-relaxed">
-                {t.feature3Desc}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Showcase Section */}
-      <section id="gallery" className="py-14 bg-stone-900 text-white px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
-            <div>
-              <h2 className="text-[clamp(1.75rem,5vw,2.5rem)] font-bold mb-4">{t.showcaseTitle}</h2>
-              <p className="text-stone-400 text-[clamp(1rem,2vw,1.125rem)] max-w-xl">{t.showcaseSubtitle}</p>
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {showcaseItems.map((item, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-transparent [perspective:1000px]"
-              >
-                <div className="relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] shadow-2xl">
-                  {/* Front */}
-                  <div className={cn(
-                    "absolute inset-0 [backface-visibility:hidden] rounded-2xl overflow-hidden border",
-                    item.style === 'cyberpunk' ? "bg-black border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.3)]" :
-                    item.style === 'artistic' ? "bg-stone-800 border-amber-600/50 p-3" :
-                    item.style === 'vintage' ? "bg-white border-stone-200 p-4 pb-12" :
-                    "bg-white border-stone-100"
-                  )}>
-                    <div className={cn(
-                      "w-full h-full overflow-hidden rounded-lg relative",
-                      item.style === 'artistic' && "border-4 border-amber-700/30 shadow-inner"
-                    )}>
-                      <img 
-                        src={item.img} 
-                        alt={item.title} 
-                        className={cn(
-                          "w-full h-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-110",
-                          item.style === 'vintage' && "sepia-[0.2] contrast-[0.9]"
-                        )} 
-                        referrerPolicy="no-referrer" 
-                      />
-                      
-                      {/* Front Overlays */}
-                      <div className={cn(
-                        "absolute inset-0 flex min-w-0 flex-col justify-end overflow-hidden p-4 sm:p-5",
-                        item.style === 'cyberpunk' ? "bg-gradient-to-t from-cyan-950/90 via-transparent to-transparent" :
-                        item.style === 'artistic' ? "bg-gradient-to-t from-amber-950/80 via-transparent to-transparent" :
-                        item.style === 'vintage' ? "bg-transparent" :
-                        "bg-gradient-to-t from-black/60 via-transparent to-transparent"
-                      )}>
-                        {item.style !== 'vintage' && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-md text-[10px] uppercase tracking-widest font-semibold backdrop-blur-md",
-                              item.style === 'cyberpunk' ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" :
-                              item.style === 'artistic' ? "bg-amber-500/20 text-amber-200 border border-amber-500/30" :
-                              "bg-white/20 text-white"
-                            )}>
-                              {item.theme}
-                            </span>
-                          </div>
-                        )}
-                        <h4 className={cn(
-                          "mb-1 flex min-h-[3rem] max-w-full items-end break-words text-xl leading-tight sm:text-2xl",
-                          item.style === 'cyberpunk' ? "font-mono text-cyan-400 [text-shadow:0_0_10px_rgba(34,211,238,0.8)]" :
-                          item.style === 'artistic' ? "font-serif italic text-amber-100" :
-                          item.style === 'vintage' ? "font-mono text-stone-800 bg-white/90 px-2 py-1 text-center text-sm" :
-                          "font-sans font-bold text-white"
-                        )}>
-                          {item.title}
-                        </h4>
-                        {item.style !== 'vintage' && (
-                          <p className={cn(
-                            "flex h-5 min-w-0 max-w-full items-center gap-1.5 text-sm",
-                            item.style === 'cyberpunk' ? "text-cyan-600 font-mono" :
-                            item.style === 'artistic' ? "text-amber-400/80 font-serif italic" :
-                            "text-stone-300"
-                          )}>
-                            <Globe2 className="h-3.5 w-3.5 shrink-0" />
-                            <span className="min-w-0 truncate leading-none">{item.loc}</span>
-                          </p>
-                        )}
-                      </div>
+              <div className="relative overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-950 p-3 shadow-2xl shadow-stone-900/15">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-[1.4rem]">
+                  <img
+                    src={heroImage}
+                    alt="Postcard preview"
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="absolute bottom-4 left-4 right-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-white/88 p-4 shadow-xl backdrop-blur-md">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-stone-500">{t.front}</div>
+                      <div className="mt-1 text-lg font-black leading-tight text-stone-950">{t.sampleTitle}</div>
+                      <div className="mt-1 text-xs font-medium text-stone-600">{t.sampleHint}</div>
                     </div>
-                  </div>
-
-                  {/* Back */}
-                  <div className={cn(
-                    "absolute inset-0 min-h-0 overflow-hidden [backface-visibility:hidden] rounded-2xl p-5 sm:p-6 flex flex-col [transform:rotateY(180deg)] border-2 shadow-inner",
-                    item.style === 'cyberpunk' ? "bg-slate-950 border-cyan-900 text-cyan-400" :
-                    item.style === 'artistic' ? "bg-[#f4e4bc] border-amber-900/20 text-amber-950" :
-                    item.style === 'vintage' ? "bg-[#f2f0e9] border-stone-300 text-stone-800" :
-                    "bg-white border-stone-100 text-stone-900"
-                  )}>
-                    {/* Back Header */}
-                    <div className={cn(
-                      "flex justify-between items-start border-b-2 pb-4 mb-4",
-                      item.style === 'cyberpunk' ? "border-cyan-900/50" :
-                      item.style === 'artistic' ? "border-amber-900/10" :
-                      item.style === 'vintage' ? "border-stone-300" :
-                      "border-stone-100"
-                    )}>
-                      <div className="flex min-w-0 flex-col pr-2">
-                        <div className={cn(
-                          "max-w-full truncate text-base sm:text-lg leading-tight",
-                          item.style === 'cyberpunk' ? "font-mono tracking-tighter" :
-                          item.style === 'artistic' ? "font-serif italic font-bold" :
-                          item.style === 'vintage' ? "font-mono uppercase text-sm" :
-                          "font-sans font-bold"
-                        )}>
-                          {item.loc}
-                        </div>
-                        <div className={cn(
-                          "text-[10px] uppercase tracking-tighter mt-1 opacity-60",
-                          item.style === 'cyberpunk' && "font-mono"
-                        )}>
-                          {t.fromOtter}
-                        </div>
-                      </div>
-                      <div className={cn(
-                        "w-12 h-14 border-2 border-dashed rounded-sm flex flex-col items-center justify-center",
-                        item.style === 'cyberpunk' ? "border-cyan-500/30 bg-cyan-500/5" :
-                        item.style === 'artistic' ? "border-amber-900/20 bg-amber-900/5" :
-                        item.style === 'vintage' ? "border-stone-400 bg-stone-200/50" :
-                        "border-stone-200 bg-stone-50"
-                      )}>
-                        <div className="text-[8px] font-bold uppercase opacity-40">{t.stamp}</div>
-                        {item.style === 'cyberpunk' ? <Sparkles className="w-4 h-4 text-cyan-400 mt-1" /> :
-                         item.style === 'artistic' ? <Globe2 className="w-4 h-4 text-amber-800 mt-1" /> :
-                         <Heart className="w-4 h-4 text-stone-400 mt-1" />}
-                      </div>
-                    </div>
-
-                    {/* Back Content */}
-                    <div className={cn(
-                      "min-h-0 flex-1 flex gap-4 sm:gap-6 overflow-hidden",
-                      item.style === 'cyberpunk' && "flex-col"
-                    )}>
-                      <div className={cn(
-                        "min-h-0 min-w-0 flex-[1.5] overflow-hidden text-base sm:text-lg leading-relaxed whitespace-pre-wrap [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:7]",
-                        item.style === 'cyberpunk' ? "font-mono text-sm text-cyan-300 order-2" :
-                        item.style === 'artistic' ? "font-serif italic text-amber-900/80" :
-                        item.style === 'vintage' ? "font-mono text-sm text-stone-700" :
-                        "font-hand text-xl text-stone-700 rotate-[-1deg]"
-                      )}>
-                        {item.msg}
-                      </div>
-                      
-                      {/* Divider */}
-                      {item.style !== 'cyberpunk' && (
-                        <div className={cn(
-                          "w-px h-full relative",
-                          item.style === 'artistic' ? "bg-amber-900/10" :
-                          item.style === 'vintage' ? "bg-stone-300" :
-                          "bg-stone-200"
-                        )}>
-                          <div className={cn(
-                            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 py-2",
-                            item.style === 'artistic' ? "bg-[#f4e4bc]" :
-                            item.style === 'vintage' ? "bg-[#f2f0e9]" :
-                            "bg-white"
-                          )}>
-                            <div className={cn(
-                              "w-1.5 h-1.5 rounded-full",
-                              item.style === 'artistic' ? "bg-amber-600" :
-                              item.style === 'vintage' ? "bg-stone-400" :
-                              "bg-stone-300"
-                            )}></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Address Area / Illustration Background Placeholder */}
-                      <div className={cn(
-                        "min-h-0 min-w-0 flex-1 flex flex-col gap-4 mt-2 relative overflow-hidden",
-                        item.style === 'cyberpunk' ? "order-1 flex-row items-center" : ""
-                      )}>
-                        {/* Full Background AI Illustration Placeholder */}
-                        <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center justify-center">
-                           <SeaOtterLogo className={cn(
-                             "w-32 h-32",
-                             item.style === 'cyberpunk' ? "text-cyan-500" :
-                             item.style === 'artistic' ? "text-amber-700" :
-                             "text-stone-400"
-                           )} />
-                        </div>
-
-                        {item.style !== 'cyberpunk' && [1, 2, 3].map(n => (
-                          <div key={n} className={cn(
-                            "h-px w-full",
-                            item.style === 'artistic' ? "bg-amber-900/10" :
-                            item.style === 'vintage' ? "bg-stone-300" :
-                            "bg-stone-200"
-                          )}></div>
-                        ))}
-                        
-                        <div className="mt-auto flex justify-end">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full border flex items-center justify-center",
-                            item.style === 'cyberpunk' ? "bg-cyan-500/10 border-cyan-500/30" :
-                            item.style === 'artistic' ? "bg-amber-500/10 border-amber-500/30" :
-                            "bg-stone-100 border-stone-200"
-                          )}>
-                            <SeaOtterLogo className={cn(
-                              "w-5 h-5",
-                              item.style === 'cyberpunk' ? "text-cyan-400 opacity-80" :
-                              item.style === 'artistic' ? "text-amber-800 opacity-60" :
-                              "opacity-30"
-                            )} />
-                          </div>
-                        </div>
-                      </div>
+                    <div className="hidden rounded-2xl bg-white/88 p-4 shadow-xl backdrop-blur-md sm:block">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-stone-500">{t.back}</div>
+                      <div className="mt-1 line-clamp-3 text-sm font-medium leading-6 text-stone-700">{t.sampleMessage}</div>
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            ))}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA Section */}
-      <section id="about" className="py-14 px-4 sm:px-6 lg:px-8 bg-white text-center">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="mb-6 text-[clamp(2rem,6vw,3rem)] font-bold leading-tight text-stone-900 [word-break:keep-all]">{renderCtaTitle()}</h2>
-          {t.ctaSubtitle && <p className="text-[clamp(1rem,2.5vw,1.25rem)] text-stone-500 mb-10">{t.ctaSubtitle}</p>}
-          <button
-            onClick={onStart}
-            className="bg-stone-900 text-white px-8 py-4 rounded-2xl font-medium text-lg hover:bg-stone-800 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-stone-900/10"
-          >
-            {t.ctaBtn}
-          </button>
-          <p className="mx-auto mt-6 max-w-xl text-[15px] font-medium leading-7 text-stone-700">{renderCtaMicrocopy()}</p>
-        </div>
-      </section>
+        <section id="compare" className="px-4 py-10 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-7 max-w-2xl">
+              <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-black leading-tight tracking-tight text-stone-950">{t.comparisonTitle}</h2>
+              <p className="mt-3 text-base font-medium leading-7 text-stone-600 sm:text-lg">{t.comparisonSubtitle}</p>
+            </div>
 
-      {/* Footer */}
-      <footer id="pricing" className="py-12 bg-stone-50 border-t border-stone-100 px-4 sm:px-6 lg:px-8 text-center text-stone-400 text-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="grid overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-xl shadow-stone-900/5 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="relative aspect-[16/10] min-h-[360px] overflow-hidden bg-stone-200">
+                <img
+                  src={compareImage}
+                  alt={t.beforeLabel}
+                  className="absolute inset-0 h-full w-full object-cover saturate-[0.75] brightness-[0.82]"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute left-5 top-5 rounded-full bg-stone-950/75 px-3 py-1.5 text-xs font-black text-white backdrop-blur">{t.beforeLabel}</div>
+                <div
+                  className="absolute inset-y-0 left-0 overflow-hidden"
+                  style={{ width: `${compare}%` }}
+                >
+                  <div className="relative h-full w-[min(72vw,920px)]">
+                    <img
+                      src={compareImage}
+                      alt={t.afterLabel}
+                      className="absolute inset-0 h-full w-full object-cover brightness-[1.04] contrast-[1.06] saturate-[1.12]"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-[#f8efe0]/12" />
+                    <div className="absolute left-7 top-7 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-stone-900 shadow-sm backdrop-blur">{t.afterLabel}</div>
+                    <div className="absolute bottom-7 left-7 max-w-[68%] rounded-2xl bg-[#fffaf1]/92 p-5 shadow-2xl backdrop-blur-md">
+                      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#9b5c2e]">{t.fromOtter}</div>
+                      <div className="text-2xl font-black leading-tight text-stone-950">{showcaseItems[3]?.title ?? t.sampleTitle}</div>
+                      <div className="mt-2 text-sm font-bold text-stone-600">{showcaseItems[3]?.loc ?? t.sampleHint}</div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="absolute inset-y-0 w-1 bg-white shadow-[0_0_20px_rgba(0,0,0,0.35)]"
+                  style={{ left: `${compare}%` }}
+                >
+                  <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/70 bg-white text-stone-900 shadow-xl">
+                    <MoveHorizontal className="h-5 w-5" />
+                  </div>
+                </div>
+                <input
+                  aria-label="Compare original and postcard"
+                  type="range"
+                  min="24"
+                  max="76"
+                  value={compare}
+                  onChange={(event) => setCompare(Number(event.target.value))}
+                  className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0"
+                />
+              </div>
+
+              <div className="flex flex-col justify-between gap-6 p-6 sm:p-8">
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-black text-stone-950">
+                      <ImageIcon className="h-4 w-4 text-stone-500" />
+                      {t.beforeLabel}
+                    </div>
+                    <p className="text-sm font-medium leading-6 text-stone-600">{t.beforeCaption}</p>
+                  </div>
+                  <div className="rounded-2xl border border-[#e6c7a4] bg-[#fff7ec] p-5">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-black text-stone-950">
+                      <Sparkles className="h-4 w-4 text-[#9b5c2e]" />
+                      {t.afterLabel}
+                    </div>
+                    <p className="text-sm font-medium leading-6 text-stone-700">{t.afterCaption}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onStart}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-stone-950 px-6 py-4 text-base font-black text-white transition-all hover:-translate-y-0.5 hover:bg-stone-800"
+                >
+                  {t.startBtn}
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="gallery" className="px-4 py-14 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#171310] px-5 py-8 text-white shadow-2xl shadow-stone-900/15 sm:px-8 lg:px-10">
+            <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-black tracking-tight">{t.showcaseTitle}</h2>
+                <p className="mt-2 text-base font-medium text-stone-300">{t.showcaseSubtitle}</p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-stone-200">
+                <Download className="h-3.5 w-3.5" />
+                {t.proof1}
+              </span>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {showcaseItems.map((item, index) => (
+                <motion.article
+                  key={`${item.title}-${index}`}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.08 }}
+                  className="group overflow-hidden rounded-3xl border border-white/10 bg-white/8"
+                >
+                  <div className="aspect-[4/5] overflow-hidden">
+                    <img
+                      src={item.img}
+                      alt={item.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="min-h-[116px] p-5">
+                    <div className="mb-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-stone-300">
+                      {item.theme}
+                    </div>
+                    <h3 className="truncate text-xl font-black leading-tight text-white">{item.title}</h3>
+                    <p className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-semibold text-stone-300">
+                      <Globe2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.loc}</span>
+                    </p>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="pricing" className="px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl rounded-[2rem] border border-stone-200 bg-white px-6 py-10 text-center shadow-xl shadow-stone-900/5 sm:px-10">
+            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff0dc] text-[#9b5c2e]">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h2 className="text-[clamp(1.8rem,4vw,3.1rem)] font-black leading-tight tracking-tight text-stone-950 [word-break:keep-all]">{t.ctaTitle}</h2>
+            <button
+              onClick={onStart}
+              className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#9b5c2e] px-8 py-4 text-lg font-black text-white shadow-xl shadow-[#9b5c2e]/20 transition-all hover:-translate-y-0.5 hover:bg-[#7f4624]"
+            >
+              {t.ctaBtn}
+              <ArrowRight className="h-5 w-5" />
+            </button>
+            <p className="mx-auto mt-5 max-w-xl text-[15px] font-semibold leading-7 text-stone-700">
+              ※ <strong className="font-black text-stone-950">{t.ctaMicrocopy.split('。')[0] || t.ctaMicrocopy}</strong>
+              {t.ctaMicrocopy.includes('。') ? `。${t.ctaMicrocopy.split('。').slice(1).join('。')}` : ''}
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
           <div className="flex items-center gap-2">
-            <SeaOtterLogo className="w-6 h-6 opacity-30" />
-            <span className="font-semibold text-stone-500">{t.badge}</span>
+            <SeaOtterLogo className="h-6 w-6 opacity-50" />
+            <span className="font-bold text-stone-700">{t.badge}</span>
           </div>
-          <div className="flex gap-8">
-            <button onClick={onFeedback} className="hover:text-stone-600 transition-colors flex items-center gap-1">
-              <MessageSquare className="w-4 h-4" />
+          <div className="flex gap-7">
+            <button onClick={onFeedback} className="flex items-center gap-1.5 font-semibold transition-colors hover:text-stone-900">
+              <MessageSquare className="h-4 w-4" />
               {t.feedback}
             </button>
-            <a href="#" className="hover:text-stone-600 transition-colors">Twitter</a>
-            <a href="#" className="hover:text-stone-600 transition-colors">Instagram</a>
-            <a href="#" className="hover:text-stone-600 transition-colors">{t.contact}</a>
+            <a href="#" className="font-semibold transition-colors hover:text-stone-900">Instagram</a>
+            <a href="#" className="font-semibold transition-colors hover:text-stone-900">{t.contact}</a>
           </div>
           <p>© {new Date().getFullYear()} {t.badge}. {t.rights} · v{APP_VERSION}</p>
         </div>
